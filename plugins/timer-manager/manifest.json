@@ -1,0 +1,20 @@
+{
+  "id": "timer-manager",
+  "name": "定时任务管理器",
+  "version": "1.0.0",
+  "description": "管理您的定时任务和提醒",
+  "icon": "⏰",
+  "author": "馄饨Lite",
+  "entry": "index.html",
+  "permissions": [
+    "notifications",
+    "alarms",
+    "storage"
+  ],
+  "minAppVersion": "1.0.0",
+  "settings": {
+    "maxAlarms": 50,
+    "defaultSound": "default",
+    "enableNotifications": true
+  }
+}

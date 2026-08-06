@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>馄饨Lite - 复古掌机效率工具</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* ========== CSS Variables ========== */
+        :root {
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #141414;
+            --bg-card: #1a1a1a;
+            --bg-slot: #0d0d0d;
+            --text-primary: #e0e0e0;
+            --text-secondary: #888888;
+            --text-muted: #555555;
+            --accent-primary: #00ff88;
+            --accent-secondary: #ff0080;
+            --accent-tertiary: #00d4ff;
+            --border-color: #333333;
+            --shadow-color: rgba(0, 255, 136, 0.3);
+            --shadow-glow: 0 0 20px rgba(0, 255, 136, 0.5);
+            --toggle-bg: #2a2a2a;
+            --toggle-knob: #00ff88;
+            --cartridge-body: #2d2d2d;
+            --cartridge-label: #00ff88;
+            --scanline-opacity: 0.03;
+        }
+
+        .light-mode {
+            --bg-primary: #f0f0f0;
+            --bg-secondary: #e0e0e0;
+            --bg-card: #ffffff;
+            --bg-slot: #d0d0d0;
+            --text-primary: #1a1a1a;
+            --text-secondary: #666666;
+            --text-muted: #999999;
+            --accent-primary: #00aa55;
+            --accent-secondary: #cc0066;
+            --accent-tertiary: #0099cc;
+            --border-color: #cccccc;
+            --shadow-color: rgba(0, 0, 0, 0.15);
+            --shadow-glow: 0 0 15px rgba(0, 170, 85, 0.3);
+            --toggle-bg: #cccccc;
+            --toggle-knob: #ffffff;
+            --cartridge-body: #f5f5f5;
+            --cartridge-label: #00aa55;
+            --scanline-opacity: 0.02;
+        }
+
+        /* 浅色模式卡带样式 */
+        .light-mode .cartridge {
+            background: linear-gradient(180deg, #f8f8f8 0%, #e8e8e8 100%);
+            border-color: #bbb;
+        }
+
+        .light-mode .cartridge-icon {
+            background: #fff;
+            border-color: #ddd;
+        }
+
+
+
+        .light-mode .cartridge-id {
+            color: #999;
+        }
+
+        .light-mode .slot-cartridge {
+            background: linear-gradient(180deg, #f0f0f0 0%, #e0e0e0 100%);
+            border-color: #bbb;
+        }
+
+        .light-mode .slot-cartridge-name {
+            color: #333;
+        }
+
+        .light-mode .cartridge-slot {
+            background: linear-gradient(180deg, #d8d8d8 0%, #c8c8c8 100%);
+        }
+
+        .light-mode .slot-empty {
+            color: #888;
+        }
+
+        .light-mode .cartridge::after {
+            height: 21%;
+            background: rgba(0, 0, 0, 0.15);
+        }
+
+        .light-mode .cartridge-slot.drag-over {
+            border-color: var(--accent-primary);
+            background: linear-gradient(180deg, #e8f5e9 0%, #d4edda 100%);
+            box-shadow: inset 0 0 30px rgba(0, 170, 85, 0.2);
+        }
+
+        .light-mode .cartridge-info {
+            background: #e8e8e8;
+            border-color: #ccc;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, var(--scanline-opacity)) 0px,
+                rgba(0, 0, 0, var(--scanline-opacity)) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .console {
+            width: 800px;
+            height: 600px;
+            background: var(--bg-secondary);
+            border-radius: 20px;
+            border: 3px solid var(--border-color);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ========== Header ========== */
+        .header {
+            height: 50px;
+            background: var(--bg-secondary);
+            border-bottom: 2px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: var(--accent-primary);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 8px;
+            color: #000;
+        }
+
+        .logo-text {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 12px;
+            color: var(--text-primary);
+            letter-spacing: 1px;
+        }
+
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .toggle-label {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 8px;
+            color: var(--text-secondary);
+        }
+
+        .toggle-switch {
+            width: 48px;
+            height: 24px;
+            background: var(--toggle-bg);
+            border-radius: 12px;
+            position: relative;
+            cursor: pointer;
+            border: 2px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+
+        .toggle-knob {
+            width: 18px;
+            height: 18px;
+            background: var(--toggle-knob);
+            border-radius: 50%;
+            position: absolute;
+            top: 1px;
+            left: 2px;
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+        }
+
+        .toggle-switch.active .toggle-knob { left: 26px; }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent-primary);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* ========== Main Content ========== */
+        .content {
+            flex: 1;
+            padding: 16px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            overflow: hidden;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .section-title {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 10px;
+            color: var(--accent-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-title::before,
+        .section-title::after {
+            content: '';
+            width: 30px;
+            height: 1px;
+            background: var(--border-color);
+        }
+
+
+
+        /* ========== Cartridge Shelf (水平滚动) ========== */
+        .cartridge-shelf {
+            flex: 1;
+            overflow-x: auto;
+            overflow-y: visible;
+            position: relative;
+            scroll-behavior: smooth;
+            min-height: 220px;
+            display: flex;
+            align-items: center;
+        }
+
+        .cartridge-shelf::-webkit-scrollbar {
+            height: 8px;
+        }
+
+        .cartridge-shelf::-webkit-scrollbar-track {
+            background: var(--bg-slot);
+            border-radius: 4px;
+        }
+
+        .cartridge-shelf::-webkit-scrollbar-thumb {
+            background: var(--accent-primary);
+            border-radius: 4px;
+        }
+
+        .cartridge-row {
+            display: flex;
+            gap: 16px;
+            padding: 12px 20px;
+            min-width: max-content;
+            align-items: center;
+            justify-content: flex-start;
+            height: 100%;
+        }
+
+        /* ========== Switch Style Cartridge ========== */
+        /* Switch卡带实际尺寸: 31mm x 21mm = 1.48:1 比例 */
+        .cartridge {
+            width: 128px;
+            height: 192px;
+            background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
+            border-radius: 4px;
+            cursor: grab;
+            position: relative;
+            transition: all 0.2s ease;
+            border: 2px solid #444;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            flex-shrink: 0;
+            box-shadow: 
+                inset 0 1px 0 rgba(255,255,255,0.1),
+                0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        /* Switch卡带顶部凹槽 */
+        .cartridge::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 10px;
+            background: var(--cartridge-color, #e0e0e0);
+            border-radius: 3px 3px 0 0;
+        }
+
+        /* Switch卡带底部标签区 */
+        .cartridge::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 30%;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 0 0 4px 4px;
+        }
+
+        .cartridge:hover {
+            transform: translateY(-8px) scale(1.05);
+            border-color: var(--cartridge-color, var(--accent-primary));
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4), 0 0 15px var(--cartridge-color);
+            z-index: 10;
+        }
+
+        .cartridge:active {
+            cursor: grabbing;
+            transform: translateY(-4px) scale(1.02);
+        }
+
+        .cartridge.dragging {
+            opacity: 0.4;
+            transform: scale(0.9);
+        }
+
+        .cartridge.hidden {
+            display: none;
+        }
+
+        .cartridge-icon {
+            width: 72px;
+            height: 72px;
+            background: #0a0a0a;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            border: 2px solid #333;
+            position: relative;
+            z-index: 1;
+        }
+
+        .cartridge-title {
+            display: none;
+        }
+
+        .cartridge-id {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 7px;
+            color: #666;
+            position: absolute;
+            bottom: 6px;
+            right: 6px;
+            z-index: 1;
+        }
+
+        /* 卡带信息栏 */
+        .cartridge-info {
+            height: 32px;
+            background: var(--bg-slot);
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .cartridge-info-icon {
+            font-size: 16px;
+        }
+
+        .cartridge-info-name {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 9px;
+            color: var(--text-primary);
+        }
+
+        .cartridge-info-empty {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 7px;
+            color: var(--text-muted);
+        }
+
+        /* ========== Cartridge Slot ========== */
+        .slot-section {
+            padding: 12px 0;
+        }
+
+        .cartridge-slot {
+            width: 100%;
+            height: 110px;
+            background: linear-gradient(180deg, #0a0a0a 0%, #141414 100%);
+            border-radius: 8px;
+            border: 2px dashed var(--border-color);
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0 16px;
+            box-shadow: inset 0 4px 12px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        .cartridge-slot.drag-over {
+            border-color: var(--accent-primary);
+            background: linear-gradient(180deg, #0d1a14 0%, #0a1410 100%);
+            box-shadow: inset 0 0 30px rgba(0, 255, 136, 0.15);
+        }
+
+        .slot-label {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 7px;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
+
+        .slot-cartridges {
+            display: flex;
+            gap: 8px;
+            flex: 1;
+            overflow-x: auto;
+            padding: 4px 0;
+        }
+
+        .slot-cartridge {
+            width: 64px;
+            height: 96px;
+            background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
+            border-radius: 4px;
+            border: 2px solid #444;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+            animation: slotInsert 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .slot-cartridge::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: var(--cartridge-color, var(--accent-primary));
+            border-radius: 2px 2px 0 0;
+        }
+
+        .slot-cartridge:hover {
+            transform: scale(1.08);
+            box-shadow: 0 0 15px var(--cartridge-color);
+        }
+
+        .slot-cartridge-icon {
+            font-size: 24px;
+        }
+
+        .slot-cartridge-name {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 6px;
+            color: #fff;
+            text-align: center;
+        }
+
+        @keyframes slotInsert {
+            0% { transform: translateY(-20px) scale(0.8); opacity: 0; }
+            100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+
+        .slot-empty {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 8px;
+            color: var(--text-muted);
+            margin: 0 auto;
+        }
+
+        /* ========== Modal ========== */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 500;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal {
+            width: 380px;
+            background: var(--bg-card);
+            border-radius: 12px;
+            border: 2px solid var(--accent-primary);
+            padding: 28px;
+            text-align: center;
+            box-shadow: var(--shadow-glow);
+            transform: scale(0.8);
+            transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .modal-overlay.active .modal {
+            transform: scale(1);
+        }
+
+        .modal-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        .modal-title {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 12px;
+            color: var(--accent-primary);
+            margin-bottom: 12px;
+        }
+
+        .modal-message {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .modal-btn {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 8px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.2s ease;
+        }
+
+        .modal-btn.primary {
+            background: var(--accent-primary);
+            color: #000;
+            box-shadow: 0 3px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-btn.secondary {
+            background: #444;
+            color: #fff;
+            box-shadow: 0 3px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-btn.danger {
+            background: #ff0040;
+            color: #fff;
+            box-shadow: 0 3px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-btn:active {
+            transform: translateY(1px);
+            box-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        /* ========== Loading Screen ========== */
+        .loading-screen {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            transition: opacity 0.5s ease;
+        }
+
+        .loading-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-text {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 12px;
+            color: var(--accent-primary);
+            margin-bottom: 20px;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50%, 100% { opacity: 1; }
+            25%, 75% { opacity: 0.3; }
+        }
+
+        .loading-bar {
+            width: 200px;
+            height: 8px;
+            background: #222;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .loading-progress {
+            width: 0%;
+            height: 100%;
+            background: var(--accent-primary);
+            transition: width 0.3s ease;
+        }
+
+        /* ========== Footer ========== */
+        .footer {
+            height: 36px;
+            background: var(--bg-secondary);
+            border-top: 2px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+        }
+
+        .footer-info {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 7px;
+            color: var(--text-muted);
+        }
+
+        /* ========== Screws ========== */
+        .deco-screw {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: var(--border-color);
+            border-radius: 50%;
+        }
+
+        .deco-screw::before {
+            content: '+';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 8px;
+            color: #000;
+        }
+
+        .screw-tl { top: 10px; left: 10px; }
+        .screw-tr { top: 10px; right: 10px; }
+        .screw-bl { bottom: 10px; left: 10px; }
+        .screw-br { bottom: 10px; right: 10px; }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-text">LOADING...</div>
+        <div class="loading-bar">
+            <div class="loading-progress" id="loadingProgress"></div>
+        </div>
+    </div>
+
+    <!-- Main Console -->
+    <div class="console">
+        <div class="deco-screw screw-tl"></div>
+        <div class="deco-screw screw-tr"></div>
+        <div class="deco-screw screw-bl"></div>
+        <div class="deco-screw screw-br"></div>
+
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon">HT</div>
+                <span class="logo-text">馄饨LITE</span>
+            </div>
+            <div class="toggle-container">
+                <span class="toggle-label">深色</span>
+                <div class="toggle-switch" id="themeToggle" onclick="toggleTheme()">
+                    <div class="toggle-knob"></div>
+                </div>
+                <span class="toggle-label">浅色</span>
+                <div class="status-dot"></div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="content">
+            <!-- 我的应用 -->
+            <div class="section-header">
+                <div class="section-title">我的应用</div>
+            </div>
+
+            <!-- 卡带信息栏 -->
+            <div class="cartridge-info" id="cartridgeInfo">
+                <span class="cartridge-info-empty">悬停卡带查看名称</span>
+            </div>
+
+            <!-- 卡带货架 (水平滚动) -->
+            <div class="cartridge-shelf" id="cartridgeShelf">
+                <div class="cartridge-row" id="cartridgeRow">
+                    <!-- 卡带将由JS动态生成 -->
+                </div>
+            </div>
+
+            <!-- 卡带插槽 -->
+            <div class="slot-section">
+                <div class="section-title">卡带插槽</div>
+                <div class="cartridge-slot" id="cartridgeSlot">
+                    <span class="slot-label">拖入卡带启动</span>
+                    <div class="slot-cartridges" id="slotCartridges">
+                        <span class="slot-empty" id="slotEmpty">将卡带拖入此处</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <span class="footer-info">馄饨Lite v1.0.0</span>
+            <span class="footer-info">拖拽卡带启动应用</span>
+        </footer>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <div class="modal-icon" id="modalIcon">🎮</div>
+            <div class="modal-title" id="modalTitle">确认</div>
+            <div class="modal-message" id="modalMessage">消息内容</div>
+            <div class="modal-buttons" id="modalButtons">
+                <button class="modal-btn primary" onclick="closeModal()">确定</button>
+            </div>
+        </div>
+    </div>
+
+
+
+    <script>
+        // ========== 音效系统 ==========
+        const sounds = {
+            click: new Audio('sounds/click.mp3'),
+            change: new Audio('sounds/change.mp3'),
+            loading: new Audio('sounds/loading.mp3'),
+            OK: new Audio('sounds/OK.mp3'),
+            bengbeng: new Audio('sounds/bengbeng.mp3'),
+            exit: new Audio('sounds/exit.mp3')
+        };
+
+        Object.values(sounds).forEach(s => s.load());
+
+        function playSound(name) {
+            if (sounds[name]) {
+                sounds[name].currentTime = 0;
+                sounds[name].play().catch(() => {});
+            }
+        }
+
+        // ========== 加载画面 ==========
+        window.addEventListener('load', () => {
+            playSound('loading');
+            const bar = document.getElementById('loadingProgress');
+            let p = 0;
+            const iv = setInterval(() => {
+                p += Math.random() * 15 + 5;
+                if (p >= 100) {
+                    p = 100;
+                    clearInterval(iv);
+                    setTimeout(() => {
+                        document.getElementById('loadingScreen').classList.add('hidden');
+                        playSound('OK');
+                    }, 300);
+                }
+                bar.style.width = p + '%';
+            }, 150);
+        });
+
+        // ========== 主题切换 ==========
+        let isDarkMode = true;
+
+        function toggleTheme() {
+            playSound('change');
+            isDarkMode = !isDarkMode;
+            document.body.classList.toggle('light-mode', !isDarkMode);
+            document.getElementById('themeToggle').classList.toggle('active', !isDarkMode);
+        }
+
+        // ========== 卡带数据 ==========
+        const plugins = [
+            { id: 'timer-manager', name: '定时任务', icon: '⏰', desc: '管理您的定时任务和提醒', color: '#00ff88' },
+            { id: 'command-executor', name: '命令执行', icon: '⚡', desc: '执行自定义bash命令', color: '#ff0080' },
+            { id: 'note-taker', name: '极客记事', icon: '📝', desc: '支持Markdown的极客记事本', color: '#00d4ff' },
+            { id: 'clipboard-manager', name: '剪贴管理', icon: '📋', desc: '历史剪贴板内容管理', color: '#ffaa00' },
+            { id: 'system-monitor', name: '系统监控', icon: '📊', desc: '实时系统资源监控', color: '#ff5500' },
+            { id: 'quick-launcher', name: '快捷启动', icon: '🚀', desc: '常用应用和网站快捷启动', color: '#aa00ff' },
+            { id: 'file-manager', name: '文件管理', icon: '📁', desc: '快速访问常用文件夹', color: '#00aaff' },
+            { id: 'color-picker', name: '取色器', icon: '🎨', desc: '屏幕取色和调色板', color: '#ff6699' },
+            { id: 'calculator', name: '计算器', icon: '🔢', desc: '科学计算器和单位换算', color: '#88ff00' },
+            { id: 'screenshot', name: '截图工具', icon: '📸', desc: '屏幕截图和标注', color: '#ff8800' },
+        ];
+
+        let shelfPlugins = [...plugins]; // 我的应用中的卡带
+        let slotPlugins = []; // 插槽中的卡带
+
+        // ========== 渲染卡带 ==========
+        function renderShelf() {
+            const row = document.getElementById('cartridgeRow');
+            row.innerHTML = '';
+            
+            shelfPlugins.forEach((plugin, idx) => {
+                const el = document.createElement('div');
+                el.className = 'cartridge';
+                el.draggable = true;
+                el.dataset.id = plugin.id;
+                el.style.setProperty('--cartridge-color', plugin.color);
+                el.innerHTML = `
+                    <div class="cartridge-icon">${plugin.icon}</div>
+                    <div class="cartridge-title">${plugin.name}</div>
+                    <div class="cartridge-id">#${String(idx+1).padStart(3,'0')}</div>
+                `;
+                
+                el.addEventListener('dragstart', handleDragStart);
+                el.addEventListener('dragend', handleDragEnd);
+                el.addEventListener('mouseenter', () => showCartridgeInfo(plugin));
+                el.addEventListener('mouseleave', hideCartridgeInfo);
+                row.appendChild(el);
+            });
+        }
+
+        function renderSlot() {
+            const container = document.getElementById('slotCartridges');
+            const empty = document.getElementById('slotEmpty');
+            
+            container.innerHTML = '';
+            
+            if (slotPlugins.length === 0) {
+                container.innerHTML = '<span class="slot-empty">将卡带拖入此处</span>';
+                return;
+            }
+            
+            slotPlugins.forEach((plugin, idx) => {
+                const el = document.createElement('div');
+                el.className = 'slot-cartridge';
+                el.style.setProperty('--cartridge-color', plugin.color);
+                el.innerHTML = `
+                    <div class="slot-cartridge-icon">${plugin.icon}</div>
+                    <div class="slot-cartridge-name">${plugin.name}</div>
+                `;
+                el.onclick = () => showEjectConfirm(plugin, idx);
+                container.appendChild(el);
+            });
+        }
+
+        // ========== 拖拽系统 ==========
+        let draggedPlugin = null;
+
+        function handleDragStart(e) {
+            const id = e.target.closest('.cartridge').dataset.id;
+            draggedPlugin = shelfPlugins.find(p => p.id === id);
+            e.target.closest('.cartridge').classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            playSound('click');
+        }
+
+        function handleDragEnd(e) {
+            e.target.closest('.cartridge')?.classList.remove('dragging');
+            draggedPlugin = null;
+        }
+
+        // 插槽事件
+        const slot = document.getElementById('cartridgeSlot');
+        
+        slot.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            slot.classList.add('drag-over');
+        });
+
+        slot.addEventListener('dragleave', () => {
+            slot.classList.remove('drag-over');
+        });
+
+        slot.addEventListener('drop', (e) => {
+            e.preventDefault();
+            slot.classList.remove('drag-over');
+            
+            if (!draggedPlugin) return;
+            
+            // 从我的应用中移除
+            shelfPlugins = shelfPlugins.filter(p => p.id !== draggedPlugin.id);
+            
+            // 添加到插槽
+            slotPlugins.push(draggedPlugin);
+            
+            // 渲染
+            renderShelf();
+            renderSlot();
+            
+            playSound('bengbeng');
+            
+            // 自动启动
+            setTimeout(() => {
+                launchApp(draggedPlugin);
+            }, 300);
+            
+            draggedPlugin = null;
+        });
+
+        // ========== 启动应用 ==========
+        function launchApp(plugin) {
+            playSound('OK');
+            showModal(
+                plugin.icon,
+                plugin.name,
+                `
+                    <strong>${plugin.icon} ${plugin.name}</strong><br><br>
+                    应用已启动！<br>
+                    这是一个子程序的占位弹窗。<br>
+                    实际功能将在后续开发中实现。
+                `,
+                [{ text: '返回', class: 'primary', action: closeModal }]
+            );
+        }
+
+        // ========== 拔出确认 ==========
+        function showEjectConfirm(plugin, idx) {
+            playSound('click');
+            showModal(
+                '🔌',
+                '拔出卡带',
+                `确定要拔出 <strong>${plugin.icon} ${plugin.name}</strong> 吗？<br>拔出后将返回到"我的应用"区域。`,
+                [
+                    { text: '取消', class: 'secondary', action: closeModal },
+                    { text: '拔出', class: 'danger', action: () => ejectPlugin(idx) }
+                ]
+            );
+        }
+
+        function ejectPlugin(idx) {
+            const plugin = slotPlugins[idx];
+            
+            // 从插槽移除
+            slotPlugins.splice(idx, 1);
+            
+            // 返回我的应用
+            shelfPlugins.push(plugin);
+            shelfPlugins.sort((a, b) => {
+                const aIdx = plugins.findIndex(p => p.id === a.id);
+                const bIdx = plugins.findIndex(p => p.id === b.id);
+                return aIdx - bIdx;
+            });
+            
+            renderShelf();
+            renderSlot();
+            closeModal();
+            playSound('exit');
+        }
+
+        // ========== 弹窗系统 ==========
+        function showModal(icon, title, message, buttons) {
+            document.getElementById('modalIcon').textContent = icon;
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalMessage').innerHTML = message;
+            
+            const btnContainer = document.getElementById('modalButtons');
+            btnContainer.innerHTML = '';
+            
+            buttons.forEach(btn => {
+                const el = document.createElement('button');
+                el.className = `modal-btn ${btn.class}`;
+                el.textContent = btn.text;
+                el.onclick = btn.action;
+                btnContainer.appendChild(el);
+            });
+            
+            document.getElementById('modalOverlay').classList.add('active');
+        }
+
+        function closeModal() {
+            playSound('exit');
+            document.getElementById('modalOverlay').classList.remove('active');
+        }
+
+        // ========== 鼠标滚轮水平滚动 ==========
+        document.getElementById('cartridgeShelf').addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const shelf = document.getElementById('cartridgeShelf');
+            shelf.scrollLeft += e.deltaY * 2;
+        });
+
+        // ========== 键盘事件 ==========
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+
+        // ========== 卡带信息栏 ==========
+        const cartridgeInfo = document.getElementById('cartridgeInfo');
+
+        function showCartridgeInfo(plugin) {
+            cartridgeInfo.innerHTML = `
+                <span class="cartridge-info-icon">${plugin.icon}</span>
+                <span class="cartridge-info-name">${plugin.name}</span>
+            `;
+            cartridgeInfo.style.borderColor = plugin.color;
+        }
+
+        function hideCartridgeInfo() {
+            cartridgeInfo.innerHTML = '<span class="cartridge-info-empty">悬停卡带查看名称</span>';
+            cartridgeInfo.style.borderColor = '';
+        }
+
+        // ========== 初始化 ==========
+        renderShelf();
+        renderSlot();
+    </script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "id": "command-executor",
+  "name": "命令执行器",
+  "version": "1.0.0",
+  "description": "执行自定义bash命令",
+  "icon": "⚡",
+  "author": "馄饨Lite",
+  "entry": "index.html",
+  "permissions": [
+    "shell",
+    "filesystem"
+  ],
+  "minAppVersion": "1.0.0",
+  "settings": {
+    "shell": "/bin/bash",
+    "timeout": 30000,
+    "historySize": 100
+  }
+}

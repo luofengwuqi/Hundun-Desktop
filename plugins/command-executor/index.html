@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>命令执行器</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      padding: 20px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #333;
+    }
+
+    .title {
+      font-family: 'Press Start 2P', cursive;
+      font-size: 12px;
+      color: #ff0080;
+    }
+
+    .back-btn {
+      font-family: 'Press Start 2P', cursive;
+      font-size: 8px;
+      padding: 8px 16px;
+      background: #333;
+      color: #e0e0e0;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .back-btn:hover {
+      background: #444;
+    }
+
+    .terminal {
+      background: #0a0a0a;
+      border-radius: 8px;
+      padding: 15px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      height: 400px;
+      overflow-y: auto;
+      border: 1px solid #333;
+    }
+
+    .terminal-line {
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+
+    .terminal-line.input {
+      color: #00ff88;
+    }
+
+    .terminal-line.output {
+      color: #888;
+    }
+
+    .terminal-line.error {
+      color: #ff0080;
+    }
+
+    .input-area {
+      margin-top: 15px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .command-input {
+      flex: 1;
+      background: #2d2d2d;
+      border: 1px solid #444;
+      border-radius: 4px;
+      padding: 10px 15px;
+      color: #e0e0e0;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+    }
+
+    .command-input:focus {
+      outline: none;
+      border-color: #ff0080;
+    }
+
+    .execute-btn {
+      background: #ff0080;
+      color: #000;
+      border: none;
+      border-radius: 4px;
+      padding: 10px 20px;
+      font-family: 'Press Start 2P', cursive;
+      font-size: 8px;
+      cursor: pointer;
+    }
+
+    .execute-btn:hover {
+      background: #ff3399;
+    }
+
+    .history {
+      margin-top: 20px;
+    }
+
+    .history-title {
+      font-family: 'Press Start 2P', cursive;
+      font-size: 8px;
+      color: #666;
+      margin-bottom: 10px;
+    }
+
+    .history-item {
+      background: #2d2d2d;
+      border-radius: 4px;
+      padding: 8px 12px;
+      margin-bottom: 5px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: #888;
+      cursor: pointer;
+    }
+
+    .history-item:hover {
+      background: #3d3d3d;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">⚡ 命令执行器</div>
+    <button class="back-btn" onclick="window.close()">返回</button>
+  </div>
+
+  <div class="terminal" id="terminal">
+    <div class="terminal-line output">欢迎使用命令执行器</div>
+    <div class="terminal-line output">输入命令并按回车执行</div>
+    <div class="terminal-line output">----------------------------------------</div>
+  </div>
+
+  <div class="input-area">
+    <input 
+      type="text" 
+      class="command-input" 
+      id="commandInput" 
+      placeholder="输入命令..."
+      onkeypress="handleKeyPress(event)"
+    >
+    <button class="execute-btn" onclick="executeCommand()">执行</button>
+  </div>
+
+  <div class="history">
+    <div class="history-title">最近命令</div>
+    <div id="historyList">
+      <div class="history-item" onclick="reuseCommand('ls -la')">ls -la</div>
+      <div class="history-item" onclick="reuseCommand('pwd')">pwd</div>
+      <div class="history-item" onclick="reuseCommand('echo Hello World')">echo Hello World</div>
+    </div>
+  </div>
+
+  <script>
+    const terminal = document.getElementById('terminal');
+    const commandInput = document.getElementById('commandInput');
+    let commandHistory = [];
+
+    function handleKeyPress(event) {
+      if (event.key === 'Enter') {
+        executeCommand();
+      }
+    }
+
+    function executeCommand() {
+      const command = commandInput.value.trim();
+      if (!command) return;
+
+      // 显示命令
+      addTerminalLine(`$ ${command}`, 'input');
+      
+      // 模拟命令输出
+      setTimeout(() => {
+        let output = '';
+        if (command === 'ls -la') {
+          output = `total 32
+drwxr-xr-x  5 user user 4096 Aug  6 17:00 .
+drwxr-xr-x  3 user user 4096 Aug  6 17:00 ..
+-rw-r--r--  1 user user  220 Aug  6 17:00 .bash_logout
+-rw-r--r--  1 user user 3771 Aug  6 17:00 .bashrc
+-rw-r--r--  1 user user  807 Aug  6 17:00 .profile`;
+        } else if (command === 'pwd') {
+          output = '/home/user';
+        } else if (command.startsWith('echo ')) {
+          output = command.slice(5);
+        } else {
+          output = `bash: ${command.split(' ')[0]}: command not found`;
+          addTerminalLine(output, 'error');
+          commandInput.value = '';
+          return;
+        }
+
+        addTerminalLine(output, 'output');
+        commandHistory.unshift(command);
+        commandInput.value = '';
+      }, 100);
+    }
+
+    function addTerminalLine(text, type) {
+      const line = document.createElement('div');
+      line.className = `terminal-line ${type}`;
+      line.textContent = text;
+      terminal.appendChild(line);
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+    function reuseCommand(command) {
+      commandInput.value = command;
+      commandInput.focus();
+    }
+  </script>
+</body>
+</html>

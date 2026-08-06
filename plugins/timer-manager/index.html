@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>定时任务管理器</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Noto Sans SC', sans-serif;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      padding: 20px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid #333;
+    }
+
+    .title {
+      font-family: 'Press Start 2P', cursive;
+      font-size: 12px;
+      color: #00ff88;
+    }
+
+    .back-btn {
+      font-family: 'Press Start 2P', cursive;
+      font-size: 8px;
+      padding: 8px 16px;
+      background: #333;
+      color: #e0e0e0;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .back-btn:hover {
+      background: #444;
+    }
+
+    .timer-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .timer-item {
+      background: #2d2d2d;
+      border-radius: 8px;
+      padding: 15px;
+      border: 1px solid #444;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .timer-info {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .timer-name {
+      font-weight: bold;
+      color: #00ff88;
+    }
+
+    .timer-time {
+      font-size: 14px;
+      color: #888;
+    }
+
+    .timer-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .action-btn {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .action-btn.start {
+      background: #00ff88;
+      color: #000;
+    }
+
+    .action-btn.stop {
+      background: #ff0080;
+      color: #000;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+
+    .empty-state .icon {
+      font-size: 48px;
+      margin-bottom: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">⏰ 定时任务管理器</div>
+    <button class="back-btn" onclick="window.close()">返回</button>
+  </div>
+
+  <div class="timer-list" id="timerList">
+    <div class="timer-item">
+      <div class="timer-info">
+        <div class="timer-name">每日提醒</div>
+        <div class="timer-time">每天 09:00</div>
+      </div>
+      <div class="timer-actions">
+        <button class="action-btn start">启动</button>
+        <button class="action-btn stop">停止</button>
+      </div>
+    </div>
+
+    <div class="timer-item">
+      <div class="timer-info">
+        <div class="timer-name">工作休息提醒</div>
+        <div class="timer-time">每 45 分钟</div>
+      </div>
+      <div class="timer-actions">
+        <button class="action-btn start">启动</button>
+        <button class="action-btn stop">停止</button>
+      </div>
+    </div>
+
+    <div class="timer-item">
+      <div class="timer-info">
+        <div class="timer-name">喝水提醒</div>
+        <div class="timer-time">每 30 分钟</div>
+      </div>
+      <div class="timer-actions">
+        <button class="action-btn start">启动</button>
+        <button class="action-btn stop">停止</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="empty-state" style="display: none;">
+    <div class="icon">⏰</div>
+    <p>还没有定时任务</p>
+    <p>点击下方按钮添加第一个定时任务</p>
+  </div>
+</body>
+</html>
