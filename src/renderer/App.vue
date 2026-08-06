@@ -10,7 +10,7 @@
     <header class="header">
       <div class="logo">
         <div class="logo-icon">HT</div>
-        <span class="logo-text">馄饨LITE</span>
+        <span class="logo-text">HUNDUN LITE</span>
       </div>
 
       <div class="toggle-container">

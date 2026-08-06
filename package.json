@@ -1,7 +1,7 @@
 {
   "name": "huntun-lite",
   "version": "1.0.0",
-  "description": "馄饨Lite - 复古掌机风格的桌面效率工具",
+  "description": "Hundun Lite - 复古掌机风格的桌面效率工具",
   "main": "src/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
@@ -27,7 +27,7 @@
   },
   "build": {
     "appId": "com.huntun.lite",
-    "productName": "馄饨Lite",
+    "productName": "Hundun Lite",
     "directories": {
       "output": "dist"
     },
@@ -52,6 +52,6 @@
     "retro",
     "pixel-art"
   ],
-  "author": "馄饨Lite Team",
+  "author": "Hundun Lite Team",
   "license": "MIT"
 }

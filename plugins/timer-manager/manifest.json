@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "管理您的定时任务和提醒",
   "icon": "⏰",
-  "author": "馄饨Lite",
+  "author": "Hundun Lite",
   "entry": "index.html",
   "permissions": [
     "notifications",

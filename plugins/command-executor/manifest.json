@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "执行自定义bash命令",
   "icon": "⚡",
-  "author": "馄饨Lite",
+  "author": "Hundun Lite",
   "entry": "index.html",
   "permissions": [
     "shell",

@@ -1,8 +1,8 @@
-# 馄饨Lite - 复古掌机效率工具
+# Hundun Lite - 复古掌机效率工具
 
 ## 📋 项目概述
 
-馄饨Lite是一个高度可扩展的桌面效率应用，采用"母程序+子程序"的插件架构。用户可以根据需要动态安装和定制各种功能模块。
+Hundun Lite是一个高度可扩展的桌面效率应用，采用"母程序+子程序"的插件架构。用户可以根据需要动态安装和定制各种功能模块。
 
 ### 技术栈
 - **框架**: Electron + Vue3
@@ -123,7 +123,7 @@ plugin-name/
   "version": "1.0.0",
   "description": "管理您的定时任务和提醒",
   "icon": "⏰",
-  "author": "馄饨Lite",
+  "author": "Hundun Lite",
   "entry": "index.html",
   "permissions": ["notifications", "alarms"]
 }
@@ -182,6 +182,6 @@ MIT License
 
 ---
 
-**开发者**: 馄饨Lite Team
+**开发者**: Hundun Lite Team
 **版本**: 1.0.0-alpha
 **最后更新**: 2026-08-06

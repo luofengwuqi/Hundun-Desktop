@@ -10,7 +10,7 @@ export const usePluginStore = defineStore('plugin', () => {
       description: '管理您的定时任务和提醒',
       icon: '⏰',
       version: '1.0.0',
-      author: '馄饨Lite',
+      author: 'Hundun Lite',
       enabled: true,
       color: '#00ff88'
     },
@@ -20,7 +20,7 @@ export const usePluginStore = defineStore('plugin', () => {
       description: '执行自定义bash命令',
       icon: '⚡',
       version: '1.0.0',
-      author: '馄饨Lite',
+      author: 'Hundun Lite',
       enabled: true,
       color: '#ff0080'
     },
@@ -30,7 +30,7 @@ export const usePluginStore = defineStore('plugin', () => {
       description: '支持Markdown的极客记事本',
       icon: '📝',
       version: '1.0.0',
-      author: '馄饨Lite',
+      author: 'Hundun Lite',
       enabled: true,
       color: '#00d4ff'
     },
@@ -40,7 +40,7 @@ export const usePluginStore = defineStore('plugin', () => {
       description: '历史剪贴板内容管理',
       icon: '📋',
       version: '1.0.0',
-      author: '馄饨Lite',
+      author: 'Hundun Lite',
       enabled: true,
       color: '#ffaa00'
     },
@@ -50,7 +50,7 @@ export const usePluginStore = defineStore('plugin', () => {
       description: '实时系统资源监控',
       icon: '📊',
       version: '1.0.0',
-      author: '馄饨Lite',
+      author: 'Hundun Lite',
       enabled: true,
       color: '#ff5500'
     },
@@ -60,7 +60,7 @@ export const usePluginStore = defineStore('plugin', () => {
       description: '常用应用和网站快捷启动',
       icon: '🚀',
       version: '1.0.0',
-      author: '馄饨Lite',
+      author: 'Hundun Lite',
       enabled: true,
       color: '#aa00ff'
     }
