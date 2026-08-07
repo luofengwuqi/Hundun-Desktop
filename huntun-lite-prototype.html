@@ -256,7 +256,7 @@
             display: flex;
             flex-direction: column;
             gap: 0;
-            overflow: visible;
+            overflow: hidden;
             justify-content: space-between;
         }
 
@@ -288,12 +288,13 @@
         /* ========== Cartridge Shelf (水平滚动) ========== */
         .cartridge-shelf {
             flex: 1;
-            overflow: visible;
+            overflow-x: auto;
+            overflow-y: visible;
             scroll-behavior: smooth;
             min-height: 220px;
             display: flex;
             align-items: center;
-            padding-top: 30px;
+            padding: 50px 0;
             z-index: 10;
         }
 
@@ -304,13 +305,11 @@
         .cartridge-row {
             display: flex;
             gap: 16px;
-            padding: 30px 20px;
+            padding: 0 20px;
             min-width: max-content;
             align-items: center;
             justify-content: flex-start;
             height: 100%;
-            overflow-x: auto;
-            overflow-y: visible;
         }
 
         /* ========== Switch Style Cartridge ========== */
@@ -1434,8 +1433,8 @@
         // ========== 鼠标滚轮水平滚动 ==========
         document.getElementById('cartridgeShelf').addEventListener('wheel', (e) => {
             e.preventDefault();
-            const row = document.getElementById('cartridgeRow');
-            row.scrollLeft += e.deltaY * 2;
+            const shelf = document.getElementById('cartridgeShelf');
+            shelf.scrollLeft += e.deltaY * 2;
         });
 
         // ========== 卡带信息栏 ==========
