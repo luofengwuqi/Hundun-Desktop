@@ -29,24 +29,24 @@
         }
 
         .light-mode {
-            --bg-primary: #f0f0f0;
-            --bg-secondary: #e0e0e0;
-            --bg-card: #ffffff;
-            --bg-slot: #d0d0d0;
-            --text-primary: #1a1a1a;
-            --text-secondary: #666666;
-            --text-muted: #999999;
-            --accent-primary: #00aa55;
+            --bg-primary: #FFF8E8;
+            --bg-secondary: #FFF3D6;
+            --bg-card: #FFFEFB;
+            --bg-slot: #FFEEC2;
+            --text-primary: #C3272B;
+            --text-secondary: #C3272B;
+            --text-muted: #C3272B;
+            --accent-primary: #C3272B;
             --accent-secondary: #cc0066;
             --accent-tertiary: #0099cc;
-            --border-color: #cccccc;
-            --shadow-color: rgba(0, 0, 0, 0.15);
-            --shadow-glow: 0 0 15px rgba(0, 170, 85, 0.3);
-            --toggle-bg: #cccccc;
+            --border-color: #E8DCC8;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --shadow-glow: 0 0 15px rgba(195, 39, 43, 0.3);
+            --toggle-bg: #E8DCC8;
             --toggle-knob: #ffffff;
             --cartridge-body: #f5f5f5;
-            --cartridge-label: #00aa55;
-            --scanline-opacity: 0.02;
+            --cartridge-label: #C3272B;
+            --scanline-opacity: 0.01;
         }
 
         /* 浅色模式卡带样式 */
@@ -59,8 +59,6 @@
             background: #fff;
             border-color: #ddd;
         }
-
-
 
         .light-mode .cartridge-id {
             color: #999;
@@ -76,7 +74,30 @@
         }
 
         .light-mode .cartridge-slot {
-            background: linear-gradient(180deg, #d8d8d8 0%, #c8c8c8 100%);
+            background: linear-gradient(180deg, #FFE8B8 0%, #FFDDA0 100%);
+        }
+
+        .light-mode .slot-btn {
+            background: #FFE8B8;
+            border-color: #E8DCC8;
+        }
+
+        .light-mode .slot-btn:hover {
+            border-color: var(--accent-primary);
+        }
+
+        .light-mode .slot-btn.selected {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 15px var(--accent-primary);
+        }
+
+        .light-mode .slot-btn-icon {
+            color: var(--accent-primary);
+        }
+
+        .light-mode .cartridge-slot.selected {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 20px var(--accent-primary);
         }
 
         .light-mode .slot-empty {
@@ -90,13 +111,13 @@
 
         .light-mode .cartridge-slot.drag-over {
             border-color: var(--accent-primary);
-            background: linear-gradient(180deg, #e8f5e9 0%, #d4edda 100%);
-            box-shadow: inset 0 0 30px rgba(0, 170, 85, 0.2);
+            background: linear-gradient(180deg, #ffeaea 0%, #ffd4d4 100%);
+            box-shadow: inset 0 0 30px rgba(195, 39, 43, 0.2);
         }
 
         .light-mode .cartridge-info {
-            background: #e8e8e8;
-            border-color: #ccc;
+            background: #FFE8B8;
+            border-color: #E8DCC8;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -130,7 +151,7 @@
 
         .console {
             width: 800px;
-            height: 600px;
+            height: 540px;
             background: var(--bg-secondary);
             border-radius: 20px;
             border: 3px solid var(--border-color);
@@ -231,11 +252,12 @@
         /* ========== Main Content ========== */
         .content {
             flex: 1;
-            padding: 16px 20px;
+            padding: 0 20px;
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 0;
             overflow: hidden;
+            justify-content: space-between;
         }
 
         .section-header {
@@ -268,25 +290,15 @@
             flex: 1;
             overflow-x: auto;
             overflow-y: visible;
-            position: relative;
             scroll-behavior: smooth;
             min-height: 220px;
             display: flex;
             align-items: center;
+            padding-top: 30px;
         }
 
         .cartridge-shelf::-webkit-scrollbar {
-            height: 8px;
-        }
-
-        .cartridge-shelf::-webkit-scrollbar-track {
-            background: var(--bg-slot);
-            border-radius: 4px;
-        }
-
-        .cartridge-shelf::-webkit-scrollbar-thumb {
-            background: var(--accent-primary);
-            border-radius: 4px;
+            display: none;
         }
 
         .cartridge-row {
@@ -345,10 +357,10 @@
             border-radius: 0 0 4px 4px;
         }
 
-        .cartridge:hover {
+        .cartridge.selected {
             transform: translateY(-8px) scale(1.05);
             border-color: var(--cartridge-color, var(--accent-primary));
-            box-shadow: 0 8px 20px rgba(0,0,0,0.4), 0 0 15px var(--cartridge-color);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4), 0 0 20px var(--cartridge-color);
             z-index: 10;
         }
 
@@ -396,40 +408,84 @@
 
         /* 卡带信息栏 */
         .cartridge-info {
-            height: 32px;
-            background: var(--bg-slot);
-            border-radius: 6px;
-            border: 1px solid var(--border-color);
+            height: 40px;
+            background: transparent;
+            border-radius: 8px;
+            border: none;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
+            gap: 10px;
             transition: all 0.2s ease;
+            margin-top: 60px;
         }
 
         .cartridge-info-icon {
-            font-size: 16px;
+            font-size: 30px;
         }
 
         .cartridge-info-name {
             font-family: 'Press Start 2P', cursive;
-            font-size: 9px;
+            font-size: 24px;
             color: var(--text-primary);
+            letter-spacing: 1px;
         }
 
         .cartridge-info-empty {
             font-family: 'Press Start 2P', cursive;
-            font-size: 7px;
+            font-size: 18px;
             color: var(--text-muted);
         }
 
-        /* ========== Cartridge Slot ========== */
-        .slot-section {
-            padding: 12px 0;
+        /* ========== Slot Row ========== */
+        .slot-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 20px;
+            gap: 16px;
+            margin-bottom: 2px;
+        }
+
+        .slot-buttons {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .slot-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: 2px solid var(--border-color);
+            background: var(--bg-slot);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .slot-btn:hover {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 12px var(--shadow-color);
+            transform: scale(1.1);
+        }
+
+        .slot-btn.selected {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 15px var(--accent-primary);
+            transform: scale(1.1);
+        }
+
+        .slot-btn-icon {
+            font-size: 20px;
+            color: var(--accent-primary);
+            font-weight: bold;
         }
 
         .cartridge-slot {
-            width: 100%;
+            width: 100px;
             height: 110px;
             background: linear-gradient(180deg, #0a0a0a 0%, #141414 100%);
             border-radius: 8px;
@@ -437,10 +493,16 @@
             position: relative;
             display: flex;
             align-items: center;
-            gap: 12px;
-            padding: 0 16px;
+            justify-content: center;
+            padding: 8px;
             box-shadow: inset 0 4px 12px rgba(0, 0, 0, 0.5);
             transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .cartridge-slot.selected {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 20px var(--accent-primary);
         }
 
         .cartridge-slot.drag-over {
@@ -451,22 +513,15 @@
 
         .slot-label {
             font-family: 'Press Start 2P', cursive;
-            font-size: 7px;
+            font-size: 6px;
             color: var(--text-muted);
-            white-space: nowrap;
-        }
-
-        .slot-cartridges {
-            display: flex;
-            gap: 8px;
-            flex: 1;
-            overflow-x: auto;
-            padding: 4px 0;
+            text-align: center;
         }
 
         .slot-cartridge {
-            width: 64px;
-            height: 96px;
+            width: auto;
+            height: 100%;
+            aspect-ratio: 2 / 3;
             background: linear-gradient(180deg, #1a1a1a 0%, #0d0d0d 100%);
             border-radius: 4px;
             border: 2px solid #444;
@@ -476,9 +531,7 @@
             justify-content: center;
             gap: 4px;
             position: relative;
-            cursor: pointer;
             transition: all 0.2s ease;
-            flex-shrink: 0;
             animation: slotInsert 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
         }
 
@@ -494,12 +547,12 @@
         }
 
         .slot-cartridge:hover {
-            transform: scale(1.08);
+            transform: scale(1.05);
             box-shadow: 0 0 15px var(--cartridge-color);
         }
 
         .slot-cartridge-icon {
-            font-size: 24px;
+            font-size: 28px;
         }
 
         .slot-cartridge-name {
@@ -516,9 +569,9 @@
 
         .slot-empty {
             font-family: 'Press Start 2P', cursive;
-            font-size: 8px;
+            font-size: 7px;
             color: var(--text-muted);
-            margin: 0 auto;
+            text-align: center;
         }
 
         /* ========== Modal ========== */
@@ -569,10 +622,10 @@
         }
 
         .modal-message {
-            font-size: 13px;
+            font-size: 14px;
             color: var(--text-secondary);
             margin-bottom: 20px;
-            line-height: 1.5;
+            line-height: 1.8;
         }
 
         .modal-buttons {
@@ -669,19 +722,21 @@
 
         /* ========== Footer ========== */
         .footer {
-            height: 36px;
+            height: 40px;
             background: var(--bg-secondary);
             border-top: 2px solid var(--border-color);
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: center;
             padding: 0 20px;
         }
 
         .footer-info {
             font-family: 'Press Start 2P', cursive;
-            font-size: 7px;
-            color: var(--text-muted);
+            font-size: 14px;
+            color: var(--accent-primary);
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px var(--accent-primary);
         }
 
         /* ========== Screws ========== */
@@ -727,10 +782,6 @@
 
         <!-- Header -->
         <header class="header">
-            <div class="logo">
-                <div class="logo-icon">HT</div>
-                <span class="logo-text">HUNDUN LITE</span>
-            </div>
             <div class="toggle-container">
                 <span class="toggle-label">深色</span>
                 <div class="toggle-switch" id="themeToggle" onclick="toggleTheme()">
@@ -743,11 +794,6 @@
 
         <!-- Main Content -->
         <main class="content">
-            <!-- 我的应用 -->
-            <div class="section-header">
-                <div class="section-title">我的应用</div>
-            </div>
-
             <!-- 卡带信息栏 -->
             <div class="cartridge-info" id="cartridgeInfo">
                 <span class="cartridge-info-empty">悬停卡带查看名称</span>
@@ -760,22 +806,28 @@
                 </div>
             </div>
 
-            <!-- 卡带插槽 -->
-            <div class="slot-section">
-                <div class="section-title">卡带插槽</div>
+            <!-- 卡带插槽行 -->
+            <div class="slot-row">
+                <!-- 左侧按钮组 -->
+                <div class="slot-buttons">
+                    <button class="slot-btn" id="btnAddApp" title="添加应用">
+                        <span class="slot-btn-icon">+</span>
+                    </button>
+                    <button class="slot-btn" id="btnSettings" title="设置">
+                        <span class="slot-btn-icon">⚙</span>
+                    </button>
+                </div>
+                
+                <!-- 右侧卡带插槽 -->
                 <div class="cartridge-slot" id="cartridgeSlot">
-                    <span class="slot-label">拖入卡带启动</span>
-                    <div class="slot-cartridges" id="slotCartridges">
-                        <span class="slot-empty" id="slotEmpty">将卡带拖入此处</span>
-                    </div>
+                    <!-- 内容由JS动态渲染 -->
                 </div>
             </div>
         </main>
 
         <!-- Footer -->
         <footer class="footer">
-            <span class="footer-info">Hundun Lite v1.0.0</span>
-            <span class="footer-info">拖拽卡带启动应用</span>
+            <span class="footer-info">HUNDUN LITE</span>
         </footer>
     </div>
 
@@ -857,7 +909,10 @@
         ];
 
         let shelfPlugins = [...plugins]; // 我的应用中的卡带
-        let slotPlugins = []; // 插槽中的卡带
+        let slotPlugin = null; // 插槽中的卡带（只能有一个）
+        let selectedIndex = -1; // 当前选中的卡带索引
+        let selectedRow = 0; // 0=卡带行, 1=按钮+插槽行
+        let selectedCol = 0; // 按钮行中的列选择: 0=+, 1=设置, 2=插槽
 
         // ========== 渲染卡带 ==========
         function renderShelf() {
@@ -869,6 +924,7 @@
                 el.className = 'cartridge';
                 el.draggable = true;
                 el.dataset.id = plugin.id;
+                el.dataset.index = idx;
                 el.style.setProperty('--cartridge-color', plugin.color);
                 el.innerHTML = `
                     <div class="cartridge-icon">${plugin.icon}</div>
@@ -878,43 +934,305 @@
                 
                 el.addEventListener('dragstart', handleDragStart);
                 el.addEventListener('dragend', handleDragEnd);
-                el.addEventListener('mouseenter', () => showCartridgeInfo(plugin));
-                el.addEventListener('mouseleave', hideCartridgeInfo);
+                el.addEventListener('click', () => {
+                    // 如果点击的是已选中的卡带，执行操作
+                    if (selectedRow === 0 && selectedIndex === idx) {
+                        insertSelectedToSlot();
+                    } else {
+                        // 否则选中它
+                        selectedRow = 0;
+                        selectedIndex = idx;
+                        updateSelectedState();
+                        updateRowSelection();
+                    }
+                    playSound('click');
+                });
                 row.appendChild(el);
             });
+            
+            // 更新选中状态
+            updateSelectedState();
         }
 
-        function renderSlot() {
-            const container = document.getElementById('slotCartridges');
-            const empty = document.getElementById('slotEmpty');
+        // ========== 更新选中状态 ==========
+        function updateSelectedState() {
+            const row = document.getElementById('cartridgeRow');
+            const cartridges = row.querySelectorAll('.cartridge');
             
-            container.innerHTML = '';
+            cartridges.forEach((el, idx) => {
+                el.classList.toggle('selected', idx === selectedIndex);
+                // 只有选中的卡带才能拖动
+                el.draggable = idx === selectedIndex;
+            });
             
-            if (slotPlugins.length === 0) {
-                container.innerHTML = '<span class="slot-empty">将卡带拖入此处</span>';
+            // 自动滚动到选中的卡带
+            if (selectedIndex >= 0 && cartridges[selectedIndex]) {
+                cartridges[selectedIndex].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }
+        }
+
+        // ========== 键盘导航 ==========
+        document.addEventListener('keydown', (e) => {
+            // 弹窗打开时只处理 Escape
+            if (document.getElementById('modalOverlay').classList.contains('active')) {
+                if (e.key === 'Escape') closeModal();
                 return;
             }
             
-            slotPlugins.forEach((plugin, idx) => {
-                const el = document.createElement('div');
-                el.className = 'slot-cartridge';
-                el.style.setProperty('--cartridge-color', plugin.color);
-                el.innerHTML = `
-                    <div class="slot-cartridge-icon">${plugin.icon}</div>
-                    <div class="slot-cartridge-name">${plugin.name}</div>
-                `;
-                el.onclick = () => showEjectConfirm(plugin, idx);
-                container.appendChild(el);
+            // 映射 WASD + 空格 到方向键和回车
+            let key = e.key;
+            if (key === 'a' || key === 'A') key = 'ArrowLeft';
+            if (key === 'd' || key === 'D') key = 'ArrowRight';
+            if (key === 'w' || key === 'W') key = 'ArrowUp';
+            if (key === 's' || key === 'S') key = 'ArrowDown';
+            if (key === ' ') key = 'Enter';
+            
+            switch (key) {
+                case 'ArrowUp':
+                    e.preventDefault();
+                    // 切换到卡带行
+                    selectedRow = 0;
+                    selectedCol = -1;
+                    updateRowSelection();
+                    playSound('click');
+                    break;
+                    
+                case 'ArrowDown':
+                    e.preventDefault();
+                    // 切换到按钮+插槽行
+                    selectedRow = 1;
+                    if (selectedCol < 0) selectedCol = 0;
+                    updateRowSelection();
+                    playSound('click');
+                    break;
+                    
+                case 'ArrowRight':
+                    e.preventDefault();
+                    if (selectedRow === 0) {
+                        // 卡带行：选中下一个
+                        if (shelfPlugins.length > 0) {
+                            selectedIndex = (selectedIndex + 1) % shelfPlugins.length;
+                            updateSelectedState();
+                            showCartridgeInfo(shelfPlugins[selectedIndex]);
+                        }
+                    } else {
+                        // 按钮行：选中下一个列
+                        selectedCol = Math.min(selectedCol + 1, 2);
+                        updateRowSelection();
+                    }
+                    playSound('click');
+                    break;
+                    
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    if (selectedRow === 0) {
+                        // 卡带行：选中上一个
+                        if (shelfPlugins.length > 0) {
+                            selectedIndex = selectedIndex <= 0 ? shelfPlugins.length - 1 : selectedIndex - 1;
+                            updateSelectedState();
+                            showCartridgeInfo(shelfPlugins[selectedIndex]);
+                        }
+                    } else {
+                        // 按钮行：选中上一个列
+                        selectedCol = Math.max(selectedCol - 1, 0);
+                        updateRowSelection();
+                    }
+                    playSound('click');
+                    break;
+                    
+                case 'Enter':
+                    e.preventDefault();
+                    if (selectedRow === 0) {
+                        // 卡带行：将选中的卡带插入插槽
+                        if (selectedIndex >= 0 && selectedIndex < shelfPlugins.length) {
+                            insertSelectedToSlot();
+                        }
+                    } else {
+                        // 按钮行：执行对应操作
+                        handleBottomRowAction();
+                    }
+                    break;
+                    
+                case 'Escape':
+                    closeModal();
+                    break;
+            }
+        });
+
+        // ========== 更新行选择状态 ==========
+        function updateRowSelection() {
+            // 更新卡带行选中状态
+            const cartridges = document.querySelectorAll('.cartridge');
+            cartridges.forEach((el, idx) => {
+                el.classList.toggle('selected', selectedRow === 0 && idx === selectedIndex);
             });
+            
+            // 更新按钮行选中状态
+            const buttons = document.querySelectorAll('.slot-btn');
+            const slot = document.getElementById('cartridgeSlot');
+            
+            buttons.forEach((btn, idx) => {
+                btn.classList.toggle('selected', selectedRow === 1 && selectedCol === idx);
+            });
+            
+            slot.classList.toggle('selected', selectedRow === 1 && selectedCol === 2);
+            
+            // 更新信息栏显示
+            updateInfoBar();
+            
+            // 自动滚动到选中的卡带
+            if (selectedRow === 0 && selectedIndex >= 0 && cartridges[selectedIndex]) {
+                cartridges[selectedIndex].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }
+        }
+
+        // ========== 更新信息栏显示 ==========
+        function updateInfoBar() {
+            const info = document.getElementById('cartridgeInfo');
+            
+            if (selectedRow === 0) {
+                // 卡带行：显示选中卡带名称
+                if (selectedIndex >= 0 && selectedIndex < shelfPlugins.length) {
+                    info.innerHTML = `<span class="cartridge-info-name">${shelfPlugins[selectedIndex].name}</span>`;
+                } else {
+                    info.innerHTML = '<span class="cartridge-info-empty">← → 选择卡带</span>';
+                }
+            } else {
+                // 按钮行：显示选中按钮名称
+                const names = ['添加应用', '设置', '卡带插槽'];
+                info.innerHTML = `<span class="cartridge-info-name">${names[selectedCol]}</span>`;
+            }
+        }
+
+        // ========== 执行底部行操作 ==========
+        function handleBottomRowAction() {
+            switch (selectedCol) {
+                case 0:
+                    handleAddApp();
+                    break;
+                case 1:
+                    handleSettings();
+                    break;
+                case 2:
+                    handleSlotClick();
+                    break;
+            }
+        }
+
+        // ========== 将选中卡带插入插槽 ==========
+        function insertSelectedToSlot() {
+            if (selectedIndex < 0 || selectedIndex >= shelfPlugins.length) return;
+            
+            const plugin = shelfPlugins[selectedIndex];
+            
+            // 检查是否已有相同应用
+            if (slotPlugin && slotPlugin.id === plugin.id) {
+                showModal(
+                    '⚠️',
+                    '重复启动',
+                    `<strong>${plugin.icon} ${plugin.name}</strong> 已在运行中！<br>每个应用只能启动一个实例。`,
+                    [{ text: '确定', class: 'primary', action: closeModal }]
+                );
+                return;
+            }
+            
+            // 如果插槽已有卡带，先弹出拔出确认
+            if (slotPlugin) {
+                const currentPlugin = slotPlugin;
+                const newPlugin = plugin;
+                
+                showModal(
+                    '🔌',
+                    '切换卡带',
+                    `当前运行: <strong>${currentPlugin.icon} ${currentPlugin.name}</strong><br><br>
+                     要切换为: <strong>${newPlugin.icon} ${newPlugin.name}</strong>`,
+                    [
+                        { text: '取消', class: 'secondary', action: closeModal },
+                        { text: '🔌 拔出并切换', class: 'danger', action: () => {
+                            // 拔出当前卡带
+                            shelfPlugins.push(currentPlugin);
+                            sortShelfPlugins();
+                            
+                            // 从列表移除新卡带
+                            shelfPlugins = shelfPlugins.filter(p => p.id !== newPlugin.id);
+                            
+                            // 插入新卡带
+                            slotPlugin = newPlugin;
+                            
+                            // 重置选中
+                            selectedIndex = 0;
+                            selectedRow = 0;
+                            
+                            // 渲染
+                            renderShelf();
+                            renderSlot();
+                            updateRowSelection();
+                            closeModal();
+                            playSound('bengbeng');
+                            
+                            // 自动启动
+                            setTimeout(() => {
+                                launchApp(newPlugin);
+                            }, 300);
+                        }}
+                    ]
+                );
+                return;
+            }
+            
+            // 插槽为空，直接插入
+            shelfPlugins = shelfPlugins.filter(p => p.id !== plugin.id);
+            slotPlugin = plugin;
+            
+            // 重置选中
+            selectedIndex = 0;
+            selectedRow = 0;
+            
+            // 渲染
+            renderShelf();
+            renderSlot();
+            updateRowSelection();
+            
+            playSound('bengbeng');
+            
+            // 自动启动
+            setTimeout(() => {
+                launchApp(plugin);
+            }, 300);
+        }
+
+        function renderSlot() {
+            const slot = document.getElementById('cartridgeSlot');
+            
+            if (!slotPlugin) {
+                slot.innerHTML = '<span class="slot-empty">拖入卡带启动</span>';
+                slot.style.cursor = 'default';
+                return;
+            }
+            
+            slot.style.cursor = 'pointer';
+            slot.innerHTML = `
+                <div class="slot-cartridge" style="--cartridge-color: ${slotPlugin.color}">
+                    <div class="slot-cartridge-icon">${slotPlugin.icon}</div>
+                    <div class="slot-cartridge-name">${slotPlugin.name}</div>
+                </div>
+            `;
         }
 
         // ========== 拖拽系统 ==========
         let draggedPlugin = null;
 
         function handleDragStart(e) {
-            const id = e.target.closest('.cartridge').dataset.id;
+            // 只能拖动选中的卡带
+            const cartridge = e.target.closest('.cartridge');
+            if (!cartridge.classList.contains('selected')) {
+                e.preventDefault();
+                return;
+            }
+            
+            const id = cartridge.dataset.id;
             draggedPlugin = shelfPlugins.find(p => p.id === id);
-            e.target.closest('.cartridge').classList.add('dragging');
+            cartridge.classList.add('dragging');
             e.dataTransfer.effectAllowed = 'move';
             playSound('click');
         }
@@ -943,15 +1261,38 @@
             
             if (!draggedPlugin) return;
             
+            // 检查是否已有相同应用
+            if (slotPlugin && slotPlugin.id === draggedPlugin.id) {
+                showModal(
+                    '⚠️',
+                    '重复启动',
+                    `<strong>${draggedPlugin.icon} ${draggedPlugin.name}</strong> 已在运行中！<br>每个应用只能启动一个实例。`,
+                    [{ text: '确定', class: 'primary', action: closeModal }]
+                );
+                draggedPlugin = null;
+                return;
+            }
+            
+            // 如果插槽已有卡带，先弹出
+            if (slotPlugin) {
+                shelfPlugins.push(slotPlugin);
+                sortShelfPlugins();
+            }
+            
             // 从我的应用中移除
             shelfPlugins = shelfPlugins.filter(p => p.id !== draggedPlugin.id);
             
             // 添加到插槽
-            slotPlugins.push(draggedPlugin);
+            slotPlugin = draggedPlugin;
+            
+            // 重置选中索引和行选择
+            selectedIndex = 0;
+            selectedRow = 0;
             
             // 渲染
             renderShelf();
             renderSlot();
+            updateRowSelection();
             
             playSound('bengbeng');
             
@@ -979,38 +1320,86 @@
             );
         }
 
-        // ========== 拔出确认 ==========
-        function showEjectConfirm(plugin, idx) {
+        // ========== 点击插槽 ==========
+        function handleSlotClick() {
+            if (!slotPlugin) {
+                playSound('click');
+                showModal(
+                    '🎮',
+                    '卡带插槽',
+                    '将卡带拖入此处或按 Enter 键插入',
+                    [{ text: '确定', class: 'primary', action: closeModal }]
+                );
+                return;
+            }
+            
             playSound('click');
             showModal(
-                '🔌',
-                '拔出卡带',
-                `确定要拔出 <strong>${plugin.icon} ${plugin.name}</strong> 吗？<br>拔出后将返回到"我的应用"区域。`,
+                slotPlugin.icon,
+                '运行中的应用',
+                `
+                    <strong>${slotPlugin.icon} ${slotPlugin.name}</strong><br><br>
+                    <span style="color: var(--accent-primary);">● 运行中</span><br><br>
+                    是否要拔出此卡带？
+                `,
                 [
                     { text: '取消', class: 'secondary', action: closeModal },
-                    { text: '拔出', class: 'danger', action: () => ejectPlugin(idx) }
+                    { text: '🔌 拔出卡带', class: 'danger', action: ejectCurrentPlugin }
                 ]
             );
         }
 
-        function ejectPlugin(idx) {
-            const plugin = slotPlugins[idx];
+        // ========== 添加应用 ==========
+        function handleAddApp() {
+            playSound('click');
+            showModal(
+                '➕',
+                '添加应用',
+                '从应用商店获取更多卡带应用<br>（功能开发中...）',
+                [{ text: '确定', class: 'primary', action: closeModal }]
+            );
+        }
+
+        // ========== 设置 ==========
+        function handleSettings() {
+            playSound('click');
+            showModal(
+                '⚙️',
+                '母程序设置',
+                '配置Hundun Lite母程序<br>（功能开发中...）',
+                [{ text: '确定', class: 'primary', action: closeModal }]
+            );
+        }
+
+        // ========== 拔出当前卡带 ==========
+        function ejectCurrentPlugin() {
+            if (!slotPlugin) return;
             
-            // 从插槽移除
-            slotPlugins.splice(idx, 1);
+            const plugin = slotPlugin;
+            slotPlugin = null;
             
             // 返回我的应用
             shelfPlugins.push(plugin);
+            sortShelfPlugins();
+            
+            // 重置选中状态
+            selectedIndex = 0;
+            selectedRow = 0;
+            
+            renderShelf();
+            renderSlot();
+            updateRowSelection();
+            closeModal();
+            playSound('exit');
+        }
+
+        // ========== 排序我的应用 ==========
+        function sortShelfPlugins() {
             shelfPlugins.sort((a, b) => {
                 const aIdx = plugins.findIndex(p => p.id === a.id);
                 const bIdx = plugins.findIndex(p => p.id === b.id);
                 return aIdx - bIdx;
             });
-            
-            renderShelf();
-            renderSlot();
-            closeModal();
-            playSound('exit');
         }
 
         // ========== 弹窗系统 ==========
@@ -1045,30 +1434,54 @@
             shelf.scrollLeft += e.deltaY * 2;
         });
 
-        // ========== 键盘事件 ==========
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') closeModal();
-        });
-
         // ========== 卡带信息栏 ==========
         const cartridgeInfo = document.getElementById('cartridgeInfo');
 
-        function showCartridgeInfo(plugin) {
-            cartridgeInfo.innerHTML = `
-                <span class="cartridge-info-icon">${plugin.icon}</span>
-                <span class="cartridge-info-name">${plugin.name}</span>
-            `;
-            cartridgeInfo.style.borderColor = plugin.color;
-        }
+        // ========== 按钮和插槽点击事件 ==========
+        document.getElementById('btnAddApp').addEventListener('click', () => {
+            if (selectedRow === 1 && selectedCol === 0) {
+                handleAddApp();
+            } else {
+                selectedRow = 1;
+                selectedCol = 0;
+                updateRowSelection();
+            }
+            playSound('click');
+        });
 
-        function hideCartridgeInfo() {
-            cartridgeInfo.innerHTML = '<span class="cartridge-info-empty">悬停卡带查看名称</span>';
-            cartridgeInfo.style.borderColor = '';
-        }
+        document.getElementById('btnSettings').addEventListener('click', () => {
+            if (selectedRow === 1 && selectedCol === 1) {
+                handleSettings();
+            } else {
+                selectedRow = 1;
+                selectedCol = 1;
+                updateRowSelection();
+            }
+            playSound('click');
+        });
+
+        document.getElementById('cartridgeSlot').addEventListener('click', () => {
+            if (selectedRow === 1 && selectedCol === 2) {
+                handleSlotClick();
+            } else {
+                selectedRow = 1;
+                selectedCol = 2;
+                updateRowSelection();
+            }
+            playSound('click');
+        });
 
         // ========== 初始化 ==========
         renderShelf();
         renderSlot();
+        
+        // 默认选中第一个卡带
+        if (shelfPlugins.length > 0) {
+            selectedIndex = 0;
+            selectedRow = 0;
+            updateSelectedState();
+            updateRowSelection();
+        }
     </script>
 </body>
 </html>

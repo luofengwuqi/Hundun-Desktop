@@ -1,7 +1,7 @@
 # Hundun Lite - 项目进度文档
 
-> 最后更新: 2026-08-06
-> 当前阶段: Phase 1 - 前端原型
+> 最后更新: 2026-08-07
+> 当前阶段: Phase 1 - 前端原型 (交互优化完成)
 
 ---
 
@@ -25,63 +25,152 @@
 #### 1.1 界面元素
 - [x] 深色/浅色模式切换 (物理拨动开关)
 - [x] Switch风格卡带 (128px × 192px)
-- [x] 卡带信息栏 (显示悬停卡带名称)
-- [x] 卡带插槽 (支持多卡带)
+- [x] 卡带信息栏 (显示选中项名称)
+- [x] 卡带插槽 (单卡带，等比例缩放)
 - [x] 装饰螺丝 + CRT扫描线效果
+- [x] 底部按钮组 (+添加、⚙设置)
 
 #### 1.2 交互功能
 - [x] 卡带拖拽到插槽
 - [x] 拖入后自动启动应用
-- [x] 点击插槽卡带弹出拔出确认
-- [x] 拔出后卡带返回"我的应用"
+- [x] 点击插槽弹窗显示运行中应用
+- [x] 拔出后卡带返回列表
 - [x] 鼠标滚轮水平滚动卡带列表
-- [x] 悬停卡带显示名称在信息栏
+- [x] 鼠标点击选中卡带/按钮
+- [x] 键盘WASD/方向键操控
+- [x] 键盘Enter/空格执行操作
 
 #### 1.3 样式系统
 - [x] CSS变量驱动主题
 - [x] 深色模式完整样式
-- [x] 浅色模式完整样式
-- [x] 拖拽状态高亮效果
+- [x] 浅色模式完整样式 (#FFF8E8暖色调)
+- [x] 选中态高亮效果
 
 #### 1.4 音效系统
 - [x] 9个Switch风格音效集成
 - [x] 点击、切换、入仓、确认、返回音效
 
-### 2. 项目架构
+---
 
-#### 2.1 目录结构
+## 🎮 交互逻辑详解 (重要)
+
+### 状态管理
+```javascript
+let selectedIndex = -1;  // 当前选中的卡带索引
+let selectedRow = 0;     // 0=卡带行, 1=按钮+插槽行
+let selectedCol = 0;     // 按钮行中的列: 0=+, 1=设置, 2=插槽
+let slotPlugin = null;   // 插槽中的卡带 (只能有一个)
 ```
-huntunLite/
-├── huntun-lite-prototype.html    ✅ 视觉原型
-├── sounds/                       ✅ 音效资源 (9个)
-├── src/
-│   ├── main/                     ✅ Electron主进程
-│   │   ├── index.js
-│   │   └── preload.js
-│   ├── renderer/                 ✅ Vue3渲染进程
-│   │   ├── App.vue
-│   │   ├── main.js
-│   │   ├── index.html
-│   │   ├── assets/styles/main.css
-│   │   ├── components/
-│   │   │   ├── CartridgeCard.vue
-│   │   │   └── PluginModal.vue
-│   │   ├── stores/
-│   │   │   ├── theme.js
-│   │   │   └── plugin.js
-│   │   ├── router/index.js
-│   │   └── utils/audio.js
-│   └── shared/
-│       └── plugin-loader.js      ✅ 插件加载器
-├── plugins/                      ✅ 示例插件
-│   ├── timer-manager/
-│   └── command-executor/
-└── 文档文件
-    ├── README.md
-    ├── QUICKSTART.md
-    ├── PLUGIN_DEVELOPMENT.md
-    └── DEVELOPMENT_REPORT.md
+
+### 两行布局
 ```
+┌─────────────────────────────────────────┐
+│  卡带行 (selectedRow=0)                  │
+│  [卡带1] [卡带2] [卡带3] ...             │
+├─────────────────────────────────────────┤
+│  按钮+插槽行 (selectedRow=1)             │
+│  [+ ] [⚙ ]              [卡带插槽]       │
+│   col0  col1               col2          │
+└─────────────────────────────────────────┘
+```
+
+### 键盘操控
+
+| 按键 | 映射 | 功能 |
+|------|------|------|
+| `W` / `↑` | ArrowUp | 切换到卡带行 (selectedRow=0) |
+| `S` / `↓` | ArrowDown | 切换到按钮+插槽行 (selectedRow=1) |
+| `A` / `←` | ArrowLeft | 上一个 (卡带/按钮) |
+| `D` / `→` | ArrowRight | 下一个 (卡带/按钮) |
+| `空格` / `Enter` | Enter | 执行选中项 |
+| `Esc` | Escape | 关闭弹窗 |
+
+### 键盘映射代码
+```javascript
+let key = e.key;
+if (key === 'a' || key === 'A') key = 'ArrowLeft';
+if (key === 'd' || key === 'D') key = 'ArrowRight';
+if (key === 'w' || key === 'W') key = 'ArrowUp';
+if (key === 's' || key === 'S') key = 'ArrowDown';
+if (key === ' ') key = 'Enter';
+```
+
+### 鼠标操控
+
+| 操作 | 功能 |
+|------|------|
+| 点击卡带 | 选中该卡带 (selectedRow=0, selectedIndex=idx) |
+| 点击+按钮 | 选中添加按钮 (selectedRow=1, selectedCol=0) |
+| 点击⚙按钮 | 选中设置按钮 (selectedRow=1, selectedCol=1) |
+| 点击插槽 | 选中插槽 (selectedRow=1, selectedCol=2) |
+| 滚轮 | 水平滚动卡带列表 |
+
+### 信息栏显示逻辑
+```javascript
+function updateInfoBar() {
+    if (selectedRow === 0) {
+        // 显示选中卡带名称
+        info.innerHTML = shelfPlugins[selectedIndex].name;
+    } else {
+        // 显示按钮名称: ['添加应用', '设置', '卡带插槽']
+        info.innerHTML = names[selectedCol];
+    }
+}
+```
+
+### Enter执行逻辑
+```javascript
+case 'Enter':
+    if (selectedRow === 0) {
+        // 卡带行: 插入选中的卡带到插槽
+        insertSelectedToSlot();
+    } else {
+        // 按钮行: 执行对应操作
+        handleBottomRowAction(); // 根据selectedCol执行
+    }
+```
+
+### 视觉反馈
+- **卡带选中**: `.cartridge.selected` - 发光边框 + 上移
+- **按钮选中**: `.slot-btn.selected` - 发光边框 + 放大
+- **插槽选中**: `.cartridge-slot.selected` - 发光边框
+
+### 单卡带限制
+- 插槽只能放一张卡带
+- 拖入新卡带时，旧卡带自动返回列表
+- 同一应用不能重复启动
+
+---
+
+## 🎨 设计规范
+
+### 颜色系统
+
+#### 深色模式
+```css
+--bg-primary: #0a0a0a
+--bg-secondary: #141414
+--accent-primary: #00ff88 (霓虹绿)
+--accent-secondary: #ff0080 (赛博粉)
+--accent-tertiary: #00d4ff (电光蓝)
+```
+
+#### 浅色模式
+```css
+--bg-primary: #FFF8E8 (奶油白)
+--bg-secondary: #FFF3D6
+--accent-primary: #C3272B (朱红)
+--accent-secondary: #cc0066
+--accent-tertiary: #0099cc
+```
+
+### 字体规范
+- **像素字体**: Press Start 2P (标题、标签)
+- **正文字体**: Noto Sans SC (描述、内容)
+
+### 卡带规格
+- **尺寸**: 128px × 192px (2:3比例)
+- **插槽卡带**: 保持原始比例，等比缩放
 
 ---
 
@@ -122,40 +211,6 @@ huntunLite/
 
 ---
 
-## 🎨 设计规范
-
-### 颜色系统
-
-#### 深色模式
-```css
---bg-primary: #0a0a0a
---bg-secondary: #141414
---accent-primary: #00ff88 (霓虹绿)
---accent-secondary: #ff0080 (赛博粉)
---accent-tertiary: #00d4ff (电光蓝)
-```
-
-#### 浅色模式
-```css
---bg-primary: #f0f0f0
---bg-secondary: #e0e0e0
---accent-primary: #00aa55
---accent-secondary: #cc0066
---accent-tertiary: #0099cc
-```
-
-### 字体规范
-- **像素字体**: Press Start 2P (标题、标签)
-- **正文字体**: Noto Sans SC (描述、内容)
-
-### 卡带规格
-- **尺寸**: 128px × 192px (1:1.5比例)
-- **图标区域**: 72px × 72px
-- **顶部色条**: 10px
-- **底部标签区**: 30% (深色模式) / 21% (浅色模式)
-
----
-
 ## 🔧 技术决策
 
 ### 已确定
@@ -163,6 +218,7 @@ huntunLite/
 2. **无边框窗口**: 自定义标题栏
 3. **插件架构**: 动态加载，manifest.json规范
 4. **音效系统**: 预加载 + 按需播放
+5. **交互方式**: 键盘(WASD+空格) + 鼠标(点击) 双模式
 
 ### 待定
 1. 插件沙箱方案 (iframe vs Web Worker)
@@ -190,12 +246,6 @@ test: 测试相关
 chore: 构建/工具链更新
 ```
 
-### 分支规范
-- `main`: 生产分支
-- `dev`: 开发分支
-- `feature/*`: 功能分支
-- `fix/*`: 修复分支
-
 ---
 
 ## 🐛 已知问题
@@ -209,30 +259,6 @@ chore: 构建/工具链更新
 ### 待修复
 - [ ] Electron中音效可能无法播放 (自动播放策略)
 - [ ] 大量卡带时性能优化
-
----
-
-## 📚 参考资料
-
-### Switch卡带规格
-- 高度: 31mm (1.2 in)
-- 宽度: 21mm (0.83 in)
-- 厚度: 3mm (0.12 in)
-- 比例: 约 1.48:1
-
-### 音效文件
-```
-sounds/
-├── bengbeng.mp3    # 卡带入仓
-├── change.mp3      # 切换主题
-├── click.mp3       # 点击反馈
-├── error.mp3       # 错误提示
-├── exit.mp3        # 返回操作
-├── home.mp3        # 主页
-├── loading.mp3     # 加载中
-├── OK.mp3          # 确认
-└── setting.mp3     # 设置
-```
 
 ---
 
@@ -250,13 +276,4 @@ sounds/
 
 ---
 
-## 📞 联系方式
-
-如有问题，请查看以下文档：
-- `README.md` - 项目概述
-- `QUICKSTART.md` - 快速开始
-- `PLUGIN_DEVELOPMENT.md` - 插件开发指南
-
----
-
-**项目状态**: 🟢 原型完成，准备进入开发阶段
+**项目状态**: 🟢 原型交互优化完成，准备进入Electron集成阶段
