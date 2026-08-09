@@ -14,13 +14,13 @@
     "build:linux": "npm run build && electron-builder --linux"
   },
   "dependencies": {
+    "pinia": "^2.1.7",
     "vue": "^3.4.0",
-    "vue-router": "^4.2.5",
-    "pinia": "^2.1.7"
+    "vue-router": "^4.2.5"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.0",
-    "electron": "^28.0.0",
+    "electron": "^28.3.3",
     "electron-builder": "^24.9.1",
     "electron-vite": "^2.0.0",
     "vite": "^5.0.0"
@@ -53,5 +53,8 @@
     "pixel-art"
   ],
   "author": "Hundun Lite Team",
-  "license": "MIT"
+  "license": "MIT",
+  "allowScripts": {
+    "electron@28.3.3": true
+  }
 }

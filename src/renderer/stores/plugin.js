@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
 export const usePluginStore = defineStore('plugin', () => {
-  // 状态
+  // 完整插件列表（与原型一致的10个）
   const plugins = ref([
     {
       id: 'timer-manager',
@@ -63,6 +63,46 @@ export const usePluginStore = defineStore('plugin', () => {
       author: 'Hundun Lite',
       enabled: true,
       color: '#aa00ff'
+    },
+    {
+      id: 'file-manager',
+      name: '文件管理',
+      description: '快速访问常用文件夹',
+      icon: '📁',
+      version: '1.0.0',
+      author: 'Hundun Lite',
+      enabled: true,
+      color: '#00aaff'
+    },
+    {
+      id: 'color-picker',
+      name: '取色器',
+      description: '屏幕取色和调色板',
+      icon: '🎨',
+      version: '1.0.0',
+      author: 'Hundun Lite',
+      enabled: true,
+      color: '#ff6699'
+    },
+    {
+      id: 'calculator',
+      name: '计算器',
+      description: '科学计算器和单位换算',
+      icon: '🔢',
+      version: '1.0.0',
+      author: 'Hundun Lite',
+      enabled: true,
+      color: '#88ff00'
+    },
+    {
+      id: 'screenshot',
+      name: '截图工具',
+      description: '屏幕截图和标注',
+      icon: '📸',
+      version: '1.0.0',
+      author: 'Hundun Lite',
+      enabled: true,
+      color: '#ff8800'
     }
   ])
 

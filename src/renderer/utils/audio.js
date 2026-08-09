@@ -1,7 +1,8 @@
 // 音效管理器
 const sounds = {}
+const soundLoaded = {}
 
-// 预加载音效
+// 预加载音效文件路径
 const soundFiles = {
   click: 'sounds/click.mp3',
   change: 'sounds/change.mp3',
@@ -16,21 +17,53 @@ const soundFiles = {
 
 // 初始化音效
 export const initSounds = () => {
-  Object.entries(soundFiles).forEach(([name, path]) => {
-    const audio = new Audio(path)
+  Object.entries(soundFiles).forEach(([name, src]) => {
+    const audio = new Audio()
     audio.preload = 'auto'
+    audio.volume = 1
+
+    // 监听加载完成
+    audio.addEventListener('canplaythrough', () => {
+      soundLoaded[name] = true
+    })
+
+    // 监听错误
+    audio.addEventListener('error', (e) => {
+      console.warn(`Failed to load sound [${name}]: ${src}`, e)
+      soundLoaded[name] = false
+    })
+
+    // 设置 src 触发加载
+    audio.src = src
+    audio.load()
     sounds[name] = audio
   })
 }
 
 // 播放音效
 export const playSound = (name) => {
-  if (sounds[name]) {
-    sounds[name].currentTime = 0
-    sounds[name].play().catch(e => {
-      console.warn(`Failed to play sound ${name}:`, e)
-    })
+  const audio = sounds[name]
+  if (!audio) return
+
+  // 如果还没加载完，等加载完再播放
+  if (!soundLoaded[name]) {
+    const onReady = () => {
+      audio.removeEventListener('canplaythrough', onReady)
+      playAudio(audio)
+    }
+    audio.addEventListener('canplaythrough', onReady)
+    return
   }
+
+  playAudio(audio)
+}
+
+// 实际播放
+const playAudio = (audio) => {
+  audio.currentTime = 0
+  audio.play().catch(e => {
+    console.warn('Sound autoplay blocked:', e.message)
+  })
 }
 
 // 停止音效
@@ -62,6 +95,9 @@ export const setGlobalVolume = (volume) => {
     sound.volume = Math.max(0, Math.min(1, volume))
   })
 }
+
+// 预加载所有音效
+initSounds()
 
 export default {
   initSounds,

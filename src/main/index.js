@@ -1,9 +1,6 @@
 const { app, BrowserWindow, ipcMain, protocol } = require('electron')
 const path = require('path')
 
-// 禁用硬件加速以提高兼容性
-// app.disableHardwareAcceleration()
-
 // 单实例锁
 const gotTheLock = app.requestSingleInstanceLock()
 
@@ -36,16 +33,18 @@ function createWindow () {
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'preload.js'),
+      autoplayPolicy: 'no-user-gesture-required'
     },
     icon: path.join(__dirname, '../renderer/assets/icon.png'),
-    backgroundColor: '#0a0a0a'
+    backgroundColor: '#0a0a0a',
+    show: false // 先隐藏，等加载完成后再显示
   })
 
   // 开发模式加载 Vite 开发服务器，生产模式加载打包文件
-  if (process.env.NODE_ENV === 'development') {
+  if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
     mainWindow.loadURL('http://localhost:5173')
-    mainWindow.webContents.openDevTools()
+    mainWindow.webContents.openDevTools({ mode: 'detach' })
   } else {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
   }
@@ -55,9 +54,16 @@ function createWindow () {
     mainWindow = null
   })
 
-  // 窗口准备就绪
+  // 窗口准备就绪后显示
   mainWindow.once('ready-to-show', () => {
     mainWindow.show()
+  })
+
+  // 页面加载完成后再显示（防止白屏闪烁）
+  mainWindow.webContents.on('did-finish-load', () => {
+    if (mainWindow && !mainWindow.isVisible()) {
+      mainWindow.show()
+    }
   })
 }
 
@@ -80,7 +86,9 @@ app.on('window-all-closed', () => {
   }
 })
 
-// IPC 通信处理
+// ========== IPC 通信处理 ==========
+
+// 窗口控制
 ipcMain.on('window-minimize', () => {
   if (mainWindow) mainWindow.minimize()
 })
@@ -99,12 +107,50 @@ ipcMain.on('window-close', () => {
   if (mainWindow) mainWindow.close()
 })
 
+// 窗口拖动（自定义标题栏用）
+ipcMain.on('window-start-drag', (event, mousePosition) => {
+  if (mainWindow) {
+    const winBounds = mainWindow.getBounds()
+    const currentPos = mainWindow.getPosition()
+    
+    const moveWindow = (e) => {
+      // 计算新位置
+      const x = currentPos[0] + (e.screenX - mousePosition.x)
+      const y = currentPos[1] + (e.screenY - mousePosition.y)
+      mainWindow.setPosition(x, y)
+    }
+    
+    const stopMove = () => {
+      document.removeEventListener('mousemove', moveWindow)
+      document.removeEventListener('mouseup', stopMove)
+    }
+    
+    // 这里通过 webContents 发送事件
+  }
+})
+
 // 自定义协议注册 (用于加载本地资源)
 app.whenReady().then(() => {
   protocol.registerFileProtocol('local-file', (request, callback) => {
     const filePath = path.join(__dirname, '../renderer', request.url.replace('local-file://', ''))
     callback({ path: filePath })
   })
+})
+
+// 获取应用版本
+ipcMain.handle('get-app-version', () => {
+  return app.getVersion()
+})
+
+// 获取应用信息
+ipcMain.handle('get-app-info', () => {
+  return {
+    version: app.getVersion(),
+    name: app.getName(),
+    isPackaged: app.isPackaged,
+    platform: process.platform,
+    arch: process.arch
+  }
 })
 
 // 导出窗口引用供插件系统使用
