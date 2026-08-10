@@ -1,6 +1,11 @@
 const { app, BrowserWindow, ipcMain, protocol } = require('electron')
 const path = require('path')
 
+// Windows 圆角窗口
+if (process.platform === 'win32') {
+  // transparent: true + CSS border-radius 实现圆角窗口
+}
+
 // 单实例锁
 const gotTheLock = app.requestSingleInstanceLock()
 
@@ -19,16 +24,16 @@ if (!gotTheLock) {
 let mainWindow
 
 function createWindow () {
-  // 创建浏览器窗口
+  // 创建浏览器窗口（比 console 大一圈，透明背景露出桌面）
   mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
-    minWidth: 800,
-    minHeight: 600,
-    maxWidth: 800,
-    maxHeight: 600,
-    frame: false, // 无边框窗口，自定义标题栏
-    transparent: false,
+    width: 820,
+    height: 580,
+    minWidth: 820,
+    minHeight: 580,
+    maxWidth: 820,
+    maxHeight: 580,
+    frame: false,
+    transparent: true,
     resizable: false,
     webPreferences: {
       nodeIntegration: true,
@@ -37,14 +42,14 @@ function createWindow () {
       autoplayPolicy: 'no-user-gesture-required'
     },
     icon: path.join(__dirname, '../renderer/assets/icon.png'),
-    backgroundColor: '#0a0a0a',
     show: false // 先隐藏，等加载完成后再显示
   })
 
   // 开发模式加载 Vite 开发服务器，生产模式加载打包文件
   if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
     mainWindow.loadURL('http://localhost:5173')
-    mainWindow.webContents.openDevTools({ mode: 'detach' })
+    // 注意：透明窗口下不要自动打开 DevTools，会导致透明失效
+    // 需要调试时按 F12 或 Ctrl+Shift+I 手动打开
   } else {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
   }

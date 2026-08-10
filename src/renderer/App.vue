@@ -101,6 +101,11 @@
       </div>
     </main>
 
+    <!-- 底部 -->
+    <footer class="footer">
+      <span class="footer-info">HUNDUN LITE</span>
+    </footer>
+
     <!-- 弹窗 -->
     <Modal
       v-if="modalVisible"
