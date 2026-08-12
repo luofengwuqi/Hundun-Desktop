@@ -142,6 +142,27 @@ app.whenReady().then(() => {
   })
 })
 
+// 窗口尺寸调整（子程序切换用）
+ipcMain.on('window-resize', (event, { width, height }) => {
+  if (mainWindow) {
+    const totalW = width + 20
+    const totalH = height + 20
+
+    // 先解除尺寸限制
+    mainWindow.setResizable(true)
+    mainWindow.setMinimumSize(100, 100)
+    mainWindow.setMaximumSize(9999, 9999)
+
+    // 调整窗口大小
+    mainWindow.setSize(totalW, totalH)
+    mainWindow.center()
+
+    // 锁定新尺寸
+    mainWindow.setMinimumSize(totalW, totalH)
+    mainWindow.setMaximumSize(totalW, totalH)
+  }
+})
+
 // 获取应用版本
 ipcMain.handle('get-app-version', () => {
   return app.getVersion()

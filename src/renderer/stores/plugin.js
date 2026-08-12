@@ -2,8 +2,19 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
 export const usePluginStore = defineStore('plugin', () => {
-  // 完整插件列表（与原型一致的10个）
+  // 完整插件列表（与原型一致的10个 + TEST）
   const plugins = ref([
+    {
+      id: 'test-app',
+      name: 'TEST',
+      description: '测试子程序 - 验证过渡动画',
+      icon: '🧪',
+      version: '0.0.1',
+      author: 'Hundun Lite',
+      enabled: true,
+      color: '#00ff88',
+      windowSize: { width: 400, height: 400 }
+    },
     {
       id: 'timer-manager',
       name: '定时任务',

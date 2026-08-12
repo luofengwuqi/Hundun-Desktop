@@ -1,110 +1,125 @@
 <template>
+  <!-- 单一 .console 容器，始终存在 -->
   <div class="console" :class="{ 'light-mode': !isDarkMode }">
-    <!-- 装饰螺丝 -->
-    <div class="deco-screw screw-tl"></div>
-    <div class="deco-screw screw-tr"></div>
-    <div class="deco-screw screw-bl"></div>
-    <div class="deco-screw screw-br"></div>
 
-    <!-- 头部 -->
-    <header class="header">
-      <div class="toggle-container">
-        <span class="toggle-label">深色</span>
-        <div 
-          class="toggle-switch" 
-          :class="{ active: !isDarkMode }"
-          @click="toggleTheme"
-        >
-          <div class="toggle-knob"></div>
-        </div>
-        <span class="toggle-label">浅色</span>
-        <div class="status-dot"></div>
-      </div>
-    </header>
+    <!-- ===== 母程序视图 ===== -->
+    <div class="parent-view" v-if="currentView === 'parent'">
+      <!-- 装饰螺丝 -->
+      <div class="deco-screw screw-tl"></div>
+      <div class="deco-screw screw-tr"></div>
+      <div class="deco-screw screw-bl"></div>
+      <div class="deco-screw screw-br"></div>
 
-    <!-- 主内容 -->
-    <main class="content">
-      <!-- 卡带信息栏 -->
-      <div class="cartridge-info">
-        <span v-if="selectedRow === 0 && selectedIndex >= 0 && shelfPlugins[selectedIndex]" class="cartridge-info-name">
-          {{ shelfPlugins[selectedIndex].name }}
-        </span>
-        <span v-else-if="selectedRow === 1" class="cartridge-info-name">
-          {{ bottomRowNames[selectedCol] }}
-        </span>
-        <span v-else class="cartridge-info-empty">← → 选择卡带</span>
-      </div>
-
-      <!-- 卡带货架 (水平滚动) -->
-      <div class="cartridge-shelf" ref="shelfRef" @wheel="handleWheel">
-        <div class="cartridge-row">
+      <!-- 头部 -->
+      <header class="header">
+        <div class="toggle-container">
+          <span class="toggle-label">深色</span>
           <div 
-            v-for="(plugin, idx) in shelfPlugins" 
-            :key="plugin.id"
-            class="cartridge"
+            class="toggle-switch" 
+            :class="{ active: !isDarkMode }"
+            @click="toggleTheme"
+          >
+            <div class="toggle-knob"></div>
+          </div>
+          <span class="toggle-label">浅色</span>
+          <div class="status-dot"></div>
+        </div>
+        <!-- 右上角退出按钮 -->
+        <button class="header-close-btn" @click="quitApp" title="退出">
+          ✕
+        </button>
+      </header>
+
+      <!-- 主内容 -->
+      <main class="content">
+        <!-- 卡带信息栏 -->
+        <div class="cartridge-info">
+          <span v-if="selectedRow === 0 && selectedIndex >= 0 && shelfPlugins[selectedIndex]" class="cartridge-info-name">
+            {{ shelfPlugins[selectedIndex].name }}
+          </span>
+          <span v-else-if="selectedRow === 1" class="cartridge-info-name">
+            {{ bottomRowNames[selectedCol] }}
+          </span>
+          <span v-else class="cartridge-info-empty">← → 选择卡带</span>
+        </div>
+
+        <!-- 卡带货架 (水平滚动) -->
+        <div class="cartridge-shelf" ref="shelfRef" @wheel="handleWheel">
+          <div class="cartridge-row">
+            <div 
+              v-for="(plugin, idx) in shelfPlugins" 
+              :key="plugin.id"
+              class="cartridge"
+              :class="{ 
+                selected: selectedRow === 0 && idx === selectedIndex,
+                dragging: dragPlugin && dragPlugin.id === plugin.id
+              }"
+              :style="{ '--cartridge-color': plugin.color }"
+              :draggable="selectedRow === 0 && idx === selectedIndex"
+              @dragstart="handleDragStart($event, plugin)"
+              @dragend="handleDragEnd"
+              @click="handleCartridgeClick(idx)"
+            >
+              <div class="cartridge-icon">{{ plugin.icon }}</div>
+              <div class="cartridge-title">{{ plugin.name }}</div>
+              <div class="cartridge-id">#{{ String(idx + 1).padStart(3, '0') }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 底部行：按钮 + 插槽 -->
+        <div class="slot-row">
+          <div class="slot-buttons">
+            <button 
+              class="slot-btn" 
+              :class="{ selected: selectedRow === 1 && selectedCol === 0 }"
+              @click="handleBtnAddClick"
+            >
+              <span class="slot-btn-icon">+</span>
+            </button>
+            <button 
+              class="slot-btn" 
+              :class="{ selected: selectedRow === 1 && selectedCol === 1 }"
+              @click="handleBtnSettingsClick"
+            >
+              <span class="slot-btn-icon">⚙</span>
+            </button>
+          </div>
+          
+          <div 
+            class="cartridge-slot" 
+            ref="slotRef"
             :class="{ 
-              selected: selectedRow === 0 && idx === selectedIndex,
-              dragging: dragPlugin && dragPlugin.id === plugin.id
+              selected: selectedRow === 1 && selectedCol === 2,
+              'drag-over': isDragOver
             }"
-            :style="{ '--cartridge-color': plugin.color }"
-            :draggable="selectedRow === 0 && idx === selectedIndex"
-            @dragstart="handleDragStart($event, plugin)"
-            @dragend="handleDragEnd"
-            @click="handleCartridgeClick(idx)"
+            @dragover.prevent="handleDragOver"
+            @dragleave="handleDragLeave"
+            @drop="handleDrop"
+            @click="handleSlotClick"
           >
-            <div class="cartridge-icon">{{ plugin.icon }}</div>
-            <div class="cartridge-title">{{ plugin.name }}</div>
-            <div class="cartridge-id">#{{ String(idx + 1).padStart(3, '0') }}</div>
+            <div v-if="slotPlugin" class="slot-cartridge" :style="{ '--cartridge-color': slotPlugin.color }">
+              <div class="slot-cartridge-icon">{{ slotPlugin.icon }}</div>
+              <div class="slot-cartridge-name">{{ slotPlugin.name }}</div>
+            </div>
+            <span v-else class="slot-empty">拖入卡带启动</span>
           </div>
         </div>
-      </div>
+      </main>
 
-      <!-- 底部行：按钮 + 插槽 -->
-      <div class="slot-row">
-        <!-- 左侧按钮组 -->
-        <div class="slot-buttons">
-          <button 
-            class="slot-btn" 
-            :class="{ selected: selectedRow === 1 && selectedCol === 0 }"
-            @click="handleBtnAddClick"
-          >
-            <span class="slot-btn-icon">+</span>
-          </button>
-          <button 
-            class="slot-btn" 
-            :class="{ selected: selectedRow === 1 && selectedCol === 1 }"
-            @click="handleBtnSettingsClick"
-          >
-            <span class="slot-btn-icon">⚙</span>
-          </button>
-        </div>
-        
-        <!-- 右侧卡带插槽 -->
-        <div 
-          class="cartridge-slot" 
-          ref="slotRef"
-          :class="{ 
-            selected: selectedRow === 1 && selectedCol === 2,
-            'drag-over': isDragOver
-          }"
-          @dragover.prevent="handleDragOver"
-          @dragleave="handleDragLeave"
-          @drop="handleDrop"
-          @click="handleSlotClick"
-        >
-          <div v-if="slotPlugin" class="slot-cartridge" :style="{ '--cartridge-color': slotPlugin.color }">
-            <div class="slot-cartridge-icon">{{ slotPlugin.icon }}</div>
-            <div class="slot-cartridge-name">{{ slotPlugin.name }}</div>
-          </div>
-          <span v-else class="slot-empty">拖入卡带启动</span>
-        </div>
-      </div>
-    </main>
+      <!-- 底部 -->
+      <footer class="footer">
+        <span class="footer-info">HUNDUN LITE</span>
+      </footer>
+    </div>
 
-    <!-- 底部 -->
-    <footer class="footer">
-      <span class="footer-info">HUNDUN LITE</span>
-    </footer>
+    <!-- ===== 子程序视图 ===== -->
+    <div class="child-view" v-if="currentView === 'child'">
+      <TestApp @return-to-parent="returnToParent" />
+    </div>
+
+    <!-- ===== 加载蒙版 (在 .console 内部，绝对定位覆盖全部内容) ===== -->
+    <LoadingMask :phase="maskPhase" />
 
     <!-- 弹窗 -->
     <Modal
@@ -124,32 +139,28 @@ import { useThemeStore } from './stores/theme'
 import { usePluginStore } from './stores/plugin'
 import { playSound } from './utils/audio'
 import Modal from './components/Modal.vue'
+import LoadingMask from './components/LoadingMask.vue'
+import TestApp from './components/TestApp.vue'
 
 const themeStore = useThemeStore()
 const pluginStore = usePluginStore()
 
-// ========== 状态 ==========
+// ========== 过渡状态 ==========
+const currentView = ref('parent') // 'parent' | 'child'
+const maskPhase = ref('hidden')   // 'hidden' | 'entering' | 'visible' | 'exiting'
+const currentAppPlugin = ref(null)
+const PARENT_SIZE = { width: 800, height: 540 }
+
+// ========== 母程序状态 ==========
 const isDarkMode = computed(() => themeStore.isDarkMode)
-
-// 原始插件列表（完整）
 const allPlugins = computed(() => pluginStore.plugins)
-
-// 卡带货架（不在插槽中的）
 const shelfPlugins = ref([])
-
-// 插槽中的插件
 const slotPlugin = ref(null)
-
-// 选中状态
 const selectedIndex = ref(-1)
-const selectedRow = ref(0) // 0=卡带行, 1=按钮+插槽行
-const selectedCol = ref(0) // 按钮行中的列: 0=+, 1=设置, 2=插槽
-
-// 拖拽状态
+const selectedRow = ref(0)
+const selectedCol = ref(0)
 const dragPlugin = ref(null)
 const isDragOver = ref(false)
-
-// 底部行按钮名称
 const bottomRowNames = ['添加应用', '设置', '卡带插槽']
 
 // 弹窗状态
@@ -163,6 +174,9 @@ const modalButtons = ref([])
 const shelfRef = ref(null)
 const slotRef = ref(null)
 
+// ========== 工具函数 ==========
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
+
 // ========== 初始化 ==========
 const initShelfPlugins = () => {
   shelfPlugins.value = [...allPlugins.value]
@@ -174,11 +188,25 @@ const toggleTheme = () => {
   themeStore.toggleTheme()
 }
 
+// ========== 退出程序 ==========
+const quitApp = () => {
+  playSound('exit')
+  setTimeout(() => {
+    try {
+      const { ipcRenderer } = require('electron')
+      ipcRenderer.send('window-close')
+    } catch (e) {
+      if (window.electronAPI && window.electronAPI.windowClose) {
+        window.electronAPI.windowClose()
+      }
+    }
+  }, 1000)
+}
+
 // ========== 卡带点击 ==========
 const handleCartridgeClick = (idx) => {
   playSound('click')
   if (selectedRow.value === 0 && selectedIndex.value === idx) {
-    // 双击插入
     insertSelectedToSlot()
   } else {
     selectedRow.value = 0
@@ -203,7 +231,6 @@ const insertSelectedToSlot = () => {
   
   const plugin = shelfPlugins.value[selectedIndex.value]
   
-  // 检查是否已在运行
   if (slotPlugin.value && slotPlugin.value.id === plugin.id) {
     showModal(
       '⚠️',
@@ -214,7 +241,6 @@ const insertSelectedToSlot = () => {
     return
   }
   
-  // 插槽已有卡带，需要切换
   if (slotPlugin.value) {
     const currentPlugin = slotPlugin.value
     const newPlugin = plugin
@@ -226,25 +252,15 @@ const insertSelectedToSlot = () => {
       [
         { text: '取消', class: 'secondary', action: closeModal },
         { text: '🔌 拔出并切换', class: 'danger', action: () => {
-          // 拔出当前卡带
           shelfPlugins.value.push(currentPlugin)
           sortShelfPlugins()
-          
-          // 从列表移除新卡带
           shelfPlugins.value = shelfPlugins.value.filter(p => p.id !== newPlugin.id)
-          
-          // 插入新卡带
           slotPlugin.value = newPlugin
-          
-          // 重置选中
           selectedIndex.value = 0
           selectedRow.value = 0
-          
           updateRowSelection()
           closeModal()
           playSound('bengbeng')
-          
-          // 自动启动
           setTimeout(() => launchApp(newPlugin), 300)
         }}
       ]
@@ -252,35 +268,13 @@ const insertSelectedToSlot = () => {
     return
   }
   
-  // 插槽为空，直接插入
   shelfPlugins.value = shelfPlugins.value.filter(p => p.id !== plugin.id)
   slotPlugin.value = plugin
-  
   selectedIndex.value = 0
   selectedRow.value = 0
-  
   updateRowSelection()
   playSound('bengbeng')
-  
   setTimeout(() => launchApp(plugin), 300)
-}
-
-// ========== 拔出当前卡带 ==========
-const ejectCurrentPlugin = () => {
-  if (!slotPlugin.value) return
-  
-  const plugin = slotPlugin.value
-  slotPlugin.value = null
-  
-  shelfPlugins.value.push(plugin)
-  sortShelfPlugins()
-  
-  selectedIndex.value = 0
-  selectedRow.value = 0
-  
-  updateRowSelection()
-  closeModal()
-  playSound('exit')
 }
 
 // ========== 排序卡带 ==========
@@ -292,20 +286,83 @@ const sortShelfPlugins = () => {
   })
 }
 
-// ========== 启动应用 ==========
-const launchApp = (plugin) => {
+// ========== 启动子程序（过渡动画） ==========
+const launchApp = async (plugin) => {
   playSound('OK')
-  showModal(
-    plugin.icon,
-    plugin.name,
-    `
-      <strong>${plugin.icon} ${plugin.name}</strong><br><br>
-      应用已启动！<br>
-      这是一个子程序的占位弹窗。<br>
-      实际功能将在后续开发中实现。
-    `,
-    [{ text: '返回', class: 'primary', action: closeModal }]
-  )
+
+  const childSize = plugin.windowSize || { width: 400, height: 400 }
+
+  // Phase 1: 蒙版从上滑入，覆盖母程序
+  maskPhase.value = 'entering'
+  await sleep(450)
+
+  // Phase 2: 蒙版静止，切换视图 + 窗口调整大小
+  maskPhase.value = 'visible'
+  currentAppPlugin.value = plugin
+  currentView.value = 'child'
+
+  // 通知 Electron 调整窗口尺寸
+  if (window.electronAPI && window.electronAPI.windowResize) {
+    window.electronAPI.windowResize(childSize.width, childSize.height)
+  }
+  await sleep(400)
+
+  // Phase 3: 蒙版从下滑出，露出子程序
+  maskPhase.value = 'exiting'
+  await sleep(450)
+
+  maskPhase.value = 'hidden'
+}
+
+// ========== 返回母程序（过渡动画） ==========
+const returnToParent = async () => {
+  playSound('exit')
+
+  // Phase 1: 蒙版从上滑入，覆盖子程序
+  maskPhase.value = 'entering'
+  await sleep(450)
+
+  // Phase 2: 蒙版静止，切换视图 + 窗口恢复大小
+  maskPhase.value = 'visible'
+  currentAppPlugin.value = null
+  currentView.value = 'parent'
+
+  // 恢复母程序窗口尺寸
+  if (window.electronAPI && window.electronAPI.windowResize) {
+    window.electronAPI.windowResize(PARENT_SIZE.width, PARENT_SIZE.height)
+  }
+  await sleep(400)
+
+  // Phase 3: 蒙版从下滑出
+  maskPhase.value = 'exiting'
+  await sleep(450)
+
+  maskPhase.value = 'hidden'
+
+  // 恢复选中状态
+  selectedIndex.value = 0
+  selectedRow.value = 0
+  updateRowSelection()
+}
+
+// ========== 拔出当前卡带 ==========
+const ejectCurrentPlugin = async () => {
+  if (!slotPlugin.value) return
+  
+  const plugin = slotPlugin.value
+  slotPlugin.value = null
+  shelfPlugins.value.push(plugin)
+  sortShelfPlugins()
+  selectedIndex.value = 0
+  selectedRow.value = 0
+  updateRowSelection()
+  closeModal()
+  
+  if (currentView.value === 'child') {
+    await returnToParent()
+  } else {
+    playSound('exit')
+  }
 }
 
 // ========== 底部按钮点击 ==========
@@ -401,12 +458,10 @@ const handleDragLeave = () => {
 
 const handleDrop = () => {
   isDragOver.value = false
-  
   if (!dragPlugin.value) return
   
   const plugin = dragPlugin.value
   
-  // 检查是否已在运行
   if (slotPlugin.value && slotPlugin.value.id === plugin.id) {
     showModal(
       '⚠️',
@@ -418,26 +473,18 @@ const handleDrop = () => {
     return
   }
   
-  // 插槽已有卡带，先弹出
   if (slotPlugin.value) {
     shelfPlugins.value.push(slotPlugin.value)
     sortShelfPlugins()
   }
   
-  // 从我的应用中移除
   shelfPlugins.value = shelfPlugins.value.filter(p => p.id !== plugin.id)
-  
-  // 添加到插槽
   slotPlugin.value = plugin
-  
   selectedIndex.value = 0
   selectedRow.value = 0
-  
   updateRowSelection()
   playSound('bengbeng')
-  
   setTimeout(() => launchApp(plugin), 300)
-  
   dragPlugin.value = null
 }
 
@@ -469,13 +516,11 @@ const handleModalClose = () => {
 
 // ========== 键盘导航 ==========
 const handleKeydown = (e) => {
-  // 弹窗打开时只处理 Escape
   if (modalVisible.value) {
     if (e.key === 'Escape') closeModal()
     return
   }
   
-  // 映射 WASD + 空格 到方向键和回车
   let key = e.key
   if (key === 'a' || key === 'A') key = 'ArrowLeft'
   if (key === 'd' || key === 'D') key = 'ArrowRight'
@@ -533,15 +578,9 @@ const handleKeydown = (e) => {
         }
       } else {
         switch (selectedCol.value) {
-          case 0:
-            handleAddApp()
-            break
-          case 1:
-            handleSettings()
-            break
-          case 2:
-            handleSlotClick()
-            break
+          case 0: handleAddApp(); break
+          case 1: handleSettings(); break
+          case 2: handleSlotClick(); break
         }
       }
       break
@@ -557,7 +596,6 @@ onMounted(() => {
   initShelfPlugins()
   document.addEventListener('keydown', handleKeydown)
   
-  // 默认选中第一个卡带
   if (shelfPlugins.value.length > 0) {
     selectedIndex.value = 0
     selectedRow.value = 0
