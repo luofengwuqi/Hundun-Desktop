@@ -399,15 +399,11 @@ const handleSlotClick = () => {
     } else {
       showModal(
         slotPlugin.value.icon,
-        '运行中的应用',
-        `
-          <strong>${slotPlugin.value.icon} ${slotPlugin.value.name}</strong><br><br>
-          <span style="color: var(--accent-primary);">● 运行中</span><br><br>
-          是否要拔出此卡带？
-        `,
+        slotPlugin.value.name,
+        '<span style="color: var(--accent-primary);">● 运行中</span>',
         [
           { text: '取消', class: 'secondary', action: closeModal },
-          { text: '🔌 拔出卡带', class: 'danger', action: ejectCurrentPlugin }
+          { text: '🔌 拔出', class: 'danger', action: ejectCurrentPlugin }
         ]
       )
     }

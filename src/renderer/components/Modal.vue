@@ -1,10 +1,16 @@
 <template>
   <div class="modal-overlay" @click.self="handleClose">
     <div class="modal">
-      <div class="modal-icon">{{ icon }}</div>
-      <div class="modal-title">{{ title }}</div>
-      <div class="modal-message" v-html="message"></div>
-      <div class="modal-buttons">
+      <!-- 左侧：图标和信息 -->
+      <div class="modal-left">
+        <div class="modal-icon">{{ icon }}</div>
+        <div class="modal-info">
+          <div class="modal-title">{{ title }}</div>
+          <div class="modal-message" v-html="message"></div>
+        </div>
+      </div>
+      <!-- 右侧：操作按钮 -->
+      <div class="modal-right">
         <button 
           v-for="(btn, idx) in buttons" 
           :key="idx"
@@ -65,83 +71,107 @@ const handleBtnClick = (action) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 500;
+  z-index: 9998;
   animation: fadeIn 0.3s ease;
 }
 
 .modal {
-  width: 380px;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
   background: var(--bg-card);
-  border-radius: 12px;
-  border: 2px solid var(--accent-primary);
-  padding: 28px;
-  text-align: center;
+  border-radius: 16px;
+  border: 3px solid var(--accent-primary);
   box-shadow: var(--shadow-glow);
   animation: modalPop 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  overflow: hidden;
+  min-width: 520px;
+  max-width: 700px;
+}
+
+.modal-left {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 32px 36px;
+  flex: 1;
+  border-right: 2px solid var(--border-color);
 }
 
 .modal-icon {
-  font-size: 48px;
-  margin-bottom: 12px;
+  font-size: 72px;
+  flex-shrink: 0;
+}
+
+.modal-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
 }
 
 .modal-title {
   font-family: 'Press Start 2P', cursive;
-  font-size: 12px;
+  font-size: 16px;
   color: var(--accent-primary);
-  margin-bottom: 12px;
 }
 
 .modal-message {
-  font-size: 14px;
+  font-size: 15px;
   color: var(--text-secondary);
-  margin-bottom: 20px;
-  line-height: 1.8;
+  line-height: 1.7;
 }
 
-.modal-buttons {
+.modal-right {
   display: flex;
+  flex-direction: column;
   gap: 12px;
+  padding: 24px;
   justify-content: center;
+  align-items: center;
+  min-width: 160px;
+  background: rgba(0, 0, 0, 0.15);
 }
 
 .modal-btn {
   font-family: 'Press Start 2P', cursive;
-  font-size: 8px;
-  padding: 10px 20px;
+  font-size: 10px;
+  padding: 14px 24px;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
   text-transform: uppercase;
   transition: all 0.2s ease;
+  width: 100%;
+  white-space: nowrap;
 }
 
 .modal-btn.primary {
   background: var(--accent-primary);
   color: #000;
-  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3);
 }
 
 .modal-btn.secondary {
-  background: #444;
+  background: #555;
   color: #fff;
-  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3);
 }
 
 .modal-btn.danger {
   background: #ff0040;
   color: #fff;
-  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3);
 }
 
 .modal-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.3);
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.3);
 }
 
 .modal-btn:active {
-  transform: translateY(1px);
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
 }
 
 @keyframes fadeIn {
