@@ -1,6 +1,6 @@
 <template>
   <div class="modal-overlay" @click.self="handleClose">
-    <div class="modal">
+    <div class="modal" :class="{ 'modal-large': size === 'large' }">
       <!-- 左侧：图标和信息 -->
       <div class="modal-left">
         <div class="modal-icon">{{ icon }}</div>
@@ -15,8 +15,9 @@
           v-for="(btn, idx) in buttons" 
           :key="idx"
           class="modal-btn" 
-          :class="btn.class"
-          @click="handleBtnClick(btn.action)"
+          :class="[btn.class, { selected: selectedBtnIdx === idx }]"
+          @click="handleBtnClick(idx, btn.action)"
+          @mouseenter="handleBtnHover(idx)"
         >
           {{ btn.text }}
         </button>
@@ -26,6 +27,8 @@
 </template>
 
 <script setup>
+import { ref, onMounted, onUnmounted } from 'vue'
+
 const props = defineProps({
   icon: {
     type: String,
@@ -42,22 +45,102 @@ const props = defineProps({
   buttons: {
     type: Array,
     default: () => [{ text: '确定', class: 'primary', action: null }]
+  },
+  size: {
+    type: String,
+    default: 'normal',
+    validator: (value) => ['normal', 'large'].includes(value)
   }
 })
 
 const emit = defineEmits(['close'])
 
-const handleClose = () => {
-  emit('close')
-}
+// 选中的按钮索引
+const selectedBtnIdx = ref(-1)
 
-const handleBtnClick = (action) => {
+// 执行按钮操作
+const executeBtnAction = (action) => {
   if (action && typeof action === 'function') {
     action()
   } else {
     emit('close')
   }
 }
+
+// 鼠标点击处理：第一次选中，第二次执行
+const handleBtnClick = (idx, action) => {
+  if (selectedBtnIdx.value === idx) {
+    // 第二次点击同一按钮，执行操作
+    executeBtnAction(action)
+  } else {
+    // 第一次点击，选中按钮
+    selectedBtnIdx.value = idx
+  }
+}
+
+// 鼠标悬停时选中按钮
+const handleBtnHover = (idx) => {
+  selectedBtnIdx.value = idx
+}
+
+// 键盘导航处理
+const handleKeydown = (e) => {
+  let key = e.key
+  
+  // WASD 映射到方向键
+  if (key === 'w' || key === 'W') key = 'ArrowUp'
+  if (key === 's' || key === 'S') key = 'ArrowDown'
+  if (key === 'a' || key === 'A') key = 'ArrowLeft'
+  if (key === 'd' || key === 'D') key = 'ArrowRight'
+  
+  switch (key) {
+    case 'ArrowUp':
+      e.preventDefault()
+      if (selectedBtnIdx.value <= 0) {
+        selectedBtnIdx.value = props.buttons.length - 1
+      } else {
+        selectedBtnIdx.value--
+      }
+      break
+      
+    case 'ArrowDown':
+      e.preventDefault()
+      if (selectedBtnIdx.value >= props.buttons.length - 1) {
+        selectedBtnIdx.value = 0
+      } else {
+        selectedBtnIdx.value++
+      }
+      break
+      
+    case 'Enter':
+    case ' ':
+      e.preventDefault()
+      if (selectedBtnIdx.value >= 0 && selectedBtnIdx.value < props.buttons.length) {
+        const btn = props.buttons[selectedBtnIdx.value]
+        executeBtnAction(btn.action)
+      }
+      break
+      
+    case 'Escape':
+      e.preventDefault()
+      emit('close')
+      break
+  }
+}
+
+// 组件挂载时添加键盘监听
+onMounted(() => {
+  document.addEventListener('keydown', handleKeydown)
+  // 默认选中第一个按钮
+  if (props.buttons.length > 0) {
+    selectedBtnIdx.value = 0
+  }
+})
+
+// 组件卸载时移除键盘监听
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown)
+})
 </script>
 
 <style scoped>
@@ -89,11 +172,17 @@ const handleBtnClick = (action) => {
   max-width: 700px;
 }
 
+.modal.modal-large {
+  min-width: 600px;
+  max-width: 800px;
+  min-height: 280px;
+}
+
 .modal-left {
   display: flex;
   align-items: center;
-  gap: 24px;
-  padding: 32px 36px;
+  gap: 32px;
+  padding: 40px 48px;
   flex: 1;
   border-right: 2px solid var(--border-color);
 }
@@ -106,18 +195,18 @@ const handleBtnClick = (action) => {
 .modal-info {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
   min-width: 0;
 }
 
 .modal-title {
   font-family: 'Press Start 2P', cursive;
-  font-size: 16px;
+  font-size: 20px;
   color: var(--accent-primary);
 }
 
 .modal-message {
-  font-size: 15px;
+  font-size: 18px;
   color: var(--text-secondary);
   line-height: 1.7;
 }
@@ -125,23 +214,23 @@ const handleBtnClick = (action) => {
 .modal-right {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 24px;
+  gap: 16px;
+  padding: 32px;
   justify-content: center;
   align-items: center;
-  min-width: 160px;
+  min-width: 200px;
   background: rgba(0, 0, 0, 0.15);
 }
 
 .modal-btn {
   font-family: 'Press Start 2P', cursive;
-  font-size: 10px;
-  padding: 14px 24px;
-  border: none;
+  font-size: 18px;
+  padding: 10px 18px;
+  border: 3px solid transparent;
   border-radius: 6px;
   cursor: pointer;
   text-transform: uppercase;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   width: 100%;
   white-space: nowrap;
 }
@@ -164,13 +253,26 @@ const handleBtnClick = (action) => {
   box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3);
 }
 
+/* 选中状态 */
+.modal-btn.selected {
+  border-color: #fff;
+  box-shadow: 0 0 16px rgba(255, 255, 255, 0.5), 0 4px 0 rgba(0, 0, 0, 0.3);
+  transform: scale(1.05);
+}
+
 .modal-btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 6px 0 rgba(0, 0, 0, 0.3);
 }
 
+/* 选中状态优先于hover */
+.modal-btn.selected:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 16px rgba(255, 255, 255, 0.5), 0 4px 0 rgba(0, 0, 0, 0.3);
+}
+
 .modal-btn:active {
-  transform: translateY(2px);
+  transform: translateY(2px) scale(0.98);
   box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
 }
 

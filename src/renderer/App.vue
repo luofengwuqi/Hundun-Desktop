@@ -1,6 +1,6 @@
 <template>
   <!-- 单一 .console 容器，始终存在 -->
-  <div class="console" :class="{ 'light-mode': !isDarkMode }">
+  <div class="console" :class="{ 'light-mode': !isDarkMode, 'child-mode': currentView === 'child' }">
 
     <!-- ===== 母程序视图 ===== -->
     <div class="parent-view" v-if="currentView === 'parent'">
@@ -119,7 +119,7 @@
     </div>
 
     <!-- ===== 加载蒙版 (在 .console 内部，绝对定位覆盖全部内容) ===== -->
-    <LoadingMask :phase="maskPhase" />
+    <LoadingMask :phase="maskPhase" :childMode="currentView === 'child'" />
 
     <!-- 弹窗 -->
     <Modal
@@ -128,6 +128,7 @@
       :title="modalTitle"
       :message="modalMessage"
       :buttons="modalButtons"
+      :size="modalSize"
       @close="handleModalClose"
     />
   </div>
@@ -169,6 +170,7 @@ const modalIcon = ref('')
 const modalTitle = ref('')
 const modalMessage = ref('')
 const modalButtons = ref([])
+const modalSize = ref('normal')
 
 // DOM 引用
 const shelfRef = ref(null)
@@ -294,22 +296,25 @@ const launchApp = async (plugin) => {
 
   // Phase 1: 蒙版从上滑入，覆盖母程序
   maskPhase.value = 'entering'
-  await sleep(450)
+  await sleep(900)
 
-  // Phase 2: 蒙版静止，切换视图 + 窗口调整大小
+  // Phase 2: 蒙版完全覆盖，切换视图 + 调整窗口大小
   maskPhase.value = 'visible'
-  currentAppPlugin.value = plugin
   currentView.value = 'child'
+  currentAppPlugin.value = plugin
 
-  // 通知 Electron 调整窗口尺寸
-  if (window.electronAPI && window.electronAPI.windowResize) {
-    window.electronAPI.windowResize(childSize.width, childSize.height)
+  // 窗口调整大小（蒙版覆盖期间执行）
+  try {
+    const { ipcRenderer } = require('electron')
+    ipcRenderer.send('window-resize', { width: childSize.width, height: childSize.height })
+  } catch (e) {
+    console.error('Failed to resize window:', e)
   }
-  await sleep(400)
+  await sleep(1200)
 
   // Phase 3: 蒙版从下滑出，露出子程序
   maskPhase.value = 'exiting'
-  await sleep(450)
+  await sleep(900)
 
   maskPhase.value = 'hidden'
 }
@@ -320,22 +325,25 @@ const returnToParent = async () => {
 
   // Phase 1: 蒙版从上滑入，覆盖子程序
   maskPhase.value = 'entering'
-  await sleep(450)
+  await sleep(900)
 
-  // Phase 2: 蒙版静止，切换视图 + 窗口恢复大小
+  // Phase 2: 蒙版完全覆盖，切换视图 + 恢复窗口大小
   maskPhase.value = 'visible'
-  currentAppPlugin.value = null
   currentView.value = 'parent'
+  currentAppPlugin.value = null
 
-  // 恢复母程序窗口尺寸
-  if (window.electronAPI && window.electronAPI.windowResize) {
-    window.electronAPI.windowResize(PARENT_SIZE.width, PARENT_SIZE.height)
+  // 恢复窗口大小（蒙版覆盖期间执行）
+  try {
+    const { ipcRenderer } = require('electron')
+    ipcRenderer.send('window-resize', { width: PARENT_SIZE.width, height: PARENT_SIZE.height })
+  } catch (e) {
+    console.error('Failed to resize window:', e)
   }
-  await sleep(400)
+  await sleep(1200)
 
   // Phase 3: 蒙版从下滑出
   maskPhase.value = 'exiting'
-  await sleep(450)
+  await sleep(900)
 
   maskPhase.value = 'hidden'
 
@@ -402,9 +410,11 @@ const handleSlotClick = () => {
         slotPlugin.value.name,
         '<span style="color: var(--accent-primary);">● 运行中</span>',
         [
-          { text: '取消', class: 'secondary', action: closeModal },
-          { text: '🔌 拔出', class: 'danger', action: ejectCurrentPlugin }
-        ]
+          { text: '✓ 继续使用', class: 'primary', action: continueToChild },
+          { text: '🔌 拔出卡带', class: 'danger', action: ejectCurrentPlugin },
+          { text: '取消', class: 'secondary', action: closeModal }
+        ],
+        'large'
       )
     }
   } else {
@@ -493,17 +503,55 @@ const handleWheel = (e) => {
 }
 
 // ========== 弹窗系统 ==========
-const showModal = (icon, title, message, buttons) => {
+const showModal = (icon, title, message, buttons, size = 'normal') => {
   modalIcon.value = icon
   modalTitle.value = title
   modalMessage.value = message
   modalButtons.value = buttons
+  modalSize.value = size
   modalVisible.value = true
 }
 
 const closeModal = () => {
   playSound('exit')
   modalVisible.value = false
+}
+
+// ========== 继续使用（切换到子程序视图） ==========
+const continueToChild = async () => {
+  closeModal()
+  
+  // 如果当前在母程序视图且有运行中的子程序，切换到子程序
+  if (currentView.value === 'parent' && slotPlugin.value) {
+    playSound('OK')
+    
+    const plugin = slotPlugin.value
+    const childSize = plugin.windowSize || { width: 400, height: 400 }
+
+    // Phase 1: 蒙版从上滑入，覆盖母程序
+    maskPhase.value = 'entering'
+    await sleep(900)
+
+    // Phase 2: 蒙版完全覆盖，切换视图 + 调整窗口大小
+    maskPhase.value = 'visible'
+    currentView.value = 'child'
+    currentAppPlugin.value = plugin
+
+    // 窗口调整大小（蒙版覆盖期间执行）
+    try {
+      const { ipcRenderer } = require('electron')
+      ipcRenderer.send('window-resize', { width: childSize.width, height: childSize.height })
+    } catch (e) {
+      console.error('Failed to resize window:', e)
+    }
+    await sleep(1200)
+
+    // Phase 3: 蒙版从下滑出，露出子程序
+    maskPhase.value = 'exiting'
+    await sleep(900)
+
+    maskPhase.value = 'hidden'
+  }
 }
 
 const handleModalClose = () => {
@@ -582,7 +630,17 @@ const handleKeydown = (e) => {
       break
       
     case 'Escape':
-      closeModal()
+      if (currentView.value === 'child') {
+        // 子程序中按Esc：返回母程序
+        returnToParent()
+      } else {
+        // 母程序中按Esc：关闭子程序并退出
+        if (slotPlugin.value) {
+          // 先拔出卡带
+          slotPlugin.value = null
+        }
+        quitApp()
+      }
       break
   }
 }

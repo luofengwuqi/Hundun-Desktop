@@ -1,7 +1,7 @@
 <template>
   <div 
     class="loading-mask"
-    :class="maskClass"
+    :class="[maskClass, { 'mask-child-mode': childMode }]"
   >
     <div class="loading-text">
       <span class="loading-dot">.</span>
@@ -23,6 +23,10 @@ const props = defineProps({
     type: String,
     default: 'hidden',
     validator: (v) => ['hidden', 'entering', 'visible', 'exiting'].includes(v)
+  },
+  childMode: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -76,7 +80,7 @@ const maskClass = computed(() => ({
 
 /* Phase: entering - slide down from top */
 .mask-entering {
-  animation: maskSlideDown 0.45s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: maskSlideDown 0.9s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 /* Phase: visible - fully covering */
@@ -86,12 +90,17 @@ const maskClass = computed(() => ({
 
 /* Phase: exiting - slide up from bottom */
 .mask-exiting {
-  animation: maskSlideUp 0.45s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: maskSlideUp 0.9s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 /* Phase: hidden */
 .mask-hidden {
   display: none;
+}
+
+/* 子程序模式 - 无圆角 */
+.mask-child-mode {
+  border-radius: 0;
 }
 
 /* Loading text - 自适应蒙版大小 */

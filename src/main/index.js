@@ -142,24 +142,49 @@ app.whenReady().then(() => {
   })
 })
 
-// 窗口尺寸调整（子程序切换用）
+// 窗口尺寸调整（子程序切换用）- 带过渡动画
 ipcMain.on('window-resize', (event, { width, height }) => {
   if (mainWindow) {
-    const totalW = width + 20
-    const totalH = height + 20
+    const targetW = width + 20
+    const targetH = height + 20
 
     // 先解除尺寸限制
     mainWindow.setResizable(true)
     mainWindow.setMinimumSize(100, 100)
     mainWindow.setMaximumSize(9999, 9999)
 
-    // 调整窗口大小
-    mainWindow.setSize(totalW, totalH)
-    mainWindow.center()
-
-    // 锁定新尺寸
-    mainWindow.setMinimumSize(totalW, totalH)
-    mainWindow.setMaximumSize(totalW, totalH)
+    // 获取当前窗口大小
+    const [currentW, currentH] = mainWindow.getSize()
+    
+    // 动画参数
+    const steps = 20
+    const stepDelay = 20 // 每步20ms，总共约400ms
+    
+    let step = 0
+    const animate = () => {
+      step++
+      const progress = step / steps
+      // 使用 easeInOut 缓动函数
+      const eased = progress < 0.5 
+        ? 2 * progress * progress 
+        : 1 - Math.pow(-2 * progress + 2, 2) / 2
+      
+      const newW = Math.round(currentW + (targetW - currentW) * eased)
+      const newH = Math.round(currentH + (targetH - currentH) * eased)
+      
+      mainWindow.setSize(newW, newH)
+      
+      if (step < steps) {
+        setTimeout(animate, stepDelay)
+      } else {
+        // 动画结束，居中并锁定尺寸
+        mainWindow.center()
+        mainWindow.setMinimumSize(targetW, targetH)
+        mainWindow.setMaximumSize(targetW, targetH)
+      }
+    }
+    
+    animate()
   }
 })
 
