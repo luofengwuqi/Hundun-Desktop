@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, protocol } = require('electron')
 const path = require('path')
+const { PluginManager } = require('./plugin-manager')
 
 // Windows 圆角窗口
 if (process.platform === 'win32') {
@@ -72,9 +73,20 @@ function createWindow () {
   })
 }
 
+// ========== 插件管理器实例 ==========
+let pluginManager = null
+
 // 应用准备就绪
 app.whenReady().then(() => {
   createWindow()
+  
+  // 初始化插件管理器（使用主窗口引用）
+  pluginManager = new PluginManager(mainWindow)
+  
+  // 注册插件管理器 IPC 处理器
+  registerPluginManagerIPC()
+  
+  console.log('[Main] Plugin manager initialized')
 
   // macOS 点击 dock 图标时重新创建窗口
   app.on('activate', () => {
@@ -85,7 +97,12 @@ app.whenReady().then(() => {
 })
 
 // 所有窗口关闭时退出应用 (Windows/Linux)
-app.on('window-all-closed', () => {
+app.on('window-all-closed', async () => {
+  // 清理插件管理器
+  if (pluginManager) {
+    await pluginManager.cleanup()
+  }
+  
   if (process.platform !== 'darwin') {
     app.quit()
   }
@@ -187,6 +204,119 @@ ipcMain.on('window-resize', (event, { width, height }) => {
     animate()
   }
 })
+
+// ========== 插件管理器 IPC 处理器 ==========
+function registerPluginManagerIPC() {
+  // 插件生命周期
+  ipcMain.handle('plugin-manager:load', async (event, pluginId) => {
+    try {
+      const plugin = await pluginManager.loadPlugin(pluginId)
+      return { success: true, plugin: { id: plugin.id, manifest: plugin.manifest } }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('plugin-manager:start', async (event, pluginId, options) => {
+    try {
+      await pluginManager.startPlugin(pluginId, options)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('plugin-manager:stop', async (event, pluginId) => {
+    try {
+      await pluginManager.closePlugin(pluginId)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('plugin-manager:suspend', async (event, pluginId) => {
+    try {
+      pluginManager.suspendPlugin(pluginId)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('plugin-manager:resume', async (event, pluginId) => {
+    try {
+      pluginManager.resumePlugin(pluginId)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('plugin-manager:unload', async (event, pluginId) => {
+    try {
+      await pluginManager.unloadPlugin(pluginId)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  // 插件查询
+  ipcMain.handle('plugin-manager:scan', async () => {
+    try {
+      const plugins = await pluginManager.scanPlugins()
+      return { success: true, plugins }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('plugin-manager:getInstalled', async () => {
+    try {
+      const plugins = pluginManager.getInstalledPlugins()
+      return { success: true, plugins }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('plugin-manager:isRunning', async (event, pluginId) => {
+    return pluginManager.isPluginRunning(pluginId)
+  })
+
+  ipcMain.handle('plugin-manager:getRunning', async () => {
+    return pluginManager.getRunningPlugins()
+  })
+
+  // 插件窗口控制
+  ipcMain.handle('plugin:close', async (event, pluginId) => {
+    try {
+      await pluginManager.closePlugin(pluginId)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('plugin:minimize', async (event, pluginId) => {
+    try {
+      pluginManager.minimizePlugin(pluginId)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('plugin:maximize', async (event, pluginId) => {
+    try {
+      pluginManager.maximizePlugin(pluginId)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  })
+}
 
 // 获取应用版本
 ipcMain.handle('get-app-version', () => {

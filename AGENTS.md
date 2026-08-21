@@ -1,7 +1,7 @@
 # Hundun Lite - 项目进度文档
 
-> 最后更新: 2026-08-16
-> 当前阶段: Phase 2 - Electron集成 (UI交互优化完成)
+> 最后更新: 2026-08-21
+> 当前阶段: Phase 3 - 插件系统开发 (架构完成，核心组件已实现)
 
 ---
 
@@ -203,6 +203,72 @@ case 'Enter':
 
 ---
 
+## 🏗️ 插件系统架构 (2026-08-21)
+
+### 文件结构
+```
+src/
+├── main/
+│   ├── index.js              # 主进程入口
+│   ├── database.js           # 数据存储管理器
+│   ├── plugin-manager.js     # 插件管理器 (核心)
+│   └── plugin-preload.js     # 插件窗口预加载脚本
+├── renderer/
+│   ├── stores/
+│   │   └── plugin.js         # 插件状态管理
+│   └── services/
+│       └── plugin-service.js # 渲染进程插件服务
+└── shared/
+    ├── plugin-loader.js      # 插件加载器
+    ├── plugin-bridge.js      # 插件通信桥接
+    └── plugin-sdk.js         # 插件开发 SDK
+```
+
+### 核心组件说明
+
+#### 1. 插件管理器 (PluginManager)
+- **职责**: 管理插件生命周期，创建 BrowserWindow 沙箱
+- **状态**: UNLOADED → LOADED → RUNNING → SUSPENDED
+- **特性**: 
+  - 独立进程隔离，插件崩溃不影响主程序
+  - 插件间消息路由
+  - 权限控制系统
+
+#### 2. 数据库管理器 (Database)
+- **存储**: JSON 文件，按插件隔离
+- **特性**:
+  - 原子写入（临时文件+重命名）
+  - 内存缓存 + 延迟写入
+  - 进程退出时自动保存
+
+#### 3. 插件预加载脚本 (Plugin Preload)
+- **暴露 API**: `window.hundun`
+  - `storage`: 数据存储
+  - `messaging`: 插件通信
+  - `window`: 窗口控制
+  - `permissions`: 权限检查
+
+#### 4. 插件开发 SDK
+- **使用方式**: `<script src="path/to/plugin-sdk.js">`
+- **自动初始化**: 页面加载完成后自动调用 `init()`
+- **API**: storage, messaging, window, ui, utils
+
+### 插件 Manifest 规范
+```json
+{
+  "id": "plugin-id",
+  "name": "插件名称",
+  "version": "1.0.0",
+  "description": "插件描述",
+  "icon": "📦",
+  "entry": "index.html",
+  "permissions": ["storage", "messaging"],
+  "windowSize": { "width": 400, "height": 400 }
+}
+```
+
+---
+
 ## 🚧 待完成任务
 
 ### Phase 2: Electron集成 (优先级: 高)
@@ -217,11 +283,53 @@ case 'Enter':
 
 ### Phase 3: 插件系统 (优先级: 高)
 
-- [ ] 实现动态插件加载
-- [ ] 插件沙箱隔离
-- [ ] 插件通信机制
-- [ ] 插件生命周期管理
-- [ ] 插件配置持久化
+#### 3.1 插件系统架构 (2026-08-21)
+- [x] 设计插件系统技术选型
+  - 插件沙箱: Electron BrowserWindow (独立进程隔离)
+  - 通信机制: Electron IPC (双向通信)
+  - 数据持久化: JSON 文件存储 (避免 SQLite 原生模块编译问题)
+
+#### 3.2 核心组件实现
+- [x] 数据库管理器 (`src/main/database.js`)
+  - JSON 文件存储，原子写入
+  - 内存缓存 + 延迟写入
+  - 插件数据隔离存储
+  
+- [x] 插件管理器 (`src/main/plugin-manager.js`)
+  - 插件生命周期管理 (加载、启动、暂停、恢复、卸载)
+  - BrowserWindow 沙箱创建和管理
+  - 插件间通信路由
+  - 权限控制系统
+  
+- [x] 插件预加载脚本 (`src/main/plugin-preload.js`)
+  - 为插件窗口提供安全的 API 接口
+  - 存储、通信、窗口控制、权限检查
+
+#### 3.3 通信和桥接
+- [x] 主进程 IPC 处理器 (`src/main/index.js`)
+  - 注册插件管理器所有 IPC 通道
+  - 插件生命周期事件处理
+  
+- [x] 渲染进程插件服务 (`src/renderer/services/plugin-service.js`)
+  - Vue3 组合式 API 封装
+  - 插件状态管理和事件监听
+  
+- [x] 插件通信桥接 (`src/shared/plugin-bridge.js`)
+  - 跨进程通信封装
+
+#### 3.4 插件开发 SDK
+- [x] 插件开发 SDK (`src/shared/plugin-sdk.js`)
+  - 存储 API
+  - 消息通信 API
+  - 窗口控制 API
+  - UI 工具 (通知、对话框)
+  - 工具方法
+
+#### 3.5 状态管理
+- [x] 更新 Plugin Store (`src/renderer/stores/plugin.js`)
+  - 支持动态插件加载
+  - 插件状态同步
+  - 本地存储持久化
 
 ### Phase 4: 功能插件 (优先级: 中)
 
@@ -251,10 +359,14 @@ case 'Enter':
 4. **音效系统**: 预加载 + 按需播放
 5. **交互方式**: 键盘(WASD+空格) + 鼠标(点击) 双模式
 
+### 已决策 (2026-08-21)
+6. **插件沙箱方案**: Electron BrowserWindow (独立进程隔离，完整 Node.js 能力)
+7. **插件通信机制**: Electron IPC (官方推荐，性能好，双向通信)
+8. **数据持久化**: JSON 文件存储 (避免 SQLite 原生模块编译问题，原子写入)
+
 ### 待定
-1. 插件沙箱方案 (iframe vs Web Worker)
-2. 插件通信机制 (postMessage vs SharedArrayBuffer)
-3. 数据持久化方案 (localStorage vs SQLite)
+1. 插件市场实现方案
+2. 插件签名和安全验证
 
 ---
 
@@ -303,8 +415,14 @@ chore: 构建/工具链更新
 ### 本周目标
 1. ✅ 完成Electron基础配置
 2. ✅ 实现Vue3组件化架构
-3. 开始插件系统开发
+3. ✅ 完成插件系统架构设计和核心组件实现
+
+### 下一步 (Phase 3 继续)
+1. 更新 TestApp 组件，集成真正的插件 BrowserWindow 沙箱
+2. 测试插件加载和启动流程
+3. 实现第一个功能插件 (命令执行器)
+4. 完善插件错误处理和恢复机制
 
 ---
 
-**项目状态**: 🟢 Phase 2完成 - Vue3+Electron集成成功，准备进入插件系统开发
+**项目状态**: 🟡 Phase 3 进行中 - 插件系统架构完成，核心组件已实现，准备集成测试

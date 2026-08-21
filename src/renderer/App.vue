@@ -646,8 +646,13 @@ const handleKeydown = (e) => {
 }
 
 // ========== 生命周期 ==========
-onMounted(() => {
+onMounted(async () => {
+  // 先初始化插件 store（确保默认插件已加载）
+  await pluginStore.init()
+  
+  // 然后复制到卡带货架
   initShelfPlugins()
+  
   document.addEventListener('keydown', handleKeydown)
   
   if (shelfPlugins.value.length > 0) {
