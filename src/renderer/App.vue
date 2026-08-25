@@ -25,7 +25,7 @@
           <div class="status-dot"></div>
         </div>
         <!-- 右上角退出按钮 -->
-        <button class="header-close-btn" @click="quitApp" title="退出">
+        <button class="header-close-btn" @click="quitApp" title="Exit">
           ✕
         </button>
       </header>
@@ -40,7 +40,7 @@
           <span v-else-if="selectedRow === 1" class="cartridge-info-name">
             {{ bottomRowNames[selectedCol] }}
           </span>
-          <span v-else class="cartridge-info-empty">← → 选择卡带</span>
+          <span v-else class="cartridge-info-empty">← → Select cartridge</span>
         </div>
 
         <!-- 卡带货架 (水平滚动) -->
@@ -102,7 +102,7 @@
               <div class="slot-cartridge-icon">{{ slotPlugin.icon }}</div>
               <div class="slot-cartridge-name">{{ slotPlugin.name }}</div>
             </div>
-            <span v-else class="slot-empty">拖入卡带启动</span>
+            <span v-else class="slot-empty">Drag to start</span>
           </div>
         </div>
       </main>
@@ -150,6 +150,7 @@ import Modal from './components/Modal.vue'
 import LoadingMask from './components/LoadingMask.vue'
 import TestApp from './components/TestApp.vue'
 import CalculatorApp from './components/CalculatorApp.vue'
+import FastTXTApp from './components/FastTXTApp.vue'
 
 const themeStore = useThemeStore()
 const pluginStore = usePluginStore()
@@ -159,11 +160,13 @@ const currentView = ref('parent') // 'parent' | 'child'
 const maskPhase = ref('hidden')   // 'hidden' | 'entering' | 'visible' | 'exiting'
 const currentAppPlugin = ref(null)
 const PARENT_SIZE = { width: 800, height: 540 }
+const isTransitioning = ref(false) // 防止动画重入
 
 // 根据当前子程序插件 id 分发对应的子程序组件
 const currentChildComponent = computed(() => {
   const id = currentAppPlugin.value?.id
   if (id === 'calculator') return CalculatorApp
+  if (id === 'fast-txt') return FastTXTApp
   return TestApp
 })
 
@@ -177,7 +180,7 @@ const selectedRow = ref(0)
 const selectedCol = ref(0)
 const dragPlugin = ref(null)
 const isDragOver = ref(false)
-const bottomRowNames = ['添加应用', '设置', '卡带插槽']
+const bottomRowNames = ['ADD', 'SETTINGS', 'SLOT']
 
 // 弹窗状态
 const modalVisible = ref(false)
@@ -251,9 +254,9 @@ const insertSelectedToSlot = () => {
   if (slotPlugin.value && slotPlugin.value.id === plugin.id) {
     showModal(
       '⚠️',
-      '重复启动',
-      `<strong>${plugin.icon} ${plugin.name}</strong> 已在运行中！<br>每个应用只能启动一个实例。`,
-      [{ text: '确定', class: 'primary', action: closeModal }]
+      'ALREADY RUNNING',
+      `<strong>${plugin.icon} ${plugin.name}</strong> is already running!<br>Only one instance allowed.`,
+      [{ text: 'OK', class: 'primary', action: closeModal }]
     )
     return
   }
@@ -264,11 +267,11 @@ const insertSelectedToSlot = () => {
     
     showModal(
       '🔌',
-      '切换卡带',
-      `当前运行: <strong>${currentPlugin.icon} ${currentPlugin.name}</strong><br><br>要切换为: <strong>${newPlugin.icon} ${newPlugin.name}</strong>`,
+      'SWITCH CARTRIDGE',
+      `Running: <strong>${currentPlugin.icon} ${currentPlugin.name}</strong><br><br>Switch to: <strong>${newPlugin.icon} ${newPlugin.name}</strong>`,
       [
-        { text: '取消', class: 'secondary', action: closeModal },
-        { text: '🔌 拔出并切换', class: 'danger', action: () => {
+        { text: 'Cancel', class: 'secondary', action: closeModal },
+        { text: '🔌 Eject & Switch', class: 'danger', action: () => {
           shelfPlugins.value.push(currentPlugin)
           sortShelfPlugins()
           shelfPlugins.value = shelfPlugins.value.filter(p => p.id !== newPlugin.id)
@@ -305,67 +308,83 @@ const sortShelfPlugins = () => {
 
 // ========== 启动子程序（过渡动画） ==========
 const launchApp = async (plugin) => {
-  playSound('OK')
-
-  const childSize = plugin.windowSize || { width: 400, height: 400 }
-
-  // Phase 1: 蒙版从上滑入，覆盖母程序
-  maskPhase.value = 'entering'
-  await sleep(900)
-
-  // Phase 2: 蒙版完全覆盖，切换视图 + 调整窗口大小
-  maskPhase.value = 'visible'
-  currentView.value = 'child'
-  currentAppPlugin.value = plugin
-
-  // 窗口调整大小（蒙版覆盖期间执行）
+  // 防止动画重入
+  if (isTransitioning.value) return
+  isTransitioning.value = true
+  
   try {
-    const { ipcRenderer } = require('electron')
-    ipcRenderer.send('window-resize', { width: childSize.width, height: childSize.height })
-  } catch (e) {
-    console.error('Failed to resize window:', e)
+    playSound('OK')
+
+    const childSize = plugin.windowSize || { width: 400, height: 400 }
+
+    // Phase 1: 蒙版从上滑入，覆盖母程序
+    maskPhase.value = 'entering'
+    await sleep(900)
+
+    // Phase 2: 蒙版完全覆盖，切换视图 + 调整窗口大小
+    maskPhase.value = 'visible'
+    currentView.value = 'child'
+    currentAppPlugin.value = plugin
+
+    // 窗口调整大小（蒙版覆盖期间执行）
+    try {
+      const { ipcRenderer } = require('electron')
+      ipcRenderer.send('window-resize', { width: childSize.width, height: childSize.height })
+    } catch (e) {
+      console.error('Failed to resize window:', e)
+    }
+    await sleep(1200)
+
+    // Phase 3: 蒙版从下滑出，露出子程序
+    maskPhase.value = 'exiting'
+    await sleep(900)
+
+    maskPhase.value = 'hidden'
+  } finally {
+    isTransitioning.value = false
   }
-  await sleep(1200)
-
-  // Phase 3: 蒙版从下滑出，露出子程序
-  maskPhase.value = 'exiting'
-  await sleep(900)
-
-  maskPhase.value = 'hidden'
 }
 
 // ========== 返回母程序（过渡动画） ==========
 const returnToParent = async () => {
-  playSound('exit')
-
-  // Phase 1: 蒙版从上滑入，覆盖子程序
-  maskPhase.value = 'entering'
-  await sleep(900)
-
-  // Phase 2: 蒙版完全覆盖，切换视图 + 恢复窗口大小
-  maskPhase.value = 'visible'
-  currentView.value = 'parent'
-  currentAppPlugin.value = null
-
-  // 恢复窗口大小（蒙版覆盖期间执行）
+  // 防止动画重入
+  if (isTransitioning.value) return
+  isTransitioning.value = true
+  
   try {
-    const { ipcRenderer } = require('electron')
-    ipcRenderer.send('window-resize', { width: PARENT_SIZE.width, height: PARENT_SIZE.height })
-  } catch (e) {
-    console.error('Failed to resize window:', e)
+    playSound('exit')
+
+    // Phase 1: 蒙版从上滑入，覆盖子程序
+    maskPhase.value = 'entering'
+    await sleep(900)
+
+    // Phase 2: 蒙版完全覆盖，切换视图 + 恢复窗口大小
+    maskPhase.value = 'visible'
+    currentView.value = 'parent'
+    currentAppPlugin.value = null
+
+    // 恢复窗口大小（蒙版覆盖期间执行）
+    try {
+      const { ipcRenderer } = require('electron')
+      ipcRenderer.send('window-resize', { width: PARENT_SIZE.width, height: PARENT_SIZE.height })
+    } catch (e) {
+      console.error('Failed to resize window:', e)
+    }
+    await sleep(1200)
+
+    // Phase 3: 蒙版从下滑出
+    maskPhase.value = 'exiting'
+    await sleep(900)
+
+    maskPhase.value = 'hidden'
+
+    // 恢复选中状态
+    selectedIndex.value = 0
+    selectedRow.value = 0
+    updateRowSelection()
+  } finally {
+    isTransitioning.value = false
   }
-  await sleep(1200)
-
-  // Phase 3: 蒙版从下滑出
-  maskPhase.value = 'exiting'
-  await sleep(900)
-
-  maskPhase.value = 'hidden'
-
-  // 恢复选中状态
-  selectedIndex.value = 0
-  selectedRow.value = 0
-  updateRowSelection()
 }
 
 // ========== 拔出当前卡带 ==========
@@ -415,19 +434,19 @@ const handleSlotClick = () => {
     if (!slotPlugin.value) {
       showModal(
         '🎮',
-        '卡带插槽',
-        '将卡带拖入此处或按 Enter 键插入',
-        [{ text: '确定', class: 'primary', action: closeModal }]
+        'CARTRIDGE SLOT',
+        'Drag a cartridge here or press Enter to insert',
+        [{ text: 'OK', class: 'primary', action: closeModal }]
       )
     } else {
       showModal(
         slotPlugin.value.icon,
         slotPlugin.value.name,
-        '<span style="color: var(--accent-primary);">● 运行中</span>',
+        '<span style="color: var(--accent-primary);">● RUNNING</span>',
         [
-          { text: '✓ 继续使用', class: 'primary', action: continueToChild },
-          { text: '🔌 拔出卡带', class: 'danger', action: ejectCurrentPlugin },
-          { text: '取消', class: 'secondary', action: closeModal }
+          { text: '✓ Continue', class: 'primary', action: continueToChild },
+          { text: '🔌 Eject', class: 'danger', action: ejectCurrentPlugin },
+          { text: 'Cancel', class: 'secondary', action: closeModal }
         ],
         'large'
       )
@@ -441,18 +460,18 @@ const handleSlotClick = () => {
 const handleAddApp = () => {
   showModal(
     '➕',
-    '添加应用',
-    '从应用商店获取更多卡带应用<br>（功能开发中...）',
-    [{ text: '确定', class: 'primary', action: closeModal }]
+    'ADD APP',
+    'Get more cartridge apps from the store<br>(Coming soon...)',
+    [{ text: 'OK', class: 'primary', action: closeModal }]
   )
 }
 
 const handleSettings = () => {
   showModal(
     '⚙️',
-    '母程序设置',
-    '配置Hundun Lite母程序<br>（功能开发中...）',
-    [{ text: '确定', class: 'primary', action: closeModal }]
+    'SETTINGS',
+    'Configure Hundun Lite<br>(Coming soon...)',
+    [{ text: 'OK', class: 'primary', action: closeModal }]
   )
 }
 
@@ -486,9 +505,9 @@ const handleDrop = () => {
   if (slotPlugin.value && slotPlugin.value.id === plugin.id) {
     showModal(
       '⚠️',
-      '重复启动',
-      `<strong>${plugin.icon} ${plugin.name}</strong> 已在运行中！<br>每个应用只能启动一个实例。`,
-      [{ text: '确定', class: 'primary', action: closeModal }]
+      'ALREADY RUNNING',
+      `<strong>${plugin.icon} ${plugin.name}</strong> is already running!<br>Only one instance allowed.`,
+      [{ text: 'OK', class: 'primary', action: closeModal }]
     )
     dragPlugin.value = null
     return
@@ -536,36 +555,45 @@ const closeModal = () => {
 const continueToChild = async () => {
   closeModal()
   
+  // 防止动画重入
+  if (isTransitioning.value) return
+  
   // 如果当前在母程序视图且有运行中的子程序，切换到子程序
   if (currentView.value === 'parent' && slotPlugin.value) {
-    playSound('OK')
+    isTransitioning.value = true
     
-    const plugin = slotPlugin.value
-    const childSize = plugin.windowSize || { width: 400, height: 400 }
-
-    // Phase 1: 蒙版从上滑入，覆盖母程序
-    maskPhase.value = 'entering'
-    await sleep(900)
-
-    // Phase 2: 蒙版完全覆盖，切换视图 + 调整窗口大小
-    maskPhase.value = 'visible'
-    currentView.value = 'child'
-    currentAppPlugin.value = plugin
-
-    // 窗口调整大小（蒙版覆盖期间执行）
     try {
-      const { ipcRenderer } = require('electron')
-      ipcRenderer.send('window-resize', { width: childSize.width, height: childSize.height })
-    } catch (e) {
-      console.error('Failed to resize window:', e)
+      playSound('OK')
+      
+      const plugin = slotPlugin.value
+      const childSize = plugin.windowSize || { width: 400, height: 400 }
+
+      // Phase 1: 蒙版从上滑入，覆盖母程序
+      maskPhase.value = 'entering'
+      await sleep(900)
+
+      // Phase 2: 蒙版完全覆盖，切换视图 + 调整窗口大小
+      maskPhase.value = 'visible'
+      currentView.value = 'child'
+      currentAppPlugin.value = plugin
+
+      // 窗口调整大小（蒙版覆盖期间执行）
+      try {
+        const { ipcRenderer } = require('electron')
+        ipcRenderer.send('window-resize', { width: childSize.width, height: childSize.height })
+      } catch (e) {
+        console.error('Failed to resize window:', e)
+      }
+      await sleep(1200)
+
+      // Phase 3: 蒙版从下滑出，露出子程序
+      maskPhase.value = 'exiting'
+      await sleep(900)
+
+      maskPhase.value = 'hidden'
+    } finally {
+      isTransitioning.value = false
     }
-    await sleep(1200)
-
-    // Phase 3: 蒙版从下滑出，露出子程序
-    maskPhase.value = 'exiting'
-    await sleep(900)
-
-    maskPhase.value = 'hidden'
   }
 }
 
@@ -668,6 +696,10 @@ const handleKeydown = (e) => {
 
 // ========== 生命周期 ==========
 onMounted(async () => {
+  // 确保过渡状态被重置（防止上次异常退出残留）
+  isTransitioning.value = false
+  maskPhase.value = 'hidden'
+  
   // 先初始化插件 store（确保默认插件已加载）
   await pluginStore.init()
   

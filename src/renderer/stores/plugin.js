@@ -109,97 +109,9 @@ export const usePluginStore = defineStore('plugin', () => {
         state: 'unloaded'
       },
       {
-        id: 'timer-manager',
-        name: '定时任务',
-        description: '管理您的定时任务和提醒',
-        icon: '⏰',
-        version: '1.0.0',
-        author: 'Hundun Lite',
-        enabled: true,
-        color: '#00ff88',
-        state: 'unloaded'
-      },
-      {
-        id: 'command-executor',
-        name: '命令执行',
-        description: '执行自定义bash命令',
-        icon: '⚡',
-        version: '1.0.0',
-        author: 'Hundun Lite',
-        enabled: true,
-        color: '#ff0080',
-        state: 'unloaded'
-      },
-      {
-        id: 'note-taker',
-        name: '极客记事',
-        description: '支持Markdown的极客记事本',
-        icon: '📝',
-        version: '1.0.0',
-        author: 'Hundun Lite',
-        enabled: true,
-        color: '#00d4ff',
-        state: 'unloaded'
-      },
-      {
-        id: 'clipboard-manager',
-        name: '剪贴管理',
-        description: '历史剪贴板内容管理',
-        icon: '📋',
-        version: '1.0.0',
-        author: 'Hundun Lite',
-        enabled: true,
-        color: '#ffaa00',
-        state: 'unloaded'
-      },
-      {
-        id: 'system-monitor',
-        name: '系统监控',
-        description: '实时系统资源监控',
-        icon: '📊',
-        version: '1.0.0',
-        author: 'Hundun Lite',
-        enabled: true,
-        color: '#ff5500',
-        state: 'unloaded'
-      },
-      {
-        id: 'quick-launcher',
-        name: '快捷启动',
-        description: '常用应用和网站快捷启动',
-        icon: '🚀',
-        version: '1.0.0',
-        author: 'Hundun Lite',
-        enabled: true,
-        color: '#aa00ff',
-        state: 'unloaded'
-      },
-      {
-        id: 'file-manager',
-        name: '文件管理',
-        description: '快速访问常用文件夹',
-        icon: '📁',
-        version: '1.0.0',
-        author: 'Hundun Lite',
-        enabled: true,
-        color: '#00aaff',
-        state: 'unloaded'
-      },
-      {
-        id: 'color-picker',
-        name: '取色器',
-        description: '屏幕取色和调色板',
-        icon: '🎨',
-        version: '1.0.0',
-        author: 'Hundun Lite',
-        enabled: true,
-        color: '#ff6699',
-        state: 'unloaded'
-      },
-      {
         id: 'calculator',
-        name: '计算器',
-        description: '科学计算器和单位换算',
+        name: 'CALC',
+        description: 'Retro pocket calculator',
         icon: '🔢',
         version: '1.0.0',
         author: 'Hundun Lite',
@@ -209,14 +121,15 @@ export const usePluginStore = defineStore('plugin', () => {
         state: 'unloaded'
       },
       {
-        id: 'screenshot',
-        name: '截图工具',
-        description: '屏幕截图和标注',
-        icon: '📸',
+        id: 'fast-txt',
+        name: 'FastTXT',
+        description: 'Text file manager & editor',
+        icon: '📄',
         version: '1.0.0',
         author: 'Hundun Lite',
         enabled: true,
-        color: '#ff8800',
+        color: '#00d4ff',
+        windowSize: { width: 800, height: 540 },
         state: 'unloaded'
       }
     ]

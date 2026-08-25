@@ -1,7 +1,7 @@
 # Hundun Lite - 项目进度文档
 
 > 最后更新: 2026-08-25
-> 当前阶段: Phase 4 - 功能插件开发 (计算器子程序已完成)
+> 当前阶段: Phase 4 - 功能插件开发 (FastTXT 文本管理器完成)
 
 ---
 
@@ -107,6 +107,46 @@
 - [x] 子程序键盘放行 (child 模式下只拦截 Esc，其余交子组件处理)
 - [x] KeepAlive 缓存子程序实例 (返回母程序再进入时保留内容)
 - [x] onActivated/onDeactivated 管理键盘监听生命周期
+
+### 4. FastTXT 文本文件管理器 (2026-08-25)
+
+#### 4.1 FastTXTApp 组件
+- [x] 复古掌机风格文本文件管理器 (`src/renderer/components/FastTXTApp.vue`)
+- [x] 三列网格文件列表 (水平卡片布局: 图标 + 文件名)
+- [x] 搜索框 (浮动右上角，像素字体输入框)
+- [x] 底部按钮栏: +新建 / 🗑️回收站 / 📁文件夹 / ⚙粉碎机 (条件显示)
+- [x] CRT 扫描线 + 装饰螺丝
+
+#### 4.2 文件操作
+- [x] 新建菜单弹窗: .txt文件 / .md文件 / 文件夹
+- [x] 拖放导入 (.txt/.md 文件从外部拖入)
+- [x] 文件拖拽排序 + 拖到垃圾桶删除
+- [x] 回收站系统 (软删除 → 列表显示已删除文件)
+- [x] 粉碎机系统 (物理删除回收站中所有文件)
+- [x] 恢复文件 (回收站中点击恢复)
+
+#### 4.3 编辑器
+- [x] 全屏文本编辑器 (行号显示 + 行高亮)
+- [x] 自动保存 (编辑后返回自动保存到 localStorage)
+- [x] Esc 退出编辑器 (stopImmediatePropagation 阻止父组件捕获)
+
+#### 4.4 键盘导航 (模仿主页面)
+- [x] `selectedRow` + `selectedCol` 焦点管理 (与主页面一致)
+  - `selectedRow=0`: 文件区域, selectedCol=文件索引
+  - `selectedRow=1`: 按钮区域, selectedCol=按钮索引
+- [x] WASD → ArrowKey 统一映射 + switch 处理
+- [x] W/↑: 切换到文件行
+- [x] S/↓: 切换到按钮行
+- [x] A/←: 左移 (文件/按钮)
+- [x] D/→: 右移 (文件/按钮)
+- [x] Enter/空格: 执行 (打开文件/点击按钮)
+- [x] Delete/Backspace: 删除文件
+- [x] Esc: 退出回收站模式 / 退出子程序
+- [x] selectedCol 自动钳位 (displayFiles 变化时越界保护)
+
+#### 4.5 数据持久化
+- [x] localStorage 持久化 (文件列表、排序)
+- [x] 默认文件 (readme.txt, notes.md, draft.txt)
 
 ---
 
@@ -245,6 +285,7 @@ src/
 ├── renderer/
 │   ├── components/
 │   │   ├── CalculatorApp.vue # 计算器子程序 (Phase 4)
+│   │   ├── FastTXTApp.vue    # 文本文件管理器 (Phase 4)
 │   │   ├── LoadingMask.vue   # 加载蒙版
 │   │   ├── Modal.vue         # 弹窗组件
 │   │   └── TestApp.vue       # 测试子程序
@@ -368,6 +409,7 @@ src/
 ### Phase 4: 功能插件 (优先级: 中)
 
 - [x] 计算器子程序 (复古掌机风格，四则运算，键盘支持)
+- [x] FastTXT 文本文件管理器 (文件管理、编辑器、回收站、键盘导航)
 - [ ] 定时任务管理器 (完整功能)
 - [ ] 命令执行器 (完整功能)
 - [ ] 极客记事本
@@ -469,4 +511,4 @@ chore: 构建/工具链更新
 
 ---
 
-**项目状态**: 🟢 Phase 4 进行中 - 计算器子程序已完成，继续开发其他功能子程序
+**项目状态**: 🟢 Phase 4 进行中 - FastTXT 文本管理器完成，继续开发其他功能子程序
