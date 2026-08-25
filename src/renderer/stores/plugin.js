@@ -205,6 +205,7 @@ export const usePluginStore = defineStore('plugin', () => {
         author: 'Hundun Lite',
         enabled: true,
         color: '#88ff00',
+        windowSize: { width: 400, height: 540 },
         state: 'unloaded'
       },
       {

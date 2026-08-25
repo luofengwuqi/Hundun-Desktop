@@ -114,8 +114,15 @@
     </div>
 
     <!-- ===== 子程序视图 ===== -->
-    <div class="child-view" v-if="currentView === 'child'">
-      <TestApp @return-to-parent="returnToParent" />
+    <!-- KeepAlive 必须常驻挂载才能保留缓存；v-show 控制容器显隐，v-if 控制组件缓存 -->
+    <div class="child-view" v-show="currentView === 'child'">
+      <KeepAlive>
+        <component
+          v-if="currentView === 'child'"
+          :is="currentChildComponent"
+          @return-to-parent="returnToParent"
+        />
+      </KeepAlive>
     </div>
 
     <!-- ===== 加载蒙版 (在 .console 内部，绝对定位覆盖全部内容) ===== -->
@@ -142,6 +149,7 @@ import { playSound } from './utils/audio'
 import Modal from './components/Modal.vue'
 import LoadingMask from './components/LoadingMask.vue'
 import TestApp from './components/TestApp.vue'
+import CalculatorApp from './components/CalculatorApp.vue'
 
 const themeStore = useThemeStore()
 const pluginStore = usePluginStore()
@@ -151,6 +159,13 @@ const currentView = ref('parent') // 'parent' | 'child'
 const maskPhase = ref('hidden')   // 'hidden' | 'entering' | 'visible' | 'exiting'
 const currentAppPlugin = ref(null)
 const PARENT_SIZE = { width: 800, height: 540 }
+
+// 根据当前子程序插件 id 分发对应的子程序组件
+const currentChildComponent = computed(() => {
+  const id = currentAppPlugin.value?.id
+  if (id === 'calculator') return CalculatorApp
+  return TestApp
+})
 
 // ========== 母程序状态 ==========
 const isDarkMode = computed(() => themeStore.isDarkMode)
@@ -562,6 +577,12 @@ const handleModalClose = () => {
 const handleKeydown = (e) => {
   if (modalVisible.value) {
     if (e.key === 'Escape') closeModal()
+    return
+  }
+
+  // 子程序模式下：只处理 Esc 返回母程序，其余按键交给子程序组件自行处理
+  if (currentView.value === 'child') {
+    if (e.key === 'Escape') returnToParent()
     return
   }
   

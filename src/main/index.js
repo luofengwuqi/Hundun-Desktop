@@ -160,49 +160,62 @@ app.whenReady().then(() => {
 })
 
 // 窗口尺寸调整（子程序切换用）- 带过渡动画
+let resizeAnimToken = 0 // 防重入：新动画启动时使旧动画立即失效
 ipcMain.on('window-resize', (event, { width, height }) => {
-  if (mainWindow) {
-    const targetW = width + 20
-    const targetH = height + 20
+  if (!mainWindow) return
+  const token = ++resizeAnimToken // 旧动画的 token 不再匹配，会被取消
 
-    // 先解除尺寸限制
-    mainWindow.setResizable(true)
-    mainWindow.setMinimumSize(100, 100)
-    mainWindow.setMaximumSize(9999, 9999)
+  const targetW = width + 20
+  const targetH = height + 20
 
-    // 获取当前窗口大小
-    const [currentW, currentH] = mainWindow.getSize()
-    
-    // 动画参数
-    const steps = 20
-    const stepDelay = 20 // 每步20ms，总共约400ms
-    
-    let step = 0
-    const animate = () => {
-      step++
-      const progress = step / steps
-      // 使用 easeInOut 缓动函数
-      const eased = progress < 0.5 
-        ? 2 * progress * progress 
-        : 1 - Math.pow(-2 * progress + 2, 2) / 2
-      
-      const newW = Math.round(currentW + (targetW - currentW) * eased)
-      const newH = Math.round(currentH + (targetH - currentH) * eased)
-      
-      mainWindow.setSize(newW, newH)
-      
-      if (step < steps) {
-        setTimeout(animate, stepDelay)
-      } else {
-        // 动画结束，居中并锁定尺寸
-        mainWindow.center()
-        mainWindow.setMinimumSize(targetW, targetH)
-        mainWindow.setMaximumSize(targetW, targetH)
-      }
+  // 先解除尺寸限制
+  mainWindow.setResizable(true)
+  mainWindow.setMinimumSize(100, 100)
+  mainWindow.setMaximumSize(9999, 9999)
+
+  // 获取当前窗口大小和位置
+  const [currentW, currentH] = mainWindow.getSize()
+  const [currentX, currentY] = mainWindow.getPosition()
+  // 计算窗口中心点（缩放过程中保持不变）
+  const centerX = currentX + currentW / 2
+  const centerY = currentY + currentH / 2
+
+  // 动画参数：时间戳驱动，总时长恒定、节奏均匀
+  const duration = 400 // 总时长约 400ms
+  const frameInterval = 16 // 60fps
+  const startTime = Date.now()
+
+  // easeInOut 缓动函数
+  const easeInOut = (t) => t < 0.5
+    ? 2 * t * t
+    : 1 - Math.pow(-2 * t + 2, 2) / 2
+
+  const animate = () => {
+    // 新动画已启动，或窗口已销毁 → 取消本次动画
+    if (token !== resizeAnimToken || !mainWindow) return
+
+    const elapsed = Date.now() - startTime
+    const progress = Math.min(elapsed / duration, 1)
+    const eased = easeInOut(progress)
+
+    const newW = Math.round(currentW + (targetW - currentW) * eased)
+    const newH = Math.round(currentH + (targetH - currentH) * eased)
+    // 以窗口中心为基准计算新位置，使中心点保持不变
+    const newX = Math.round(centerX - newW / 2)
+    const newY = Math.round(centerY - newH / 2)
+
+    mainWindow.setBounds({ x: newX, y: newY, width: newW, height: newH })
+
+    if (progress < 1) {
+      setTimeout(animate, frameInterval)
+    } else {
+      // 动画结束，锁定尺寸（中心点已保持不变，无需再居中）
+      mainWindow.setMinimumSize(targetW, targetH)
+      mainWindow.setMaximumSize(targetW, targetH)
     }
-    
-    animate()
   }
+
+  animate()
 })
 
 // ========== 插件管理器 IPC 处理器 ==========
