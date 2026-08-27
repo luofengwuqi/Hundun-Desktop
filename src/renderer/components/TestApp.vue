@@ -37,7 +37,19 @@
 </template>
 
 <script setup>
-defineEmits(['returnToParent'])
+import { onMounted, onUnmounted } from 'vue'
+
+const emit = defineEmits(['returnToParent'])
+
+const handleKeydown = (e) => {
+  if (e.key === 'Escape') {
+    e.preventDefault()
+    emit('returnToParent')
+  }
+}
+
+onMounted(() => { document.addEventListener('keydown', handleKeydown) })
+onUnmounted(() => { document.removeEventListener('keydown', handleKeydown) })
 </script>
 
 <style scoped>

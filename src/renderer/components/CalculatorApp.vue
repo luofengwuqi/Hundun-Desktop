@@ -65,7 +65,7 @@
 import { ref, computed, onMounted, onUnmounted, onActivated, onDeactivated } from 'vue'
 import { playSound } from '../utils/audio'
 
-defineEmits(['returnToParent'])
+const emit = defineEmits(['returnToParent'])
 
 // ========== 状态 ==========
 const currentInput = ref('0')     // 当前输入值（内部状态）
@@ -262,7 +262,10 @@ const onKeyPress = (key) => {
 
 // ========== 键盘输入 ==========
 const handleKey = (e) => {
-  if (e.key === 'Escape') return // 返回母程序由父组件处理
+  if (e.key === 'Escape') {
+    emit('returnToParent')
+    return
+  }
 
   if (/^[0-9]$/.test(e.key)) inputDigit(e.key)
   else if (e.key === '.') inputDot()

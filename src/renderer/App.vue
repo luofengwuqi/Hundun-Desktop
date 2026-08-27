@@ -608,9 +608,8 @@ const handleKeydown = (e) => {
     return
   }
 
-  // 子程序模式下：只处理 Esc 返回母程序，其余按键交给子程序组件自行处理
+  // 子程序模式下：所有按键交给子程序组件自行处理（含Esc）
   if (currentView.value === 'child') {
-    if (e.key === 'Escape') returnToParent()
     return
   }
   

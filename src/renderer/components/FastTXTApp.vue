@@ -179,7 +179,7 @@
             v-for="(btn, idx) in modalButtons" 
             :key="idx"
             class="modal-btn"
-            :class="btn.class"
+            :class="[btn.class, { 'btn-selected': modalSelectedBtnIdx === idx }]"
             @click="btn.action"
           >
             {{ btn.text }}
@@ -194,21 +194,21 @@
         <div class="modal-icon">+</div>
         <div class="modal-title">CREATE NEW</div>
         <div class="create-options">
-          <button class="create-option" @click="createFile('txt')">
+          <button class="create-option" :class="{ 'btn-selected': createMenuSelectedIdx === 0 }" @click="createFile('txt')">
             <span class="create-icon">📄</span>
             <span class="create-label">.txt File</span>
           </button>
-          <button class="create-option" @click="createFile('md')">
+          <button class="create-option" :class="{ 'btn-selected': createMenuSelectedIdx === 1 }" @click="createFile('md')">
             <span class="create-icon">📝</span>
             <span class="create-label">.md File</span>
           </button>
-          <button class="create-option" @click="createFolder">
+          <button class="create-option" :class="{ 'btn-selected': createMenuSelectedIdx === 2 }" @click="createFolder">
             <span class="create-icon">📁</span>
             <span class="create-label">Folder</span>
           </button>
         </div>
         <div class="modal-buttons">
-          <button class="modal-btn secondary" @click="closeCreateMenu">Cancel</button>
+          <button class="modal-btn secondary" :class="{ 'btn-selected': createMenuSelectedIdx === 3 }" @click="closeCreateMenu">Cancel</button>
         </div>
       </div>
     </div>
@@ -248,9 +248,11 @@ const modalIcon = ref('')
 const modalTitle = ref('')
 const modalMessage = ref('')
 const modalButtons = ref([])
+const modalSelectedBtnIdx = ref(0)
 
 // 新建菜单
 const showCreateMenuVisible = ref(false)
+const createMenuSelectedIdx = ref(0)
 
 // ========== 文件管理 ==========
 // 程序文件夹路径 (Electron 环境下由主进程提供)
@@ -517,6 +519,7 @@ const openFolder = () => {
 // ========== 新建文件/文件夹 ==========
 const showCreateMenu = () => {
   playSound('click')
+  createMenuSelectedIdx.value = 0
   showCreateMenuVisible.value = true
 }
 
@@ -575,6 +578,7 @@ const showModal = (icon, title, message, buttons) => {
   modalTitle.value = title
   modalMessage.value = message
   modalButtons.value = buttons
+  modalSelectedBtnIdx.value = 0
   modalVisible.value = true
 }
 
@@ -597,11 +601,59 @@ const handleEditorKeydown = (e) => {
 }
 
 const handleKeydown = (e) => {
+  let key = e.key
+  if (key === 'w' || key === 'W') key = 'ArrowUp'
+  if (key === 's' || key === 'S') key = 'ArrowDown'
+  if (key === 'a' || key === 'A') key = 'ArrowLeft'
+  if (key === 'd' || key === 'D') key = 'ArrowRight'
+
   // 弹窗打开时
-  if (modalVisible.value || showCreateMenuVisible.value) {
-    if (e.key === 'Escape') {
+  if (modalVisible.value) {
+    e.preventDefault()
+    e.stopImmediatePropagation()
+    if (key === 'Escape') {
       closeModal()
+      playSound('click')
+    } else if (key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight') {
+      playSound('click')
+      if (key === 'ArrowUp') {
+        modalSelectedBtnIdx.value = modalButtons.value.length - 1
+      } else if (key === 'ArrowDown') {
+        modalSelectedBtnIdx.value = 0
+      } else if (key === 'ArrowLeft') {
+        modalSelectedBtnIdx.value = Math.max(0, modalSelectedBtnIdx.value - 1)
+      } else if (key === 'ArrowRight') {
+        modalSelectedBtnIdx.value = Math.min(modalButtons.value.length - 1, modalSelectedBtnIdx.value + 1)
+      }
+    } else if (key === 'Enter' || key === ' ') {
+      playSound('click')
+      const btn = modalButtons.value[modalSelectedBtnIdx.value]
+      if (btn && btn.action) btn.action()
+    }
+    return
+  }
+
+  // 新建菜单打开时
+  if (showCreateMenuVisible.value) {
+    e.preventDefault()
+    e.stopImmediatePropagation()
+    const totalOpts = 4 // 3个创建选项 + Cancel
+    if (key === 'Escape') {
       closeCreateMenu()
+      playSound('click')
+    } else if (key === 'ArrowUp' || key === 'ArrowDown') {
+      playSound('click')
+      if (key === 'ArrowUp') {
+        createMenuSelectedIdx.value = (createMenuSelectedIdx.value + totalOpts - 1) % totalOpts
+      } else {
+        createMenuSelectedIdx.value = (createMenuSelectedIdx.value + 1) % totalOpts
+      }
+    } else if (key === 'Enter' || key === ' ') {
+      playSound('click')
+      if (createMenuSelectedIdx.value === 0) createFile('txt')
+      else if (createMenuSelectedIdx.value === 1) createFile('md')
+      else if (createMenuSelectedIdx.value === 2) createFolder()
+      else closeCreateMenu()
     }
     return
   }
@@ -622,16 +674,13 @@ const handleKeydown = (e) => {
       e.stopImmediatePropagation()
       isTrashMode.value = false
       playSound('exit')
+    } else {
+      // 无弹窗、无编辑器、非trash → 返回母程序
+      emit('returnToParent')
     }
     return
   }
 
-  // WASD → ArrowKey 统一映射（模仿主页面）
-  let key = e.key
-  if (key === 'a' || key === 'A') key = 'ArrowLeft'
-  if (key === 'd' || key === 'D') key = 'ArrowRight'
-  if (key === 'w' || key === 'W') key = 'ArrowUp'
-  if (key === 's' || key === 'S') key = 'ArrowDown'
   if (key === ' ') key = 'Enter'
 
   switch (key) {
@@ -937,7 +986,7 @@ onUnmounted(() => {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 8px 4px;
+  padding: 44px 4px 8px 4px;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
@@ -1198,19 +1247,6 @@ onUnmounted(() => {
   box-shadow: 0 0 12px var(--accent-secondary, #ff0080);
 }
 
-.footer-btn.add-btn {
-  border-color: var(--accent-primary);
-  background: color-mix(in srgb, var(--accent-primary) 15%, var(--bg-card));
-}
-
-.footer-btn.add-btn:hover {
-  background: var(--accent-primary);
-  box-shadow: 0 0 12px var(--accent-primary);
-}
-
-.footer-btn.add-btn:hover .btn-icon {
-  color: #000;
-}
 
 .btn-icon {
   font-size: 18px;
@@ -1398,6 +1434,19 @@ onUnmounted(() => {
   color: #fff;
 }
 
+/* Keyboard selected state */
+.btn-selected {
+  border-color: var(--accent-primary) !important;
+  box-shadow: 0 0 12px var(--accent-primary);
+  transform: scale(1.05);
+}
+
+.create-option.btn-selected {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 12px var(--shadow-color);
+  background: color-mix(in srgb, var(--accent-primary) 15%, var(--bg-card));
+}
+
 /* Create Menu */
 .create-menu {
   min-width: 200px;
@@ -1496,6 +1545,6 @@ onUnmounted(() => {
 }
 
 .light-mode .footer-btn.add-btn {
-  background: color-mix(in srgb, var(--accent-primary) 10%, var(--bg-card));
+  background: var(--bg-card);
 }
 </style>
