@@ -14,6 +14,34 @@ export const usePluginStore = defineStore('plugin', () => {
   // 是否已初始化
   const initialized = ref(false)
 
+  // ========== 默认插件（始终保证有卡带显示） ==========
+  const DEFAULT_PLUGINS = [
+    {
+      id: 'calculator',
+      name: 'CALC',
+      description: 'Retro pocket calculator',
+      icon: '🔢',
+      version: '1.0.0',
+      author: 'Hundun Lite',
+      enabled: true,
+      color: '#88ff00',
+      windowSize: { width: 400, height: 540 },
+      state: 'unloaded'
+    },
+    {
+      id: 'fast-txt',
+      name: 'FastTXT',
+      description: 'Text file manager & editor',
+      icon: '📄',
+      version: '1.0.0',
+      author: 'Hundun Lite',
+      enabled: true,
+      color: '#00d4ff',
+      windowSize: { width: 800, height: 540 },
+      state: 'unloaded'
+    }
+  ]
+
   // ========== 计算属性 ==========
   
   // 已启用的插件列表
@@ -34,113 +62,57 @@ export const usePluginStore = defineStore('plugin', () => {
   // ========== 方法 ==========
 
   /**
-   * 初始化插件列表（从主进程加载）
+   * 初始化插件列表
+   * 策略：先加载默认卡带，再尝试从磁盘扫描合并
    */
   async function init() {
     if (initialized.value) return
 
-    // 先加载默认插件列表，确保无论如何都有卡带显示
-    initDefaultPlugins()
+    // 第一步：立即加载默认插件，确保 UI 有内容
+    plugins.value = JSON.parse(JSON.stringify(DEFAULT_PLUGINS))
+    initialized.value = true
+    console.log('[PluginStore] Loaded default plugins:', plugins.value.length)
 
+    // 第二步：异步尝试从主进程扫描磁盘插件（不阻塞 UI）
     try {
-      // 尝试从主进程获取已扫描的插件
-      if (window.electronAPI && window.electronAPI.scanPlugins) {
-        const result = await window.electronAPI.scanPlugins()
-        if (result && result.success && result.plugins) {
-          // 合并插件列表：用磁盘上的插件覆盖/补充默认列表
-          for (const pluginInfo of result.plugins) {
-            const existing = plugins.value.find(p => p.id === pluginInfo.id)
-            if (existing) {
-              // 更新已有插件的信息
-              existing.name = pluginInfo.name || existing.name
-              existing.description = pluginInfo.description || existing.description
-              existing.icon = pluginInfo.icon || existing.icon
-              existing.version = pluginInfo.version || existing.version
-              existing.author = pluginInfo.author || existing.author
-              existing.color = pluginInfo.color || existing.color
-              existing.windowSize = pluginInfo.windowSize || existing.windowSize
-            } else {
-              // 添加新插件
-              plugins.value.push({
-                id: pluginInfo.id,
-                name: pluginInfo.name || pluginInfo.id,
-                description: pluginInfo.description || '',
-                icon: pluginInfo.icon || '📦',
-                version: pluginInfo.version || '1.0.0',
-                author: pluginInfo.author || 'Unknown',
-                enabled: true,
-                color: pluginInfo.color || '#00ff88',
-                windowSize: pluginInfo.windowSize,
-                state: 'unloaded',
-                manifest: pluginInfo.manifest || pluginInfo
-              })
+      if (window.electronAPI && window.electronAPI.scanAllPlugins) {
+        const result = await window.electronAPI.scanAllPlugins()
+        if (result && result.success && Array.isArray(result.plugins)) {
+          const diskPlugins = result.plugins.map(pluginInfo => ({
+            id: pluginInfo.id,
+            name: pluginInfo.name || pluginInfo.id,
+            description: pluginInfo.description || '',
+            icon: pluginInfo.icon || '📦',
+            version: pluginInfo.version || '1.0.0',
+            author: pluginInfo.author || 'Unknown',
+            enabled: true,
+            color: pluginInfo.color || '#00ff88',
+            windowSize: pluginInfo.windowSize || { width: 400, height: 400 },
+            state: 'unloaded',
+            manifest: pluginInfo.manifest || pluginInfo
+          }))
+
+          // 合并：磁盘插件优先，但保留默认插件（如 fast-txt 等不在磁盘的）
+          const merged = [...diskPlugins]
+          for (const dp of DEFAULT_PLUGINS) {
+            if (!merged.find(p => p.id === dp.id)) {
+              merged.push(dp)
             }
           }
+          plugins.value = merged
+          console.log('[PluginStore] Merged with disk plugins:', plugins.value.length)
         }
-        
-        // 加载本地存储的插件配置
-        loadFromStorage()
       }
-      
-      initialized.value = true
-      console.log('[PluginStore] Initialized with', plugins.value.length, 'plugins')
     } catch (error) {
-      console.error('[PluginStore] Failed to initialize from main process:', error)
-      // 默认插件已经在 initDefaultPlugins() 中加载了
-      initialized.value = true
+      console.warn('[PluginStore] Failed to scan disk plugins, using defaults:', error)
     }
-  }
 
-  /**
-   * 初始化默认插件列表（fallback）
-   */
-  function initDefaultPlugins() {
-    plugins.value = [
-      {
-        id: 'test-app',
-        name: 'TEST',
-        description: '测试子程序 - 验证过渡动画',
-        icon: '🧪',
-        version: '0.0.1',
-        author: 'Hundun Lite',
-        enabled: true,
-        color: '#00ff88',
-        windowSize: { width: 400, height: 400 },
-        state: 'unloaded'
-      },
-      {
-        id: 'calculator',
-        name: 'CALC',
-        description: 'Retro pocket calculator',
-        icon: '🔢',
-        version: '1.0.0',
-        author: 'Hundun Lite',
-        enabled: true,
-        color: '#88ff00',
-        windowSize: { width: 400, height: 540 },
-        state: 'unloaded'
-      },
-      {
-        id: 'fast-txt',
-        name: 'FastTXT',
-        description: 'Text file manager & editor',
-        icon: '📄',
-        version: '1.0.0',
-        author: 'Hundun Lite',
-        enabled: true,
-        color: '#00d4ff',
-        windowSize: { width: 800, height: 540 },
-        state: 'unloaded'
-      }
-    ]
-    
-    initialized.value = true
+    // 第三步：应用用户本地配置
+    loadFromStorage()
   }
 
   /**
    * 添加插件
-   * @param {Object} plugin - 插件对象
-   * @returns {boolean} 是否成功添加
    */
   function addPlugin(plugin) {
     const existingIndex = plugins.value.findIndex(p => p.id === plugin.id)
@@ -159,8 +131,6 @@ export const usePluginStore = defineStore('plugin', () => {
 
   /**
    * 移除插件
-   * @param {string} pluginId - 插件ID
-   * @returns {boolean} 是否成功移除
    */
   function removePlugin(pluginId) {
     const index = plugins.value.findIndex(p => p.id === pluginId)
@@ -174,8 +144,6 @@ export const usePluginStore = defineStore('plugin', () => {
 
   /**
    * 切换插件启用状态
-   * @param {string} pluginId - 插件ID
-   * @returns {boolean} 是否成功切换
    */
   function togglePlugin(pluginId) {
     const plugin = plugins.value.find(p => p.id === pluginId)
@@ -189,8 +157,6 @@ export const usePluginStore = defineStore('plugin', () => {
 
   /**
    * 更新插件状态
-   * @param {string} pluginId - 插件ID
-   * @param {string} state - 新状态
    */
   function updatePluginState(pluginId, state) {
     const plugin = plugins.value.find(p => p.id === pluginId)
@@ -201,7 +167,6 @@ export const usePluginStore = defineStore('plugin', () => {
 
   /**
    * 设置当前活动插件
-   * @param {Object} plugin - 插件对象
    */
   function setActivePlugin(plugin) {
     activePlugin.value = plugin
@@ -216,7 +181,6 @@ export const usePluginStore = defineStore('plugin', () => {
 
   /**
    * 设置插槽中的插件
-   * @param {Object} plugin - 插件对象
    */
   function setSlotPlugin(plugin) {
     slotPlugin.value = plugin
@@ -237,11 +201,9 @@ export const usePluginStore = defineStore('plugin', () => {
       const saved = localStorage.getItem('huntun-lite-plugins')
       if (saved) {
         const savedPlugins = JSON.parse(saved)
-        // 合并保存的配置到现有插件列表
         for (const savedPlugin of savedPlugins) {
           const existing = plugins.value.find(p => p.id === savedPlugin.id)
           if (existing) {
-            // 只更新用户配置，不覆盖核心属性
             existing.enabled = savedPlugin.enabled !== false
             if (savedPlugin.customSettings) {
               existing.customSettings = savedPlugin.customSettings
@@ -259,7 +221,6 @@ export const usePluginStore = defineStore('plugin', () => {
    */
   function saveToStorage() {
     try {
-      // 只保存用户配置，不保存完整插件对象
       const toSave = plugins.value.map(p => ({
         id: p.id,
         enabled: p.enabled,
@@ -273,8 +234,6 @@ export const usePluginStore = defineStore('plugin', () => {
 
   /**
    * 启动插件（创建 BrowserWindow）
-   * @param {string} pluginId - 插件ID
-   * @param {Object} options - 启动选项
    */
   async function launchPlugin(pluginId, options = {}) {
     try {
@@ -298,7 +257,6 @@ export const usePluginStore = defineStore('plugin', () => {
 
   /**
    * 关闭插件
-   * @param {string} pluginId - 插件ID
    */
   async function closePlugin(pluginId) {
     try {

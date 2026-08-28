@@ -186,7 +186,9 @@ class PluginSDK {
      */
     minimize: async () => {
       this._checkReady()
-      return await window.hundun.window.minimize()
+      if (window.hundun && window.hundun.window) {
+        return await window.hundun.window.minimize()
+      }
     },
 
     /**
@@ -194,15 +196,24 @@ class PluginSDK {
      */
     maximize: async () => {
       this._checkReady()
-      return await window.hundun.window.maximize()
+      if (window.hundun && window.hundun.window) {
+        return await window.hundun.window.maximize()
+      }
     },
 
     /**
-     * 关闭窗口
+     * 关闭窗口 (返回母程序，带过渡动画)
      */
     close: async () => {
       this._checkReady()
-      return await window.hundun.window.close()
+      // 优先使用宿主 API 的返回功能
+      if (window.hundun && window.hundun.host && window.hundun.host.returnToParent) {
+        return await window.hundun.host.returnToParent()
+      }
+      // 回退到直接关闭窗口
+      if (window.hundun && window.hundun.window) {
+        return await window.hundun.window.close()
+      }
     },
 
     /**
@@ -234,12 +245,58 @@ class PluginSDK {
     }
   }
 
-  // ========== UI API ==========
+  // ========== 宿主 API ==========
 
   /**
-   * UI 工具
+   * 宿主交互 API
    */
-  ui = {
+  host = {
+    /**
+     * 返回母程序 (带过渡动画)
+     */
+    returnToParent: async () => {
+      this._checkReady()
+      if (window.hundun && window.hundun.host) {
+        return await window.hundun.host.returnToParent()
+      }
+    },
+
+    /**
+     * 获取当前主题
+     * @returns {Promise<string>} 'dark' | 'light'
+     */
+    getTheme: async () => {
+      this._checkReady()
+      if (window.hundun && window.hundun.host) {
+        return await window.hundun.host.getTheme()
+      }
+      return 'dark'
+    },
+
+    /**
+     * 监听主题变更
+     * @param {Function} callback - 回调函数 (theme: 'dark' | 'light')
+     * @returns {Function} 取消监听的函数
+     */
+    onThemeChange: (callback) => {
+      this._checkReady()
+      if (window.hundun && window.hundun.host) {
+        return window.hundun.host.onThemeChange(callback)
+      }
+      return () => {}
+    },
+
+    /**
+     * 播放音效
+     * @param {string} soundName - 音效名
+     */
+    playSound: async (soundName) => {
+      this._checkReady()
+      if (window.hundun && window.hundun.host) {
+        return await window.hundun.host.playSound(soundName)
+      }
+    },
+
     /**
      * 显示通知
      * @param {string} message - 通知内容
@@ -281,30 +338,18 @@ class PluginSDK {
         notification.style.animation = 'hundun-slide-out 0.3s ease-out'
         setTimeout(() => notification.remove(), 300)
       }, 3000)
-    },
-
-    /**
-     * 显示确认对话框
-     * @param {string} message - 确认内容
-     * @returns {Promise<boolean>}
-     */
-    confirm: (message) => {
-      return new Promise((resolve) => {
-        resolve(window.confirm(message))
-      })
-    },
-
-    /**
-     * 显示提示对话框
-     * @param {string} message - 提示内容
-     * @param {string} defaultValue - 默认值
-     * @returns {Promise<string|null>}
-     */
-    prompt: (message, defaultValue = '') => {
-      return new Promise((resolve) => {
-        resolve(window.prompt(message, defaultValue))
-      })
     }
+  }
+
+  // ========== UI API (兼容旧版) ==========
+
+  /**
+   * UI 工具 (兼容旧版，建议使用 host.notify)
+   */
+  ui = {
+    notify: (message, type = 'info') => this.host.notify(message, type),
+    confirm: (message) => window.confirm(message),
+    prompt: (message, defaultValue = '') => window.prompt(message, defaultValue)
   }
 
   // ========== 工具 API ==========

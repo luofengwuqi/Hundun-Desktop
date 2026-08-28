@@ -1,0 +1,15 @@
+{
+  "id": "calculator",
+  "name": "CALC",
+  "description": "Retro pocket calculator",
+  "version": "1.0.0",
+  "author": "Hundun Lite",
+  "icon": "🔢",
+  "color": "#88ff00",
+  "entry": "index.html",
+  "windowSize": {
+    "width": 400,
+    "height": 540
+  },
+  "permissions": []
+}

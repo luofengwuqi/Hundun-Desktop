@@ -1,12 +1,13 @@
 /**
- * Hundun Lite - 插件管理器
+ * Hundun Lite - 插件管理器 v2.0
  * 
  * 核心职责：
- * 1. 扫描和注册插件
+ * 1. 扫描和注册插件 (自动发现 plugins/ 目录)
  * 2. 管理插件生命周期（加载、启动、暂停、恢复、卸载）
  * 3. 创建和管理插件 BrowserWindow 沙箱
  * 4. 插件间通信路由
  * 5. 权限控制
+ * 6. 过渡动画协调（跨窗口切换）
  */
 
 const { BrowserWindow, ipcMain } = require('electron')
@@ -34,6 +35,12 @@ class PluginManager {
     
     // 事件监听器
     this.listeners = new Map()
+    
+    // 过渡动画窗口
+    this.transitionWindow = null
+    
+    // 当前运行的插件ID
+    this.activePluginId = null
     
     // 插件窗口默认配置
     this.defaultWindowConfig = {
@@ -118,6 +125,49 @@ class PluginManager {
     ipcMain.on('plugin:execute', (event, pluginId, command, ...args) => {
       this.executePluginCommand(pluginId, command, ...args)
     })
+
+    // 插件 -> 主进程：返回母程序 (带过渡动画)
+    ipcMain.handle('plugin:returnToParent', async (event) => {
+      const pluginId = this._getWindowPluginId(event.sender)
+      if (pluginId) {
+        await this.returnToParent(pluginId)
+        return true
+      }
+      return false
+    })
+
+    // 插件 -> 主进程：播放音效
+    ipcMain.handle('plugin:playSound', (event, soundName) => {
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        this.mainWindow.webContents.send('play-sound', soundName)
+      }
+    })
+
+    // 插件 -> 主进程：获取当前主题
+    ipcMain.handle('plugin:getTheme', (event) => {
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        // 从母程序获取主题状态
+        return new Promise((resolve) => {
+          ipcMain.once('theme:get-response', (event, theme) => {
+            resolve(theme)
+          })
+          this.mainWindow.webContents.send('theme:get-request')
+        })
+      }
+      return 'dark'
+    })
+  }
+
+  /**
+   * 获取窗口对应的插件ID
+   */
+  _getWindowPluginId(webContents) {
+    for (const [pluginId, win] of this.windows) {
+      if (win.webContents === webContents) {
+        return pluginId
+      }
+    }
+    return null
   }
 
   /**
@@ -143,6 +193,31 @@ class PluginManager {
       })
     }
     return result
+  }
+
+  /**
+   * 获取所有已扫描的插件 (包括未加载的)
+   * @returns {Array}
+   */
+  async getAllScannedPlugins() {
+    const scanned = await this.loader.scanPlugins()
+    return scanned.map(p => {
+      const loaded = this.plugins.get(p.id)
+      return {
+        id: p.id,
+        name: p.name,
+        description: p.description || '',
+        icon: p.icon || '📦',
+        version: p.version || '1.0.0',
+        author: p.author || 'Unknown',
+        color: p.color || '#00ff88',
+        windowSize: p.windowSize || { width: 400, height: 400 },
+        entry: p.entry || 'index.html',
+        path: p.path,
+        state: loaded ? loaded.state : 'unloaded',
+        loaded: !!loaded
+      }
+    })
   }
 
   /**
@@ -219,14 +294,26 @@ class PluginManager {
       return existingWindow
     }
 
+    // 如果已暂停，恢复
+    if (plugin.state === PluginState.SUSPENDED && this.windows.has(pluginId)) {
+      this.resumePlugin(pluginId)
+      return this.windows.get(pluginId)
+    }
+
     try {
       // 获取插件窗口配置
       const windowConfig = {
         ...this.defaultWindowConfig,
-        ...options,
-        width: options.width || plugin.manifest.windowSize?.width || this.defaultWindowConfig.width,
-        height: options.height || plugin.manifest.windowSize?.height || this.defaultWindowConfig.height
+        width: plugin.manifest.windowSize?.width || this.defaultWindowConfig.width,
+        height: plugin.manifest.windowSize?.height || this.defaultWindowConfig.height
       }
+
+      console.log(`[PluginManager] Creating window for ${pluginId}:`, {
+        width: windowConfig.width,
+        height: windowConfig.height,
+        pluginPath: plugin.path,
+        entry: plugin.manifest.entry
+      })
 
       // 创建插件窗口
       const pluginWindow = new BrowserWindow(windowConfig)
@@ -240,18 +327,21 @@ class PluginManager {
       // 加载插件入口文件
       const entryFile = path.join(plugin.path, plugin.manifest.entry || 'index.html')
       
+      console.log(`[PluginManager] Loading entry file: ${entryFile}, exists: ${fs.existsSync(entryFile)}`)
+      
       if (fs.existsSync(entryFile)) {
         // 使用 file:// 协议加载本地文件
         pluginWindow.loadFile(entryFile)
       } else {
         // 如果入口文件不存在，加载错误页面
-        pluginWindow.loadURL('data:text/html,<html><body><h1>插件入口文件不存在</h1></body></html>')
+        console.error(`[PluginManager] Entry file not found: ${entryFile}`)
+        pluginWindow.loadURL('data:text/html,<html><body style="background:#1a1b26;color:#c0caf5;font-family:monospace;padding:40px;"><h1>❌ 插件入口文件不存在</h1><p>路径: ' + entryFile + '</p></body></html>')
       }
 
       // 窗口加载完成后显示
       pluginWindow.once('ready-to-show', () => {
-        pluginWindow.show()
-        console.log(`[PluginManager] Plugin window shown: ${pluginId}`)
+        console.log(`[PluginManager] Plugin window ready-to-show: ${pluginId}`)
+        // 不立即显示，等过渡动画就绪
       })
 
       // 窗口关闭事件
@@ -259,6 +349,9 @@ class PluginManager {
         this.windows.delete(pluginId)
         if (plugin) {
           plugin.state = PluginState.UNLOADED
+        }
+        if (this.activePluginId === pluginId) {
+          this.activePluginId = null
         }
         this._emit('plugin-closed', { pluginId })
         console.log(`[PluginManager] Plugin window closed: ${pluginId}`)
@@ -273,10 +366,12 @@ class PluginManager {
 
       // 注入插件预加载脚本
       pluginWindow.webContents.on('did-finish-load', () => {
+        console.log(`[PluginManager] Plugin page loaded: ${pluginId}`)
         // 注入插件 ID 到窗口
         pluginWindow.webContents.executeJavaScript(`
           window.__PLUGIN_ID__ = '${pluginId}';
           window.__PLUGIN_MANIFEST__ = ${JSON.stringify(plugin.manifest)};
+          console.log('[Plugin] Injected plugin ID:', '${pluginId}');
         `)
       })
 
@@ -286,6 +381,7 @@ class PluginManager {
       // 更新插件状态
       plugin.state = PluginState.RUNNING
       plugin.startedAt = new Date().toISOString()
+      this.activePluginId = pluginId
       
       // 触发事件
       this._emit('plugin-started', { pluginId, manifest: plugin.manifest })
@@ -298,6 +394,114 @@ class PluginManager {
       plugin.error = error.message
       this._emit('plugin-error', { pluginId, error: error.message })
       throw error
+    }
+  }
+
+  /**
+   * 启动插件并执行过渡动画
+   * @param {string} pluginId - 插件ID
+   * @param {Object} options - 启动选项
+   */
+  async launchPluginWithTransition(pluginId, options = {}) {
+    console.log(`[PluginManager] launchPluginWithTransition called for: ${pluginId}`)
+    
+    const plugin = this.plugins.get(pluginId)
+    if (!plugin) {
+      console.log(`[PluginManager] Plugin not loaded, loading: ${pluginId}`)
+      try {
+        await this.loadPlugin(pluginId)
+      } catch (e) {
+        console.error(`[PluginManager] Failed to load plugin ${pluginId}:`, e)
+        // 提供更友好的错误信息
+        const friendlyMsg = e.message.includes('not found')
+          ? `插件 "${pluginId}" 不存在。请检查 plugins/${pluginId}/ 目录是否包含 manifest.json`
+          : `加载插件 "${pluginId}" 失败: ${e.message}`
+        return { success: false, error: friendlyMsg }
+      }
+    }
+    
+    const loadedPlugin = this.plugins.get(pluginId)
+    const manifest = loadedPlugin?.manifest
+    const childSize = manifest?.windowSize || { width: 400, height: 400 }
+    
+    // 启动插件窗口
+    let pluginWindow
+    try {
+      pluginWindow = await this.startPlugin(pluginId, options)
+    } catch (e) {
+      console.error(`[PluginManager] Failed to start plugin ${pluginId}:`, e)
+      return { success: false, error: e.message }
+    }
+    
+    // 获取母程序位置，对齐插件窗口
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      const [mainX, mainY] = this.mainWindow.getPosition()
+      const [mainW, mainH] = this.mainWindow.getSize()
+      
+      const pluginW = childSize.width + 20
+      const pluginH = childSize.height + 20
+      const pluginX = mainX + (mainW - pluginW) / 2
+      const pluginY = mainY + (mainH - pluginH) / 2
+      
+      pluginWindow.setBounds({
+        x: Math.round(pluginX),
+        y: Math.round(pluginY),
+        width: pluginW,
+        height: pluginH
+      })
+    }
+    
+    // 隐藏母程序，显示插件
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      console.log(`[PluginManager] Hiding main window`)
+      this.mainWindow.hide()
+    }
+    console.log(`[PluginManager] Showing plugin window: ${pluginId}`)
+    pluginWindow.show()
+    pluginWindow.focus()
+    
+    this.activePluginId = pluginId
+    console.log(`[PluginManager] ✅ Plugin window shown successfully: ${pluginId}`)
+    
+    return { success: true }
+  }
+
+  /**
+   * 返回母程序（带过渡动画）
+   * @param {string} pluginId - 插件ID
+   */
+  async returnToParent(pluginId) {
+    const pluginWindow = this.windows.get(pluginId)
+    if (!pluginWindow || pluginWindow.isDestroyed()) {
+      // 直接显示母程序
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        this.mainWindow.show()
+      }
+      return
+    }
+    
+    // 通知插件开始退出过渡
+    pluginWindow.webContents.send('plugin:transition-enter')
+    
+    // 等待插件蒙版覆盖 (900ms)
+    await this._sleep(900)
+    
+    // 隐藏插件，显示母程序
+    pluginWindow.hide()
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.show()
+      this.mainWindow.focus()
+      
+      // 通知母程序播放退出动画
+      this.mainWindow.webContents.send('transition:exit')
+    }
+    
+    // 等待母程序蒙版退出 (900ms)
+    await this._sleep(900)
+    
+    // 通知母程序过渡完成
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.webContents.send('transition:done')
     }
   }
 
@@ -360,6 +564,10 @@ class PluginManager {
         plugin.state = PluginState.UNLOADED
       }
       
+      if (this.activePluginId === pluginId) {
+        this.activePluginId = null
+      }
+      
       this._emit('plugin-closed', { pluginId })
       console.log(`[PluginManager] Plugin closed: ${pluginId}`)
     }
@@ -378,9 +586,6 @@ class PluginManager {
     
     // 从内存中移除
     this.plugins.delete(pluginId)
-    
-    // 清除数据库数据（可选，这里保留数据）
-    // this.database.deleteAll(pluginId)
     
     this._emit('plugin-unloaded', { pluginId })
     console.log(`[PluginManager] Plugin unloaded: ${pluginId}`)
@@ -464,15 +669,12 @@ class PluginManager {
       return false
     }
     
-    // 检查权限列表
     const permissions = plugin.manifest.permissions || []
     
-    // 通配符检查
     if (permissions.includes('*')) {
       return true
     }
     
-    // 精确匹配
     return permissions.includes(permission)
   }
 
@@ -507,6 +709,21 @@ class PluginManager {
       }
     }
     return running
+  }
+
+  /**
+   * 获取当前活动插件ID
+   * @returns {string|null}
+   */
+  getActivePluginId() {
+    return this.activePluginId
+  }
+
+  /**
+   * 辅助方法: 睡眠
+   */
+  _sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms))
   }
 
   /**

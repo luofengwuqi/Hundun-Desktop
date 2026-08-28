@@ -1,0 +1,15 @@
+{
+  "id": "fast-txt",
+  "name": "FastTXT",
+  "description": "Text file manager & editor",
+  "icon": "📄",
+  "color": "#00d4ff",
+  "version": "1.0.0",
+  "author": "Hundun Lite",
+  "entry": "index.html",
+  "windowSize": {
+    "width": 800,
+    "height": 540
+  },
+  "permissions": []
+}

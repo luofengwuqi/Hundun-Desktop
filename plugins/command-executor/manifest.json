@@ -1,8 +1,8 @@
 {
   "id": "command-executor",
-  "name": "命令执行器",
+  "name": "Command Executor",
   "version": "1.0.0",
-  "description": "执行自定义bash命令",
+  "description": "Execute custom bash commands",
   "icon": "⚡",
   "author": "Hundun Lite",
   "entry": "index.html",

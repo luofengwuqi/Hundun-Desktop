@@ -239,6 +239,15 @@ function registerPluginManagerIPC() {
     }
   })
 
+  ipcMain.handle('plugin-manager:launch', async (event, pluginId, options) => {
+    try {
+      const result = await pluginManager.launchPluginWithTransition(pluginId, options)
+      return result || { success: true }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  })
+
   ipcMain.handle('plugin-manager:stop', async (event, pluginId) => {
     try {
       await pluginManager.closePlugin(pluginId)
@@ -275,10 +284,18 @@ function registerPluginManagerIPC() {
     }
   })
 
-  // 插件查询
   ipcMain.handle('plugin-manager:scan', async () => {
     try {
       const plugins = await pluginManager.scanPlugins()
+      return { success: true, plugins }
+    } catch (error) {
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('plugin-manager:scanAll', async () => {
+    try {
+      const plugins = await pluginManager.getAllScannedPlugins()
       return { success: true, plugins }
     } catch (error) {
       return { success: false, error: error.message }
@@ -300,6 +317,23 @@ function registerPluginManagerIPC() {
 
   ipcMain.handle('plugin-manager:getRunning', async () => {
     return pluginManager.getRunningPlugins()
+  })
+
+  ipcMain.handle('plugin-manager:getActive', async () => {
+    return pluginManager.getActivePluginId()
+  })
+
+  ipcMain.handle('plugin-manager:returnToParent', async (event) => {
+    const pluginId = pluginManager.getActivePluginId()
+    if (pluginId) {
+      try {
+        await pluginManager.returnToParent(pluginId)
+        return { success: true }
+      } catch (error) {
+        return { success: false, error: error.message }
+      }
+    }
+    return { success: false, error: 'No active plugin' }
   })
 
   // 插件窗口控制
@@ -330,6 +364,29 @@ function registerPluginManagerIPC() {
     }
   })
 }
+
+// ========== 主题系统 IPC ==========
+// 追踪主题请求来源
+let themeRequestSender = null
+
+// 子程序请求当前主题
+ipcMain.on('theme:get-request', (event) => {
+  // 记录是哪个窗口请求的
+  themeRequestSender = event.sender
+  // 转发给母程序获取主题状态
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('theme:get-request')
+  }
+})
+
+// 母程序回复主题状态
+ipcMain.on('theme:get-response', (event, theme) => {
+  // 如果是母程序回复的，转发给请求的子程序
+  if (event.sender === mainWindow?.webContents && themeRequestSender) {
+    themeRequestSender.send('theme:get-response', theme)
+    themeRequestSender = null
+  }
+})
 
 // 获取应用版本
 ipcMain.handle('get-app-version', () => {

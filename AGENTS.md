@@ -1,7 +1,7 @@
 # Hundun Lite - 项目进度文档
 
-> 最后更新: 2026-08-25
-> 当前阶段: Phase 4 - 功能插件开发 (FastTXT 文本管理器完成)
+> 最后更新: 2026-08-28
+> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，Calculator/FastTXT 已迁移为独立 HTML 插件
 
 ---
 
@@ -272,81 +272,120 @@ case 'Enter':
 
 ---
 
-## 🏗️ 插件系统架构 (2026-08-21)
+## 🏗️ 插件系统架构 (2026-08-28 更新)
 
 ### 文件结构
 ```
 src/
 ├── main/
-│   ├── index.js              # 主进程入口 (含窗口缩放动画)
+│   ├── index.js              # 主进程入口 (IPC handlers + 窗口管理)
 │   ├── database.js           # 数据存储管理器
-│   ├── plugin-manager.js     # 插件管理器 (核心)
-│   └── plugin-preload.js     # 插件窗口预加载脚本
+│   ├── plugin-manager.js     # 插件管理器 (BrowserWindow 创建)
+│   ├── plugin-preload.js     # 插件窗口预加载脚本 (window.hundun)
+│   ├── preload.js            # 主窗口预加载脚本 (onPlaySound)
+│   └── transition.html       # 跨窗口加载蒙版
 ├── renderer/
+│   ├── App.vue               # 主界面 (IPC 启动插件，无硬编码 Vue 组件)
 │   ├── components/
-│   │   ├── CalculatorApp.vue # 计算器子程序 (Phase 4)
-│   │   ├── FastTXTApp.vue    # 文本文件管理器 (Phase 4)
-│   │   ├── LoadingMask.vue   # 加载蒙版
-│   │   ├── Modal.vue         # 弹窗组件
-│   │   └── TestApp.vue       # 测试子程序
-│   ├── stores/
-│   │   └── plugin.js         # 插件状态管理
-│   └── services/
-│       └── plugin-service.js # 渲染进程插件服务
-└── shared/
-    ├── plugin-loader.js      # 插件加载器
-    ├── plugin-bridge.js      # 插件通信桥接
-    └── plugin-sdk.js         # 插件开发 SDK
+│   │   ├── CalculatorApp.vue # 原 Vue 组件 (已弃用，迁移到 plugins/calculator/)
+│   │   ├── FastTXTApp.vue    # 原 Vue 组件 (已弃用，迁移到 plugins/fast-txt/)
+│   │   ├── LoadingMask.vue   # 加载蒙版组件
+│   │   └── Modal.vue         # 弹窗组件
+│   └── stores/
+│       └── plugin.js         # 插件状态管理 (scanAllPlugins IPC)
+├── shared/
+│   ├── plugin-loader.js      # 插件加载器 (扫描 plugins/ 目录)
+│   └── plugin-sdk.js         # 插件开发 SDK (host API)
+plugins/                       # 插件目录 (每个插件一个子目录)
+├── calculator/                # 计算器插件 (独立 HTML)
+│   ├── manifest.json
+│   └── index.html
+├── fast-txt/                  # 文本管理器插件 (独立 HTML)
+│   ├── manifest.json
+│   └── index.html
+├── command-executor/          # 命令执行器 (占位)
+└── timer-manager/             # 定时任务管理器 (占位)
+```
+
+### 架构总览 (2026-08-28)
+```
+┌──────────────────────────────────────────────┐
+│  主进程 (index.js)                             │
+│  ├── IPC: plugin-manager:launch              │
+│  ├── IPC: plugin-manager:returnToParent      │
+│  ├── IPC: plugin:getTheme / themeRequestSender│
+│  ├── IPC: plugin:playSound                   │
+│  └── 渲染窗口 → App.vue (Vue3)               │
+├──────────────────────────────────────────────┤
+│  插件管理器 (plugin-manager.js)                │
+│  ├── loadPlugin() — 扫描 plugins/<id>/       │
+│  ├── startPlugin() — 创建 BrowserWindow      │
+│  └── 每个插件: 独立进程 + plugin-preload.js   │
+├──────────────────────────────────────────────┤
+│  插件窗口 (独立 BrowserWindow)                │
+│  ├── plugin-preload.js → window.hundun.*     │
+│  ├── index.html (纯 HTML/CSS/JS)             │
+│  └── PluginSDK (window.hundun.host/storage)  │
+└──────────────────────────────────────────────┘
 ```
 
 ### 核心组件说明
 
-#### 1. 插件管理器 (PluginManager)
-- **职责**: 管理插件生命周期，创建 BrowserWindow 沙箱
-- **状态**: UNLOADED → LOADED → RUNNING → SUSPENDED
-- **特性**: 
-  - 独立进程隔离，插件崩溃不影响主程序
-  - 插件间消息路由
-  - 权限控制系统
+#### 1. 主进程 IPC (index.js)
+- **plugin-manager:launch** — 启动插件，返回 `{success, windowId}`
+- **plugin-manager:returnToParent** — 插件关闭，触发 loading mask 过渡
+- **plugin:minimize/maximize/close** — 窗口控制
+- **plugin:getTheme** — 主题查询 (路由到 themeRequestSender)
+- **plugin:playSound** — 音效播放 (转发到主窗口)
+- **scanAll** — 扫描所有可用插件
 
-#### 2. 数据库管理器 (Database)
-- **存储**: JSON 文件，按插件隔离
-- **特性**:
-  - 原子写入（临时文件+重命名）
-  - 内存缓存 + 延迟写入
-  - 进程退出时自动保存
+#### 2. 插件管理器 (plugin-manager.js v2.0)
+- **职责**: BrowserWindow 创建、生命周期管理
+- **startPlugin()**: 创建窗口 + 加载 entry + 显示 loading mask
+- **launchPluginWithTransition()**: 关闭当前插件 → loading mask → 启动新插件
+- **getAllScannedPlugins()**: 扫描 plugins/ 目录获取全部插件信息
 
-#### 3. 插件预加载脚本 (Plugin Preload)
-- **暴露 API**: `window.hundun`
-  - `storage`: 数据存储
-  - `messaging`: 插件通信
-  - `window`: 窗口控制
-  - `permissions`: 权限检查
+#### 3. 插件预加载脚本 (plugin-preload.js v2.0)
+- **兼容性**: 直接挂载 `window.hundun = {...}` (兼容 `contextIsolation: false`)
+- **不再使用**: `contextBridge.exposeInMainWorld` (已移除)
+- **API**: storage / messaging / window / host / permissions / utils
 
-#### 4. 插件开发 SDK
+#### 4. 主窗口预加载脚本 (preload.js)
+- **音效路由**: `ipcRenderer.on('play-sound')` → 触发音频播放
+- **主题监听**: `ipcRenderer.on('theme:toggle')` 同步主题
+
+#### 5. 插件开发 SDK (plugin-sdk.js)
+- **host API**: returnToParent / getTheme / onThemeChange / playSound / notify
+- **storage API**: get / set / remove / clear
 - **使用方式**: `<script src="path/to/plugin-sdk.js">`
-- **自动初始化**: 页面加载完成后自动调用 `init()`
-- **API**: storage, messaging, window, ui, utils
 
 ### 插件 Manifest 规范
 ```json
 {
-  "id": "plugin-id",
-  "name": "插件名称",
+  "id": "calculator",
+  "name": "计算器",
   "version": "1.0.0",
-  "description": "插件描述",
-  "icon": "📦",
+  "description": "复古掌机风格计算器",
+  "icon": "🔢",
+  "color": "#00ff88",
   "entry": "index.html",
-  "permissions": ["storage", "messaging"],
-  "windowSize": { "width": 400, "height": 400 }
+  "permissions": ["storage"],
+  "windowSize": { "width": 400, "height": 500 }
 }
+```
+
+### 插件生命周期
+```
+UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
+                  ↑                    │
+                  └────────────────────┘
 ```
 
 ---
 
 ## 🚧 待完成任务
 
-### Phase 2: Electron集成 (优先级: 高)
+### Phase 2: Electron集成 (优先级: 高) ✅ 已完成
 
 - [x] 安装项目依赖 (`npm install`)
 - [x] 配置 electron-vite
@@ -356,60 +395,51 @@ src/
 - [x] 实现拖拽系统 (卡带拖入插槽)
 - [x] 测试深色/浅色模式在Electron中的效果
 
-### Phase 3: 插件系统 (优先级: 高)
+### Phase 3: 插件系统 (优先级: 高) ✅ 已完成
 
 #### 3.1 插件系统架构 (2026-08-21)
 - [x] 设计插件系统技术选型
   - 插件沙箱: Electron BrowserWindow (独立进程隔离)
   - 通信机制: Electron IPC (双向通信)
-  - 数据持久化: JSON 文件存储 (避免 SQLite 原生模块编译问题)
+  - 数据持久化: JSON 文件存储
 
 #### 3.2 核心组件实现
 - [x] 数据库管理器 (`src/main/database.js`)
-  - JSON 文件存储，原子写入
-  - 内存缓存 + 延迟写入
-  - 插件数据隔离存储
-  
 - [x] 插件管理器 (`src/main/plugin-manager.js`)
-  - 插件生命周期管理 (加载、启动、暂停、恢复、卸载)
-  - BrowserWindow 沙箱创建和管理
-  - 插件间通信路由
-  - 权限控制系统
-  
 - [x] 插件预加载脚本 (`src/main/plugin-preload.js`)
-  - 为插件窗口提供安全的 API 接口
-  - 存储、通信、窗口控制、权限检查
 
 #### 3.3 通信和桥接
 - [x] 主进程 IPC 处理器 (`src/main/index.js`)
-  - 注册插件管理器所有 IPC 通道
-  - 插件生命周期事件处理
-  
-- [x] 渲染进程插件服务 (`src/renderer/services/plugin-service.js`)
-  - Vue3 组合式 API 封装
-  - 插件状态管理和事件监听
-  
-- [x] 插件通信桥接 (`src/shared/plugin-bridge.js`)
-  - 跨进程通信封装
-
-#### 3.4 插件开发 SDK
 - [x] 插件开发 SDK (`src/shared/plugin-sdk.js`)
-  - 存储 API
-  - 消息通信 API
-  - 窗口控制 API
-  - UI 工具 (通知、对话框)
-  - 工具方法
 
-#### 3.5 状态管理
+#### 3.4 状态管理
 - [x] 更新 Plugin Store (`src/renderer/stores/plugin.js`)
-  - 支持动态插件加载
-  - 插件状态同步
-  - 本地存储持久化
 
 ### Phase 4: 功能插件 (优先级: 中)
 
-- [x] 计算器子程序 (复古掌机风格，四则运算，键盘支持)
-- [x] FastTXT 文本文件管理器 (文件管理、编辑器、回收站、键盘导航)
+#### 4.1 插件架构迁移 (2026-08-28) ✅ 已完成
+- [x] 重构为 BrowserWindow 独立进程架构
+- [x] plugin-preload.js 兼容 contextIsolation: false
+- [x] App.vue 改用 IPC 启动插件 (移除硬编码 Vue 组件)
+- [x] themeRequestSender 路由修复 (theme:get → 正确窗口)
+- [x] playSound 路由 (plugin → 主进程 → 主窗口)
+- [x] transition.html 跨窗口加载蒙版
+
+#### 4.2 Calculator 计算器插件 ✅ 已迁移
+- [x] 1:1 移植 CalculatorApp.vue → plugins/calculator/index.html
+- [x] manifest.json 配置
+- [x] BrowserWindow 独立运行验证
+
+#### 4.3 FastTXT 文本管理器插件 ✅ 已迁移
+- [x] 1:1 移植 FastTXTApp.vue → plugins/fast-txt/index.html
+- [x] 布局修复 (#view-main, #view-editor 填充 flex 容器)
+- [x] BrowserWindow 独立运行验证
+
+#### 4.4 插件开发规范
+- [x] PLUGIN_SPEC.md v2.0 (781行完整规范)
+- [x] Architecture / 生命周期 / 通信 / Manifest / SDK 文档
+
+#### 4.5 待开发插件
 - [ ] 定时任务管理器 (完整功能)
 - [ ] 命令执行器 (完整功能)
 - [ ] 极客记事本
@@ -424,6 +454,7 @@ src/
 - [ ] 云同步
 - [ ] 国际化支持
 - [ ] 自动更新
+- [ ] 修复生产构建 (externalizeDepsPlugin 本地模块问题)
 
 ---
 
@@ -439,17 +470,19 @@ src/
 ### 已决策 (2026-08-21)
 6. **插件沙箱方案**: Electron BrowserWindow (独立进程隔离，完整 Node.js 能力)
 7. **插件通信机制**: Electron IPC (官方推荐，性能好，双向通信)
-8. **数据持久化**: JSON 文件存储 (避免 SQLite 原生模块编译问题，原子写入)
+8. **数据持久化**: JSON 文件存储 (避免 SQLite 原生模块编译问题)
 
-### 已决策 (2026-08-25)
-9. **子程序集成方式**: Vue 动态组件 + KeepAlive (按插件 id 分发，缓存状态)
-10. **窗口缩放基准**: 中心点缩放 (四边对称，非左上角)
-11. **子程序键盘管理**: 父组件只处理 Esc，其余按键放行给子组件
-12. **子程序状态保留**: KeepAlive 缓存 + onActivated/onDeactivated 生命周期管理
+### 已决策 (2026-08-28)
+9. **插件架构升级**: 从 Vue 动态组件 → BrowserWindow 独立进程 (每个插件独立窗口)
+10. **插件加载方式**: 纯 HTML/CSS/JS (不依赖 Vue 编译)，支持 HTML-only 开发者
+11. **preload 兼容性**: 直接挂载 `window.hundun` (兼容 `contextIsolation: false`)
+12. **主题路由**: themeRequestSender 跟踪机制，theme:get 响应路由到正确窗口
+13. **音效路由**: 插件 → plugin:playSound IPC → 主进程 → play-sound 事件 → 主窗口播放
 
 ### 待定
 1. 插件市场实现方案
 2. 插件签名和安全验证
+3. 生产构建修复 (externalizeDepsPlugin 本地模块问题)
 
 ---
 
@@ -493,22 +526,18 @@ chore: 构建/工具链更新
 
 ## 🎯 下一步行动
 
-### 立即执行
-1. ✅ ~~运行 `npm install` 安装依赖~~
-2. ✅ ~~运行 `npm run dev` 测试Electron集成~~
-3. ✅ ~~验证原型在Electron中的显示效果~~
+### 已完成
+1. ✅ Electron基础配置
+2. ✅ Vue3组件化架构
+3. ✅ 插件系统架构设计和核心组件实现
+4. ✅ BrowserWindow 插件架构迁移
+5. ✅ Calculator/FastTXT 1:1 移植为独立 HTML 插件
 
-### 本周目标
-1. ✅ 完成Electron基础配置
-2. ✅ 实现Vue3组件化架构
-3. ✅ 完成插件系统架构设计和核心组件实现
-
-### 下一步 (Phase 4 继续)
-1. 实现定时任务管理器子程序
-2. 实现命令执行器子程序
-3. 完善插件错误处理和恢复机制
-4. 增加更多功能子程序 (记事本、剪贴板管理等)
+### 下一步
+1. 开发定时任务管理器/命令执行器等新插件
+2. 修复生产构建 (externalizeDepsPlugin 本地模块)
+3. 清理旧 Vue 组件文件 (CalculatorApp.vue, FastTXTApp.vue, TestApp.vue)
 
 ---
 
-**项目状态**: 🟢 Phase 4 进行中 - FastTXT 文本管理器完成，继续开发其他功能子程序
+**项目状态**: 🟢 Phase 4 进行中 - BrowserWindow 插件架构完成，Calculator/FastTXT 已迁移为独立 HTML 插件

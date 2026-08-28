@@ -1,9 +1,9 @@
 <template>
   <!-- 单一 .console 容器，始终存在 -->
-  <div class="console" :class="{ 'light-mode': !isDarkMode, 'child-mode': currentView === 'child' }">
+  <div class="console" :class="{ 'light-mode': !isDarkMode }">
 
     <!-- ===== 母程序视图 ===== -->
-    <div class="parent-view" v-if="currentView === 'parent'">
+    <div class="parent-view">
       <!-- 装饰螺丝 -->
       <div class="deco-screw screw-tl"></div>
       <div class="deco-screw screw-tr"></div>
@@ -113,20 +113,8 @@
       </footer>
     </div>
 
-    <!-- ===== 子程序视图 ===== -->
-    <!-- KeepAlive 必须常驻挂载才能保留缓存；v-show 控制容器显隐，v-if 控制组件缓存 -->
-    <div class="child-view" v-show="currentView === 'child'">
-      <KeepAlive>
-        <component
-          v-if="currentView === 'child'"
-          :is="currentChildComponent"
-          @return-to-parent="returnToParent"
-        />
-      </KeepAlive>
-    </div>
-
     <!-- ===== 加载蒙版 (在 .console 内部，绝对定位覆盖全部内容) ===== -->
-    <LoadingMask :phase="maskPhase" :childMode="currentView === 'child'" />
+    <LoadingMask :phase="maskPhase" :childMode="false" />
 
     <!-- 弹窗 -->
     <Modal
@@ -148,27 +136,15 @@ import { usePluginStore } from './stores/plugin'
 import { playSound } from './utils/audio'
 import Modal from './components/Modal.vue'
 import LoadingMask from './components/LoadingMask.vue'
-import TestApp from './components/TestApp.vue'
-import CalculatorApp from './components/CalculatorApp.vue'
-import FastTXTApp from './components/FastTXTApp.vue'
 
 const themeStore = useThemeStore()
 const pluginStore = usePluginStore()
 
 // ========== 过渡状态 ==========
-const currentView = ref('parent') // 'parent' | 'child'
-const maskPhase = ref('hidden')   // 'hidden' | 'entering' | 'visible' | 'exiting'
-const currentAppPlugin = ref(null)
-const PARENT_SIZE = { width: 800, height: 540 }
-const isTransitioning = ref(false) // 防止动画重入
-
-// 根据当前子程序插件 id 分发对应的子程序组件
-const currentChildComponent = computed(() => {
-  const id = currentAppPlugin.value?.id
-  if (id === 'calculator') return CalculatorApp
-  if (id === 'fast-txt') return FastTXTApp
-  return TestApp
-})
+// 子程序现在是独立 BrowserWindow，不再需要 Vue 组件切换
+// 过渡动画由主进程协调，母程序只负责卡带UI和按钮事件
+const maskPhase = ref('hidden')
+const isTransitioning = ref(false)
 
 // ========== 母程序状态 ==========
 const isDarkMode = computed(() => themeStore.isDarkMode)
@@ -306,7 +282,7 @@ const sortShelfPlugins = () => {
   })
 }
 
-// ========== 启动子程序（过渡动画） ==========
+// ========== 启动子程序（BrowserWindow + 过渡动画） ==========
 const launchApp = async (plugin) => {
   // 防止动画重入
   if (isTransitioning.value) return
@@ -315,37 +291,33 @@ const launchApp = async (plugin) => {
   try {
     playSound('OK')
 
-    const childSize = plugin.windowSize || { width: 400, height: 400 }
-
-    // Phase 1: 蒙版从上滑入，覆盖母程序
-    maskPhase.value = 'entering'
-    await sleep(900)
-
-    // Phase 2: 蒙版完全覆盖，切换视图 + 调整窗口大小
-    maskPhase.value = 'visible'
-    currentView.value = 'child'
-    currentAppPlugin.value = plugin
-
-    // 窗口调整大小（蒙版覆盖期间执行）
+    // 通过主进程启动子程序 BrowserWindow
+    // 主进程会协调过渡动画（遮罩覆盖母程序 → 显示子程序窗口 → 遮罩退出）
     try {
       const { ipcRenderer } = require('electron')
-      ipcRenderer.send('window-resize', { width: childSize.width, height: childSize.height })
+      const result = await ipcRenderer.invoke('plugin-manager:launch', plugin.id, {
+        pluginId: plugin.id
+      })
+      if (!result || !result.success) {
+        console.error('Plugin launch failed:', result?.error)
+        showModal('❌', 'LAUNCH FAILED', result?.error || 'Unknown error', [
+          { text: 'OK', class: 'primary', action: closeModal }
+        ])
+      }
     } catch (e) {
-      console.error('Failed to resize window:', e)
+      console.error('Failed to launch plugin window:', e)
+      showModal('❌', 'LAUNCH FAILED', e.message, [
+        { text: 'OK', class: 'primary', action: closeModal }
+      ])
     }
-    await sleep(1200)
-
-    // Phase 3: 蒙版从下滑出，露出子程序
-    maskPhase.value = 'exiting'
-    await sleep(900)
-
-    maskPhase.value = 'hidden'
   } finally {
     isTransitioning.value = false
   }
 }
 
 // ========== 返回母程序（过渡动画） ==========
+// 注意：现在子程序是独立 BrowserWindow，返回母程序由子程序窗口触发
+// 母程序通过 IPC 接收 'plugin:returnToParent' 事件来处理动画
 const returnToParent = async () => {
   // 防止动画重入
   if (isTransitioning.value) return
@@ -354,29 +326,13 @@ const returnToParent = async () => {
   try {
     playSound('exit')
 
-    // Phase 1: 蒙版从上滑入，覆盖子程序
-    maskPhase.value = 'entering'
-    await sleep(900)
-
-    // Phase 2: 蒙版完全覆盖，切换视图 + 恢复窗口大小
-    maskPhase.value = 'visible'
-    currentView.value = 'parent'
-    currentAppPlugin.value = null
-
-    // 恢复窗口大小（蒙版覆盖期间执行）
+    // 通知主进程关闭子程序窗口（主进程会协调过渡动画）
     try {
       const { ipcRenderer } = require('electron')
-      ipcRenderer.send('window-resize', { width: PARENT_SIZE.width, height: PARENT_SIZE.height })
+      await ipcRenderer.invoke('plugin-manager:returnToParent')
     } catch (e) {
-      console.error('Failed to resize window:', e)
+      console.error('Failed to return to parent:', e)
     }
-    await sleep(1200)
-
-    // Phase 3: 蒙版从下滑出
-    maskPhase.value = 'exiting'
-    await sleep(900)
-
-    maskPhase.value = 'hidden'
 
     // 恢复选中状态
     selectedIndex.value = 0
@@ -400,11 +356,8 @@ const ejectCurrentPlugin = async () => {
   updateRowSelection()
   closeModal()
   
-  if (currentView.value === 'child') {
-    await returnToParent()
-  } else {
-    playSound('exit')
-  }
+  // 插件现在是独立 BrowserWindow，只需要播放音效
+  playSound('exit')
 }
 
 // ========== 底部按钮点击 ==========
@@ -551,46 +504,32 @@ const closeModal = () => {
   modalVisible.value = false
 }
 
-// ========== 继续使用（切换到子程序视图） ==========
+// ========== 继续使用（启动插件 BrowserWindow） ==========
 const continueToChild = async () => {
   closeModal()
   
   // 防止动画重入
   if (isTransitioning.value) return
   
-  // 如果当前在母程序视图且有运行中的子程序，切换到子程序
-  if (currentView.value === 'parent' && slotPlugin.value) {
+  // 如果有运行中的插件，启动其 BrowserWindow
+  if (slotPlugin.value) {
     isTransitioning.value = true
     
     try {
       playSound('OK')
       
       const plugin = slotPlugin.value
-      const childSize = plugin.windowSize || { width: 400, height: 400 }
 
-      // Phase 1: 蒙版从上滑入，覆盖母程序
-      maskPhase.value = 'entering'
-      await sleep(900)
-
-      // Phase 2: 蒙版完全覆盖，切换视图 + 调整窗口大小
-      maskPhase.value = 'visible'
-      currentView.value = 'child'
-      currentAppPlugin.value = plugin
-
-      // 窗口调整大小（蒙版覆盖期间执行）
+      // 通过主进程启动插件 BrowserWindow
       try {
         const { ipcRenderer } = require('electron')
-        ipcRenderer.send('window-resize', { width: childSize.width, height: childSize.height })
+        await ipcRenderer.invoke('plugin-manager:launch', plugin.id, {
+          pluginId: plugin.id,
+          pluginPath: plugin.pluginPath || `plugins/${plugin.id}`
+        })
       } catch (e) {
-        console.error('Failed to resize window:', e)
+        console.error('Failed to launch plugin window:', e)
       }
-      await sleep(1200)
-
-      // Phase 3: 蒙版从下滑出，露出子程序
-      maskPhase.value = 'exiting'
-      await sleep(900)
-
-      maskPhase.value = 'hidden'
     } finally {
       isTransitioning.value = false
     }
@@ -608,10 +547,7 @@ const handleKeydown = (e) => {
     return
   }
 
-  // 子程序模式下：所有按键交给子程序组件自行处理（含Esc）
-  if (currentView.value === 'child') {
-    return
-  }
+  // 注意：子程序现在是独立 BrowserWindow，母程序始终处理键盘导航
   
   let key = e.key
   if (key === 'a' || key === 'A') key = 'ArrowLeft'
@@ -678,17 +614,12 @@ const handleKeydown = (e) => {
       break
       
     case 'Escape':
-      if (currentView.value === 'child') {
-        // 子程序中按Esc：返回母程序
-        returnToParent()
-      } else {
-        // 母程序中按Esc：关闭子程序并退出
-        if (slotPlugin.value) {
-          // 先拔出卡带
-          slotPlugin.value = null
-        }
-        quitApp()
+      // 母程序中按Esc：关闭子程序并退出
+      if (slotPlugin.value) {
+        // 先拔出卡带
+        slotPlugin.value = null
       }
+      quitApp()
       break
   }
 }
@@ -706,6 +637,17 @@ onMounted(async () => {
   initShelfPlugins()
   
   document.addEventListener('keydown', handleKeydown)
+  
+  // 监听主题请求（插件窗口请求当前主题状态）
+  try {
+    const { ipcRenderer } = require('electron')
+    ipcRenderer.on('theme:get-request', () => {
+      const theme = themeStore.isDarkMode ? 'dark' : 'light'
+      ipcRenderer.send('theme:get-response', theme)
+    })
+  } catch (e) {
+    console.warn('[App] Failed to register theme handler:', e)
+  }
   
   if (shelfPlugins.value.length > 0) {
     selectedIndex.value = 0

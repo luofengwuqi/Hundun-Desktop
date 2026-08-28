@@ -25,9 +25,28 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // 插件查询
   scanPlugins: () => ipcRenderer.invoke('plugin-manager:scan'),
+  scanAllPlugins: () => ipcRenderer.invoke('plugin-manager:scanAll'),
   getInstalledPlugins: () => ipcRenderer.invoke('plugin-manager:getInstalled'),
   isPluginRunning: (pluginId) => ipcRenderer.invoke('plugin-manager:isRunning', pluginId),
   getRunningPlugins: () => ipcRenderer.invoke('plugin-manager:getRunning'),
+  getActivePlugin: () => ipcRenderer.invoke('plugin-manager:getActive'),
+  
+  // 插件启动（带过渡动画）
+  launchPlugin: (pluginId, options) => ipcRenderer.invoke('plugin-manager:launch', pluginId, options),
+  returnToParent: () => ipcRenderer.invoke('plugin-manager:returnToParent'),
+  
+  // 主题系统
+  requestTheme: () => ipcRenderer.send('theme:get-request'),
+  onThemeResponse: (callback) => {
+    const handler = (event, theme) => callback(theme)
+    ipcRenderer.on('theme:get-response', handler)
+    return () => ipcRenderer.removeListener('theme:get-response', handler)
+  },
+  onThemeChanged: (callback) => {
+    const handler = (event, theme) => callback(theme)
+    ipcRenderer.on('theme-changed', handler)
+    return () => ipcRenderer.removeListener('theme-changed', handler)
+  },
   
   // 插件数据存储
   getPluginData: (pluginId, key, defaultValue) => ipcRenderer.invoke('plugin:getData', pluginId, key, defaultValue),
@@ -94,7 +113,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   
   // 移除所有监听器
-  removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel)
+  removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
+  
+  // 监听插件音效播放
+  onPlaySound: (callback) => {
+    const handler = (event, soundName) => callback(soundName)
+    ipcRenderer.on('play-sound', handler)
+    return () => ipcRenderer.removeListener('play-sound', handler)
+  }
+})
+
+// 直接监听 play-sound 并播放音效（兼容 contextIsolation: false）
+const audioCache = {}
+ipcRenderer.on('play-sound', (event, soundName) => {
+  // 通过 electronAPI 回调到渲染进程
+  try {
+    if (window.electronAPI && window.electronAPI._playSoundCallback) {
+      window.electronAPI._playSoundCallback(soundName)
+    }
+  } catch (e) {
+    // 忽略
+  }
 })
 
 // 暴露 Node.js 环境信息

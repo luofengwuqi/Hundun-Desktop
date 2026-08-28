@@ -1,8 +1,8 @@
 {
   "id": "timer-manager",
-  "name": "定时任务管理器",
+  "name": "Timer Manager",
   "version": "1.0.0",
-  "description": "管理您的定时任务和提醒",
+  "description": "Manage your timers and reminders",
   "icon": "⏰",
   "author": "Hundun Lite",
   "entry": "index.html",
