@@ -224,6 +224,40 @@
       box-shadow: 0 0 12px var(--shadow-color);
     }
 
+    /* Breadcrumb */
+    .ftxt-breadcrumb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 12px;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border-color);
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+    }
+
+    .breadcrumb-back {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--accent-primary);
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .breadcrumb-back:hover {
+      background: var(--accent-primary);
+      color: var(--bg-body);
+    }
+
+    .breadcrumb-path {
+      color: var(--text-muted);
+      letter-spacing: 1px;
+    }
+
     .search-icon {
       font-size: 12px;
     }
@@ -320,12 +354,6 @@
       user-select: none;
       min-height: 48px;
       overflow: hidden;
-    }
-
-    .ftxt-file-card:hover {
-      border-color: var(--accent-primary);
-      box-shadow: 0 0 12px var(--shadow-color);
-      transform: translateY(-4px);
     }
 
     .ftxt-file-card.selected {
@@ -480,11 +508,6 @@
       align-items: center;
       justify-content: center;
       transition: all 0.2s ease;
-    }
-
-    .footer-btn:hover {
-      border-color: var(--accent-primary);
-      transform: scale(1.1);
     }
 
     .footer-btn.active {
@@ -837,6 +860,12 @@
           <input class="search-input" id="searchInput" placeholder="Search files..." />
         </div>
 
+        <!-- Folder Breadcrumb -->
+        <div class="ftxt-breadcrumb" id="folderBreadcrumb" style="display:none;">
+          <button class="breadcrumb-back" id="breadcrumbBack">← Back</button>
+          <span class="breadcrumb-path" id="breadcrumbPath"></span>
+        </div>
+
         <!-- File List -->
         <div class="ftxt-file-list" id="fileList"></div>
 
@@ -956,6 +985,9 @@
     const footerButtons = document.getElementById('footerButtons');
     const fileCountEl = document.getElementById('fileCount');
     const trashCountEl = document.getElementById('trashCount');
+    const folderBreadcrumb = document.getElementById('folderBreadcrumb');
+    const breadcrumbBack = document.getElementById('breadcrumbBack');
+    const breadcrumbPath = document.getElementById('breadcrumbPath');
     const editorIcon = document.getElementById('editorIcon');
     const editorTitle = document.getElementById('editorTitle');
     const editorCloseBtn = document.getElementById('editorCloseBtn');
@@ -977,6 +1009,8 @@
     let currentView = 'main';
     let searchQuery = '';
     let isTrashMode = false;
+    let isFolderMode = false;
+    let currentFolderPath = '';  // e.g. 'NewFolder' or 'NewFolder/SubFolder'
     let isTrashDragOver = false;
     let isShredderDragOver = false;
     let dragFileId = null;
@@ -1005,8 +1039,24 @@
     // ========== Computed ==========
     const getActiveFiles = () => files.filter(f => !f.deleted).sort((a, b) => a.order - b.order);
     const getDeletedFiles = () => files.filter(f => f.deleted);
+
+    // 获取当前目录下的文件
+    const getFilesInCurrentFolder = () => {
+      return getActiveFiles().filter(f => {
+        const parent = f.parentPath || '';
+        return parent === currentFolderPath;
+      });
+    };
+
     const getDisplayFiles = () => {
-      const base = isTrashMode ? getDeletedFiles() : getActiveFiles();
+      let base;
+      if (isTrashMode) {
+        base = getDeletedFiles();
+      } else if (isFolderMode) {
+        base = getFilesInCurrentFolder();
+      } else {
+        base = getActiveFiles();
+      }
       if (!searchQuery) return base;
       const q = searchQuery.toLowerCase();
       return base.filter(f => f.name.toLowerCase().includes(q));
@@ -1017,7 +1067,7 @@
       const btns = [
         { id: 'add', icon: '+', action: showCreateMenu, title: 'Create new' },
         { id: 'trash', icon: '🗑️', action: toggleTrashMode, title: isTrashMode ? 'Back to files' : 'Show deleted' },
-        { id: 'folder', icon: '📁', action: openFolder, title: 'Open folder' },
+        { id: 'folder', icon: '📁', action: isFolderMode ? exitFolderMode : enterFolderFromSelection, title: isFolderMode ? `Back to root (${currentFolderPath})` : 'Open folder' },
       ];
       if (isTrashMode) {
         btns.push({ id: 'shredder', icon: '⚙️', action: showShredConfirm, title: 'Shred all' });
@@ -1075,7 +1125,7 @@
       const newFiles = [];
       let maxOrder = 0;
 
-      // 处理正常文件
+      // 处理正常文件（root + 每个文件夹内部）
       for (const entry of activeEntries) {
         if (entry.name === ORDER_FILE || entry.name === TRASH_DIR) continue;
         if (entry.name.startsWith('.')) continue;
@@ -1091,17 +1141,38 @@
             content: '',
             deleted: false,
             order: order,
-            isFolder: true
+            isFolder: true,
+            parentPath: ''  // 文件夹在根目录
           });
+          // 读取文件夹内部的文件
+          try {
+            const subEntries = await api.readDir(id);
+            for (const sub of subEntries) {
+              if (sub.name.startsWith('.')) continue;
+              const subId = `${id}/${sub.name}`;
+              const subOrder = orderMap[subId] !== undefined ? orderMap[subId] : maxOrder++;
+              if (subOrder >= maxOrder) maxOrder = subOrder + 1;
+              newFiles.push({
+                id: subId,
+                name: sub.name,
+                content: null,
+                deleted: false,
+                order: subOrder,
+                isFolder: sub.isDirectory,
+                parentPath: id
+              });
+            }
+          } catch (_) {}
         } else {
-          // 文本文件：不预加载内容，打开时再读取
+          // 根目录文件
           newFiles.push({
             id: id,
             name: id,
-            content: null, // 延迟加载
+            content: null,
             deleted: false,
             order: order,
-            isFolder: false
+            isFolder: false,
+            parentPath: ''
           });
         }
       }
@@ -1158,6 +1229,13 @@
       if (currentView === 'main') {
         viewMain.style.display = '';
         viewEditor.style.display = 'none';
+        // 面包屑
+        if (isFolderMode) {
+          folderBreadcrumb.style.display = '';
+          breadcrumbPath.textContent = `📁 ${currentFolderPath}`;
+        } else {
+          folderBreadcrumb.style.display = 'none';
+        }
         renderFileList();
         renderFooter();
         updateFooterInfo();
@@ -1173,6 +1251,18 @@
 
     const renderFileList = () => {
       const list = getDisplayFiles();
+
+      // 如果文件数量变了，才重建 DOM
+      const existingCards = fileList.querySelectorAll('.ftxt-file-card');
+      if (existingCards.length !== list.length) {
+        rebuildFileListDOM(list);
+      } else {
+        // 只更新选中状态和内容
+        updateFileListSelection(list);
+      }
+    };
+
+    const rebuildFileListDOM = (list) => {
       fileList.innerHTML = '';
 
       if (list.length === 0) {
@@ -1180,8 +1270,8 @@
         emptyDiv.className = 'ftxt-empty';
         emptyDiv.innerHTML = `
           <div class="empty-icon">📁</div>
-          <div class="empty-text">${isTrashMode ? 'Trash is empty' : 'No files yet'}</div>
-          <div class="empty-hint">${isTrashMode ? '' : 'Drag .txt or .md files here'}</div>
+          <div class="empty-text">${isTrashMode ? 'Trash is empty' : isFolderMode ? `No files in ${currentFolderPath}` : 'No files yet'}</div>
+          <div class="empty-hint">${isTrashMode || isFolderMode ? '' : 'Drag .txt or .md files here'}</div>
         `;
         fileList.appendChild(emptyDiv);
         return;
@@ -1190,16 +1280,15 @@
       list.forEach((file, idx) => {
         const card = document.createElement('div');
         card.className = 'ftxt-file-card';
-        const classes = [];
-        if (selectedRow === 0 && selectedCol === idx) classes.push('selected');
-        if (dragFileId === file.id) classes.push('dragging');
-        if (file.deleted) classes.push('is-deleted');
-        if (classes.length) card.className += ' ' + classes.join(' ');
+        if (selectedRow === 0 && selectedCol === idx) card.classList.add('selected');
+        if (dragFileId === file.id) card.classList.add('dragging');
+        if (file.deleted) card.classList.add('is-deleted');
         card.draggable = true;
-        card.style.animationDelay = `${idx * 0.04}s`;
         card.dataset.fileId = file.id;
 
-        const icon = file.name.endsWith('.md') ? '📝' : '📄';
+        let icon = '📄';
+        if (file.isFolder) icon = '📁';
+        else if (file.name.endsWith('.md')) icon = '📝';
         card.innerHTML = `
           <div class="file-icon">${icon}</div>
           <div class="file-info">
@@ -1211,24 +1300,65 @@
         card.addEventListener('dragstart', (e) => handleFileDragStart(e, file));
         card.addEventListener('dragend', handleFileDragEnd);
         card.addEventListener('click', () => handleFileClick(file));
-        card.addEventListener('dblclick', () => openFile(file));
 
         fileList.appendChild(card);
       });
     };
 
+    const updateFileListSelection = (list) => {
+      const cards = fileList.querySelectorAll('.ftxt-file-card');
+      cards.forEach((card, idx) => {
+        const file = list[idx];
+        if (!file) return;
+
+        // 更新选中状态（只在状态变化时改 class，避免抖动）
+        const isSelected = selectedRow === 0 && selectedCol === idx;
+        const wasSelected = card.classList.contains('selected');
+        if (isSelected !== wasSelected) {
+          card.classList.toggle('selected', isSelected);
+        }
+
+        const isDragging = dragFileId === file.id;
+        const wasDragging = card.classList.contains('dragging');
+        if (isDragging !== wasDragging) {
+          card.classList.toggle('dragging', isDragging);
+        }
+
+        const isDeleted = file.deleted;
+        const wasDeleted = card.classList.contains('is-deleted');
+        if (isDeleted !== wasDeleted) {
+          card.classList.toggle('is-deleted', isDeleted);
+        }
+
+        // 更新文件名（以防万一）
+        const nameEl = card.querySelector('.file-name');
+        if (nameEl && nameEl.textContent !== file.name) {
+          nameEl.textContent = file.name;
+        }
+      });
+    };
+
     const renderFooter = () => {
       const btns = getFooterButtons();
+
+      // 如果按钮数量变了，重建 DOM
+      const existingBtns = footerButtons.querySelectorAll('.footer-btn');
+      if (existingBtns.length !== btns.length) {
+        rebuildFooterDOM(btns);
+      } else {
+        // 只更新选中状态
+        updateFooterSelection(btns);
+      }
+    };
+
+    const rebuildFooterDOM = (btns) => {
       footerButtons.innerHTML = '';
 
       btns.forEach((btn, idx) => {
         const el = document.createElement('button');
-        el.className = 'footer-btn';
-        const classes = [];
-        if (btn.id === 'trash' && isTrashMode) classes.push('active');
-        if (selectedRow === 1 && selectedCol === idx) classes.push('btn-focused');
-        if (classes.length) el.className += ' ' + classes.join(' ');
-        el.className += ' ' + btn.id + '-btn';
+        el.className = 'footer-btn ' + btn.id + '-btn';
+        if (btn.id === 'trash' && isTrashMode) el.classList.add('active');
+        if (selectedRow === 1 && selectedCol === idx) el.classList.add('btn-focused');
         el.title = btn.title;
         el.innerHTML = `<span class="btn-icon">${btn.icon}</span>`;
         el.addEventListener('click', () => {
@@ -1241,20 +1371,42 @@
       });
     };
 
+    const updateFooterSelection = (btns) => {
+      const elements = footerButtons.querySelectorAll('.footer-btn');
+      elements.forEach((el, idx) => {
+        const btn = btns[idx];
+        if (!btn) return;
+        const isFocused = selectedRow === 1 && selectedCol === idx;
+        const wasFocused = el.classList.contains('btn-focused');
+        if (isFocused !== wasFocused) {
+          el.classList.toggle('btn-focused', isFocused);
+        }
+        const isActive = (btn.id === 'trash' && isTrashMode) || (btn.id === 'folder' && isFolderMode);
+        const wasActive = el.classList.contains('active');
+        if (isActive !== wasActive) {
+          el.classList.toggle('active', isActive);
+        }
+      });
+    };
+
     const updateFooterInfo = () => {
       const active = getActiveFiles();
       const deleted = getDeletedFiles();
-      fileCountEl.textContent = `${active.length} files`;
       if (isTrashMode) {
-        trashCountEl.style.display = '';
-        trashCountEl.textContent = ` · ${deleted.length} deleted`;
+        fileCountEl.textContent = `${deleted.length} deleted`;
+        trashCountEl.style.display = 'none';
+      } else if (isFolderMode) {
+        const inFolder = getFilesInCurrentFolder();
+        fileCountEl.textContent = `${inFolder.length} files in ${currentFolderPath}`;
+        trashCountEl.style.display = 'none';
       } else {
+        fileCountEl.textContent = `${active.length} files`;
         trashCountEl.style.display = 'none';
       }
     };
 
     const updateTrashShredderZones = () => {
-      trashZone.style.display = isTrashMode ? 'none' : '';
+      trashZone.style.display = (isTrashMode || isFolderMode) ? 'none' : '';
       shredderZone.style.display = isTrashMode ? '' : 'none';
     };
 
@@ -1297,10 +1449,18 @@
     // ========== File Operations ==========
     const handleFileClick = (file) => {
       playSound('click');
-      selectedRow = 0;
       const list = getDisplayFiles();
       const idx = list.findIndex(f => f.id === file.id);
-      if (idx >= 0) selectedCol = idx;
+
+      // 已经选中了这个文件 → 打开
+      if (selectedRow === 0 && selectedCol === idx) {
+        openFile(file);
+        return;
+      }
+
+      // 没选中 → 选中它
+      selectedRow = 0;
+      selectedCol = idx;
       updateUI();
     };
 
@@ -1309,7 +1469,12 @@
         restoreFile(file);
         return;
       }
-      if (file.isFolder) return;
+
+      // 文件夹 → 进入文件夹
+      if (file.isFolder) {
+        enterFolder(file);
+        return;
+      }
 
       const api = fsAPI();
       if (!api) return;
@@ -1317,7 +1482,8 @@
       // 从磁盘读取文件内容
       let content = file.content;
       if (content === null) {
-        content = await api.readFile(file.name);
+        const subPath = file.parentPath ? `${file.parentPath}/${file.name}` : file.name;
+        content = await api.readFile(subPath);
         file.content = content !== null ? content : '';
       }
 
@@ -1334,7 +1500,8 @@
       const api = fsAPI();
       if (api) {
         // 从回收站移动回来
-        api.rename(`${TRASH_DIR}/${file.name}`, file.name);
+        const trashName = file.name.includes('/') ? file.name.split('/').pop() : file.name;
+        api.rename(`${TRASH_DIR}/${trashName}`, file.name);
       }
       file.deleted = false;
       saveFiles();
@@ -1346,9 +1513,10 @@
         const api = fsAPI();
         const newContent = editorContent;
         editingFile.content = newContent;
-        // 写入磁盘
+        // 写入磁盘（使用完整路径）
         if (api) {
-          await api.writeFile(editingFile.name, newContent);
+          const subPath = editingFile.parentPath ? `${editingFile.parentPath}/${editingFile.name}` : editingFile.name;
+          await api.writeFile(subPath, newContent);
         }
         saveFiles();
       }
@@ -1378,19 +1546,23 @@
       reader.onload = async (e) => {
         const content = e.target.result;
         const api = fsAPI();
+        const subPath = isFolderMode ? `${currentFolderPath}/${file.name}` : file.name;
         if (api) {
           // 写入磁盘
-          await api.writeFile(file.name, content);
+          await api.writeFile(subPath, content);
           // 刷新文件列表
           await loadFilesFromDisk();
         } else {
           // fallback: 内存
+          const id = isFolderMode ? `${currentFolderPath}/${file.name}` : file.name;
           const newFile = {
-            id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+            id: id,
             name: file.name,
             content: content,
             deleted: false,
-            order: files.length
+            order: files.length,
+            isFolder: false,
+            parentPath: currentFolderPath
           };
           files.push(newFile);
         }
@@ -1451,6 +1623,40 @@
     const toggleTrashMode = () => {
       playSound('click');
       isTrashMode = !isTrashMode;
+      isFolderMode = false;
+      currentFolderPath = '';
+      selectedRow = 0;
+      selectedCol = 0;
+      searchQuery = '';
+      searchInput.value = '';
+      updateUI();
+    };
+
+    // ========== Folder Operations ==========
+    const enterFolder = (folderFile) => {
+      playSound('click');
+      isFolderMode = true;
+      isTrashMode = false;
+      currentFolderPath = folderFile.name;
+      selectedRow = 0;
+      selectedCol = 0;
+      searchQuery = '';
+      searchInput.value = '';
+      updateUI();
+    };
+
+    const enterFolderFromSelection = () => {
+      const list = getDisplayFiles();
+      const file = list[selectedCol];
+      if (file && file.isFolder) {
+        enterFolder(file);
+      }
+    };
+
+    const exitFolderMode = () => {
+      playSound('click');
+      isFolderMode = false;
+      currentFolderPath = '';
       selectedRow = 0;
       selectedCol = 0;
       searchQuery = '';
@@ -1472,7 +1678,9 @@
           // 确保 .trash 目录存在
           await api.mkdir(TRASH_DIR);
           // 移动文件到回收站
-          await api.rename(file.name, `${TRASH_DIR}/${file.name}`);
+          const srcPath = file.parentPath ? `${file.parentPath}/${file.name}` : file.name;
+          const trashPath = `${TRASH_DIR}/${file.name}`;
+          await api.rename(srcPath, trashPath);
         }
         file.deleted = true;
         saveFiles();
@@ -1585,17 +1793,20 @@
       const ext = type === 'txt' ? '.txt' : '.md';
       const name = `new_file${ext}`;
       const api = fsAPI();
+      const subPath = isFolderMode ? `${currentFolderPath}/${name}` : name;
       if (api) {
-        await api.writeFile(name, '');
+        await api.writeFile(subPath, '');
         await loadFilesFromDisk();
       } else {
-        const id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
+        const id = isFolderMode ? `${currentFolderPath}/${name}` : name;
         const newFile = {
           id: id,
           name: name,
           content: '',
           deleted: false,
-          order: files.length
+          order: files.length,
+          isFolder: false,
+          parentPath: currentFolderPath
         };
         files.push(newFile);
       }
@@ -1618,18 +1829,20 @@
       closeCreateMenu();
       const api = fsAPI();
       const folderName = 'NewFolder';
+      const subPath = isFolderMode ? `${currentFolderPath}/${folderName}` : folderName;
       if (api) {
-        await api.mkdir(folderName);
+        await api.mkdir(subPath);
         await loadFilesFromDisk();
       } else {
-        const id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
+        const id = isFolderMode ? `${currentFolderPath}/${folderName}` : folderName;
         const newFolder = {
           id: id,
           name: folderName,
           content: '',
           isFolder: true,
           deleted: false,
-          order: files.length
+          order: files.length,
+          parentPath: currentFolderPath
         };
         files.push(newFolder);
       }
@@ -1836,8 +2049,9 @@
             if (file && !file.deleted) {
               const api = fsAPI();
               if (api) {
+                const srcPath = file.parentPath ? `${file.parentPath}/${file.name}` : file.name;
                 api.mkdir(TRASH_DIR).then(() => {
-                  api.rename(file.name, `${TRASH_DIR}/${file.name}`);
+                  api.rename(srcPath, `${TRASH_DIR}/${file.name}`);
                 });
               }
               file.deleted = true;
@@ -1868,6 +2082,9 @@
     // File list drag
     fileList.addEventListener('dragover', handleListDragOver);
     fileList.addEventListener('drop', handleListDrop);
+
+    // Breadcrumb back
+    breadcrumbBack.addEventListener('click', () => exitFolderMode());
 
     // Trash zone
     trashZone.addEventListener('dragover', (e) => {

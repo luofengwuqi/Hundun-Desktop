@@ -437,8 +437,13 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 - [x] 文件存储改造: localStorage → 真实磁盘文件
 - [x] 数据目录: `plugins/fast-txt/file/` (随安装位置动态变化，不硬编码)
 - [x] 隐藏文件: `.order.json` (排序), `.trash/` (回收站)
-- [x] 文件夹按钮: 直接打开系统文件管理器到数据目录
+- [x] 文件夹图标: 📁文件夹 / 📝.md / 📄.txt
+- [x] 文件夹模式: 点击文件夹进入内部视图，面包屑导航 + 返回按钮
+- [x] 文件夹模式与垃圾桶模式互斥切换
+- [x] 文件夹内创建/导入/删除文件使用完整子路径
+- [x] 磁盘操作: loadFilesFromDisk 递归读取文件夹内容，parentPath 记录归属
 - [x] 存储文档: `plugins/fast-txt/STORAGE.md`
+- [x] UI: 去除 hover 效果，点击选中再点击打开交互
 
 #### 4.4 插件开发规范
 - [x] PLUGIN_SPEC.md v2.0 (781行完整规范)

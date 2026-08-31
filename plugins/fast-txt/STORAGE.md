@@ -13,6 +13,8 @@ plugins/
     ├── file/               ← 用户数据目录
     │   ├── readme.txt
     │   ├── notes.md
+    │   ├── NewFolder/      ← 用户创建的文件夹
+    │   │   └── nested.md
     │   ├── .order.json     ← 排序信息（隐藏文件）
     │   └── .trash/         ← 回收站（隐藏文件夹）
     │       └── old_file.txt
@@ -28,6 +30,32 @@ plugins/
 - 安装到 `D:\Apps\HundunLite`: `D:\Apps\HundunLite\plugins\fast-txt\file\`
 
 **路径通过 `pluginManager.plugins.get(pluginId).path` 动态获取**，不要硬编码。
+
+## 文件夹模式
+
+FastTXT 支持文件夹浏览，类似垃圾桶模式：
+
+- **进入文件夹**: 点击文件夹卡片 → 进入内部视图，显示 `parentPath` 匹配的文件
+- **返回根目录**: 点击面包屑 `← Back` 按钮 或 底部 `📁` 按钮
+- **模式互斥**: 文件夹模式和垃圾桶模式不能同时激活，切换时自动退出另一种
+- **创建文件**: 在文件夹内创建的文件自动归属当前文件夹 (`parentPath = 当前路径`)
+
+### 文件对象的 parentPath 字段
+
+```javascript
+{
+  id: 'NewFolder/nested.md',  // id = parentPath/name
+  name: 'nested.md',
+  parentPath: 'NewFolder',    // 所属文件夹名，根目录为空字符串 ''
+  isFolder: false,
+  content: null,              // 延迟加载
+  ...
+}
+```
+
+- 根目录文件: `parentPath = ''`
+- 文件夹内文件: `parentPath = '文件夹名'`
+- 嵌套文件夹内文件: `parentPath = '文件夹名/子文件夹名'`（目前仅支持一层嵌套读取）
 
 ## 应用数据目录结构
 

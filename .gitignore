@@ -3,6 +3,7 @@ out/
 dist/
 .user-data/
 user-data/
+plugins/fast-txt/file/
 .idea/
 *.log
 .DS_Store
