@@ -119,6 +119,108 @@ window.hundun = {
     }
   },
 
+  // ========== 文件系统 API (FastTXT 等插件使用) ==========
+  fs: {
+      /**
+     * 获取插件数据目录的基础路径
+     * @returns {Promise<string>} 如 E:\code2\huntunLite\plugins\fast-txt
+     */
+    getBasePath: async () => {
+      const pluginId = window.__PLUGIN_ID__
+      return await ipcRenderer.invoke('fasttxt:getBasePath', pluginId)
+    },
+
+    /**
+     * 列出目录中的文件和子目录
+     * @param {string} dirPath - 相对于 base 的路径，或空字符串表示根目录
+     * @returns {Promise<Array>} [{name, isDirectory, mtime, size}]
+     */
+    readDir: async (dirPath = '') => {
+      const pluginId = window.__PLUGIN_ID__
+      return await ipcRenderer.invoke('fasttxt:readDir', pluginId, dirPath)
+    },
+
+    /**
+     * 读取文件内容
+     * @param {string} filePath - 相对于 base 的路径
+     * @returns {Promise<string|null>} 文件内容，失败返回 null
+     */
+    readFile: async (filePath) => {
+      const pluginId = window.__PLUGIN_ID__
+      return await ipcRenderer.invoke('fasttxt:readFile', pluginId, filePath)
+    },
+
+    /**
+     * 写入文件内容（不存在则创建）
+     * @param {string} filePath - 相对于 base 的路径
+     * @param {string} content - 文件内容
+     * @returns {Promise<boolean>}
+     */
+    writeFile: async (filePath, content) => {
+      const pluginId = window.__PLUGIN_ID__
+      return await ipcRenderer.invoke('fasttxt:writeFile', pluginId, filePath, content)
+    },
+
+    /**
+     * 删除文件
+     * @param {string} filePath - 相对于 base 的路径
+     * @returns {Promise<boolean>}
+     */
+    deleteFile: async (filePath) => {
+      const pluginId = window.__PLUGIN_ID__
+      return await ipcRenderer.invoke('fasttxt:deleteFile', pluginId, filePath)
+    },
+
+    /**
+     * 创建目录（递归创建）
+     * @param {string} dirPath - 相对于 base 的路径
+     * @returns {Promise<boolean>}
+     */
+    mkdir: async (dirPath) => {
+      const pluginId = window.__PLUGIN_ID__
+      return await ipcRenderer.invoke('fasttxt:mkdir', pluginId, dirPath)
+    },
+
+    /**
+     * 重命名/移动文件
+     * @param {string} oldPath - 旧路径
+     * @param {string} newPath - 新路径
+     * @returns {Promise<boolean>}
+     */
+    rename: async (oldPath, newPath) => {
+      const pluginId = window.__PLUGIN_ID__
+      return await ipcRenderer.invoke('fasttxt:rename', pluginId, oldPath, newPath)
+    },
+
+    /**
+     * 检查文件/目录是否存在
+     * @param {string} filePath - 相对于 base 的路径
+     * @returns {Promise<boolean>}
+     */
+    exists: async (filePath) => {
+      const pluginId = window.__PLUGIN_ID__
+      return await ipcRenderer.invoke('fasttxt:exists', pluginId, filePath)
+    },
+
+    /**
+     * 获取文件信息
+     * @param {string} filePath - 相对于 base 的路径
+     * @returns {Promise<Object|null>} {size, mtime, isDirectory}
+     */
+    stat: async (filePath) => {
+      const pluginId = window.__PLUGIN_ID__
+      return await ipcRenderer.invoke('fasttxt:stat', pluginId, filePath)
+    },
+
+    /**
+     * 用系统文件管理器打开当前目录
+     */
+    openInExplorer: async () => {
+      const pluginId = window.__PLUGIN_ID__
+      return await ipcRenderer.invoke('fasttxt:openInExplorer', pluginId)
+    }
+  },
+
   // ========== 事件系统 ==========
   events: {
     onExecute: (callback) => {

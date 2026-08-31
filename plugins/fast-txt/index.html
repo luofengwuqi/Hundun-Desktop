@@ -999,6 +999,8 @@
     let createMenuSelectedIdx = 0;
 
     const PROGRAM_FOLDER = 'FastTXT_Data';
+    const TRASH_DIR = '.trash';
+    const ORDER_FILE = '.order.json';
 
     // ========== Computed ==========
     const getActiveFiles = () => files.filter(f => !f.deleted).sort((a, b) => a.order - b.order);
@@ -1023,28 +1025,132 @@
       return btns;
     };
 
-    // ========== File Management ==========
-    const createDefaultFiles = () => [
-      { id: '1', name: 'readme.txt', content: 'Welcome to FastTXT!\n\nA retro text file manager.\n\nFeatures:\n- Drag & drop import\n- File editing\n- Trash & shred', deleted: false, order: 0 },
-      { id: '2', name: 'notes.md', content: '# Notes\n\n## TODO\n- [ ] Try dragging files\n- [ ] Create new files\n- [ ] Test the shredder', deleted: false, order: 1 },
-      { id: '3', name: 'draft.txt', content: 'This is a draft file.\n\nYou can edit this text freely.', deleted: false, order: 2 },
-    ];
+    // ========== File System Helpers ==========
+    const fsAPI = () => window.hundun && window.hundun.fs ? window.hundun.fs : null;
 
-    const initDefaultFiles = () => {
-      const saved = localStorage.getItem('fasttxt-files');
-      if (saved) {
-        try {
-          files = JSON.parse(saved);
-        } catch (e) {
-          files = createDefaultFiles();
-        }
-      } else {
-        files = createDefaultFiles();
-      }
+    const getFileInfoFromName = (name) => {
+      const ext = name.substring(name.lastIndexOf('.')).toLowerCase();
+      return {
+        isText: ext === '.txt' || ext === '.md',
+        isMarkdown: ext === '.md'
+      };
     };
 
-    const saveFiles = () => {
-      localStorage.setItem('fasttxt-files', JSON.stringify(files));
+    // ========== File Management (Disk-based) ==========
+    const createDefaultFiles = async () => {
+      const api = fsAPI();
+      if (!api) return;
+
+      // 检查是否已有文件
+      const existing = await api.readDir('');
+      if (existing.length > 0) return; // 已有文件，不创建默认
+
+      // 创建默认文件
+      await api.writeFile('readme.txt', 'Welcome to FastTXT!\n\nA retro text file manager.\n\nFeatures:\n- Drag & drop import\n- File editing\n- Trash & shred');
+      await api.writeFile('notes.md', '# Notes\n\n## TODO\n- [ ] Try dragging files\n- [ ] Create new files\n- [ ] Test the shredder');
+      await api.writeFile('draft.txt', 'This is a draft file.\n\nYou can edit this text freely.');
+    };
+
+    const loadFilesFromDisk = async () => {
+      const api = fsAPI();
+      if (!api) { files = []; return; }
+
+      // 读取排序信息
+      let orderMap = {};
+      try {
+        const orderJson = await api.readFile(ORDER_FILE);
+        if (orderJson) {
+          const parsed = JSON.parse(orderJson);
+          if (parsed && Array.isArray(parsed.ids)) {
+            parsed.ids.forEach((id, idx) => { orderMap[id] = idx; });
+          }
+        }
+      } catch (_) {}
+
+      // 读取正常目录
+      const activeEntries = await api.readDir('');
+      // 读取回收站
+      const trashEntries = await api.readDir(TRASH_DIR);
+
+      const newFiles = [];
+      let maxOrder = 0;
+
+      // 处理正常文件
+      for (const entry of activeEntries) {
+        if (entry.name === ORDER_FILE || entry.name === TRASH_DIR) continue;
+        if (entry.name.startsWith('.')) continue;
+
+        const id = entry.name;
+        const order = orderMap[id] !== undefined ? orderMap[id] : maxOrder++;
+        if (order >= maxOrder) maxOrder = order + 1;
+
+        if (entry.isDirectory) {
+          newFiles.push({
+            id: id,
+            name: id,
+            content: '',
+            deleted: false,
+            order: order,
+            isFolder: true
+          });
+        } else {
+          // 文本文件：不预加载内容，打开时再读取
+          newFiles.push({
+            id: id,
+            name: id,
+            content: null, // 延迟加载
+            deleted: false,
+            order: order,
+            isFolder: false
+          });
+        }
+      }
+
+      // 处理回收站文件
+      for (const entry of trashEntries) {
+        if (entry.name.startsWith('.')) continue;
+        const id = entry.name;
+        const order = orderMap[id] !== undefined ? orderMap[id] : maxOrder++;
+        if (order >= maxOrder) maxOrder = order + 1;
+
+        if (entry.isDirectory) {
+          newFiles.push({
+            id: id,
+            name: id,
+            content: '',
+            deleted: true,
+            order: order,
+            isFolder: true
+          });
+        } else {
+          newFiles.push({
+            id: id,
+            name: id,
+            content: null,
+            deleted: true,
+            order: order,
+            isFolder: false
+          });
+        }
+      }
+
+      // 按 orderMap 中不存在的排在最后
+      newFiles.sort((a, b) => a.order - b.order);
+      files = newFiles;
+    };
+
+    const saveOrderToDisk = async () => {
+      const api = fsAPI();
+      if (!api) return;
+      const active = getActiveFiles();
+      const deleted = getDeletedFiles();
+      const allSorted = [...active, ...deleted];
+      const ids = allSorted.map(f => f.id);
+      await api.writeFile(ORDER_FILE, JSON.stringify({ ids }, null, 2));
+    };
+
+    const saveFiles = async () => {
+      await saveOrderToDisk();
     };
 
     // ========== UI Render ==========
@@ -1198,11 +1304,23 @@
       updateUI();
     };
 
-    const openFile = (file) => {
+    const openFile = async (file) => {
       if (file.deleted) {
         restoreFile(file);
         return;
       }
+      if (file.isFolder) return;
+
+      const api = fsAPI();
+      if (!api) return;
+
+      // 从磁盘读取文件内容
+      let content = file.content;
+      if (content === null) {
+        content = await api.readFile(file.name);
+        file.content = content !== null ? content : '';
+      }
+
       playSound('OK');
       editingFile = file;
       editorContent = file.content || '';
@@ -1213,14 +1331,25 @@
 
     const restoreFile = (file) => {
       playSound('click');
+      const api = fsAPI();
+      if (api) {
+        // 从回收站移动回来
+        api.rename(`${TRASH_DIR}/${file.name}`, file.name);
+      }
       file.deleted = false;
       saveFiles();
       updateUI();
     };
 
-    const closeEditor = () => {
+    const closeEditor = async () => {
       if (editingFile) {
-        editingFile.content = editorContent;
+        const api = fsAPI();
+        const newContent = editorContent;
+        editingFile.content = newContent;
+        // 写入磁盘
+        if (api) {
+          await api.writeFile(editingFile.name, newContent);
+        }
         saveFiles();
       }
       playSound('exit');
@@ -1246,16 +1375,25 @@
 
     const importFile = (file) => {
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         const content = e.target.result;
-        const newFile = {
-          id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-          name: file.name,
-          content: content,
-          deleted: false,
-          order: files.length
-        };
-        files.push(newFile);
+        const api = fsAPI();
+        if (api) {
+          // 写入磁盘
+          await api.writeFile(file.name, content);
+          // 刷新文件列表
+          await loadFilesFromDisk();
+        } else {
+          // fallback: 内存
+          const newFile = {
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+            name: file.name,
+            content: content,
+            deleted: false,
+            order: files.length
+          };
+          files.push(newFile);
+        }
         saveFiles();
         playSound('OK');
         updateUI();
@@ -1320,7 +1458,7 @@
       updateUI();
     };
 
-    const handleTrashDrop = (e) => {
+    const handleTrashDrop = async (e) => {
       e.preventDefault();
       isTrashDragOver = false;
       trashZone.classList.remove('drag-over');
@@ -1329,6 +1467,13 @@
 
       const file = files.find(f => f.id === fileId);
       if (file && !file.deleted) {
+        const api = fsAPI();
+        if (api) {
+          // 确保 .trash 目录存在
+          await api.mkdir(TRASH_DIR);
+          // 移动文件到回收站
+          await api.rename(file.name, `${TRASH_DIR}/${file.name}`);
+        }
         file.deleted = true;
         saveFiles();
         playSound('exit');
@@ -1336,7 +1481,7 @@
       }
     };
 
-    const handleShredderDrop = (e) => {
+    const handleShredderDrop = async (e) => {
       e.preventDefault();
       isShredderDragOver = false;
       shredderZone.classList.remove('drag-over');
@@ -1345,6 +1490,11 @@
 
       const file = files.find(f => f.id === fileId);
       if (file && file.deleted) {
+        const api = fsAPI();
+        if (api) {
+          // 从磁盘永久删除
+          await api.deleteFile(`${TRASH_DIR}/${file.name}`);
+        }
         const idx = files.findIndex(f => f.id === fileId);
         if (idx !== -1) {
           files.splice(idx, 1);
@@ -1370,7 +1520,15 @@
       ]);
     };
 
-    const shredAll = () => {
+    const shredAll = async () => {
+      const api = fsAPI();
+      if (api) {
+        // 从磁盘永久删除回收站中所有文件
+        const deleted = getDeletedFiles();
+        for (const file of deleted) {
+          await api.deleteFile(`${TRASH_DIR}/${file.name}`);
+        }
+      }
       files = files.filter(f => !f.deleted);
       saveFiles();
       closeModal();
@@ -1378,11 +1536,26 @@
       updateUI();
     };
 
-    const openFolder = () => {
+    const openFolder = async () => {
       playSound('click');
-      showModal('📁', 'PROGRAM FOLDER', `Files are stored in:\n${PROGRAM_FOLDER}/\n\nDrag .txt or .md files anywhere to import.`, [
-        { text: 'OK', class: 'primary', action: closeModal }
-      ]);
+      try {
+        // 优先用 preload 提供的 API（通过主进程 shell.openPath）
+        if (window.hundun && window.hundun.fs && window.hundun.fs.openInExplorer) {
+          await window.hundun.fs.openInExplorer();
+          return;
+        }
+      } catch (e) {
+        console.warn('[FastTXT] preload openInExplorer failed, trying fallback:', e);
+      }
+      // fallback: 直接用 Electron shell（需要 nodeIntegration: true）
+      try {
+        const { shell } = require('electron');
+        const filePath = decodeURIComponent(window.location.pathname);
+        const dirPath = filePath.replace(/^\/?([A-Z]:)/, '$1').replace(/\/index\.html$/, '');
+        shell.openPath(dirPath);
+      } catch (e) {
+        console.error('[FastTXT] openFolder fallback error:', e);
+      }
     };
 
     // ========== Create File / Folder ==========
@@ -1407,50 +1580,62 @@
       });
     };
 
-    const createFile = (type) => {
+    const createFile = async (type) => {
       closeCreateMenu();
       const ext = type === 'txt' ? '.txt' : '.md';
-      const id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
-      const newFile = {
-        id: id,
-        name: `new_file${ext}`,
-        content: '',
-        deleted: false,
-        order: files.length
-      };
-      files.push(newFile);
+      const name = `new_file${ext}`;
+      const api = fsAPI();
+      if (api) {
+        await api.writeFile(name, '');
+        await loadFilesFromDisk();
+      } else {
+        const id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
+        const newFile = {
+          id: id,
+          name: name,
+          content: '',
+          deleted: false,
+          order: files.length
+        };
+        files.push(newFile);
+      }
       saveFiles();
       playSound('OK');
-      editingFile = newFile;
-      editorContent = '';
-      currentView = 'editor';
-      updateUI();
-      setTimeout(() => editorTextarea.focus(), 0);
+      // 找到刚创建的文件并打开编辑
+      const newFile = files.find(f => f.name === name);
+      if (newFile) {
+        editingFile = newFile;
+        editorContent = '';
+        currentView = 'editor';
+        updateUI();
+        setTimeout(() => editorTextarea.focus(), 0);
+      } else {
+        updateUI();
+      }
     };
 
-    const createFolder = () => {
+    const createFolder = async () => {
       closeCreateMenu();
-      showModal('📁', 'FOLDER NAME', '', [
-        { text: 'Cancel', class: 'secondary', action: closeModal },
-        {
-          text: 'Create', class: 'primary', action: () => {
-            closeModal();
-            const id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
-            const newFolder = {
-              id: id,
-              name: 'NewFolder',
-              content: '',
-              isFolder: true,
-              deleted: false,
-              order: files.length
-            };
-            files.push(newFolder);
-            saveFiles();
-            playSound('OK');
-            updateUI();
-          }
-        }
-      ]);
+      const api = fsAPI();
+      const folderName = 'NewFolder';
+      if (api) {
+        await api.mkdir(folderName);
+        await loadFilesFromDisk();
+      } else {
+        const id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
+        const newFolder = {
+          id: id,
+          name: folderName,
+          content: '',
+          isFolder: true,
+          deleted: false,
+          order: files.length
+        };
+        files.push(newFolder);
+      }
+      saveFiles();
+      playSound('OK');
+      updateUI();
     };
 
     // ========== Modal ==========
@@ -1541,7 +1726,7 @@
       if (showCreateMenuVisible) {
         e.preventDefault();
         e.stopImmediatePropagation();
-        const totalOpts = 4;
+        const totalOpts = 3;
         if (key === 'Escape') {
           closeCreateMenu();
           playSound('click');
@@ -1649,6 +1834,12 @@
           if (selectedRow === 0 && !isTrashMode) {
             const file = getDisplayFiles()[selectedCol];
             if (file && !file.deleted) {
+              const api = fsAPI();
+              if (api) {
+                api.mkdir(TRASH_DIR).then(() => {
+                  api.rename(file.name, `${TRASH_DIR}/${file.name}`);
+                });
+              }
               file.deleted = true;
               saveFiles();
               playSound('exit');
@@ -1742,8 +1933,19 @@
     };
 
     // ========== Init ==========
-    const init = () => {
-      initDefaultFiles();
+    const init = async () => {
+      const api = fsAPI();
+      if (api) {
+        // 确保回收站目录存在
+        await api.mkdir(TRASH_DIR);
+        // 创建默认文件（如果目录为空）
+        await createDefaultFiles();
+        // 从磁盘加载文件列表
+        await loadFilesFromDisk();
+      } else {
+        // 无 fs API 时的 fallback（不应发生）
+        files = [];
+      }
       updateUI();
 
       if (window.hundun && window.hundun.host) {

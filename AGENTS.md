@@ -434,6 +434,11 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 - [x] 1:1 移植 FastTXTApp.vue → plugins/fast-txt/index.html
 - [x] 布局修复 (#view-main, #view-editor 填充 flex 容器)
 - [x] BrowserWindow 独立运行验证
+- [x] 文件存储改造: localStorage → 真实磁盘文件
+- [x] 数据目录: `plugins/fast-txt/file/` (随安装位置动态变化，不硬编码)
+- [x] 隐藏文件: `.order.json` (排序), `.trash/` (回收站)
+- [x] 文件夹按钮: 直接打开系统文件管理器到数据目录
+- [x] 存储文档: `plugins/fast-txt/STORAGE.md`
 
 #### 4.4 插件开发规范
 - [x] PLUGIN_SPEC.md v2.0 (781行完整规范)

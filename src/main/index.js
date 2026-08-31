@@ -1,6 +1,22 @@
-const { app, BrowserWindow, ipcMain, protocol } = require('electron')
+const { app, BrowserWindow, ipcMain, protocol, shell } = require('electron')
 const path = require('path')
+const fs = require('fs')
 const { PluginManager } = require('./plugin-manager')
+
+// ========== 根治 GPU 缓存权限问题 ==========
+// 所有应用数据统一放在项目目录下，不依赖系统目录
+const appRoot = path.join(__dirname, '../..')  // 项目根目录 E:\code2\huntunLite
+const userDataDir = path.join(appRoot, 'user-data')
+const gpuCacheDir = path.join(userDataDir, 'gpu-cache')
+
+// 覆盖 Electron 的默认 userData 路径到项目目录
+app.setPath('userData', userDataDir)
+
+if (!fs.existsSync(gpuCacheDir)) {
+  fs.mkdirSync(gpuCacheDir, { recursive: true })
+}
+app.commandLine.appendSwitch('disk-cache-dir', gpuCacheDir)
+app.commandLine.appendSwitch('gpu-cache-dir', gpuCacheDir)
 
 // Windows 圆角窗口
 if (process.platform === 'win32') {
@@ -85,6 +101,9 @@ app.whenReady().then(() => {
   
   // 注册插件管理器 IPC 处理器
   registerPluginManagerIPC()
+  
+  // 注册 FastTXT 文件系统 IPC 处理器
+  registerFastTXTIPC(pluginManager)
   
   console.log('[Main] Plugin manager initialized')
 
@@ -363,6 +382,192 @@ function registerPluginManagerIPC() {
       return { success: false, error: error.message }
     }
   })
+}
+
+// ========== FastTXT 文件系统 IPC ==========
+let fasttxtPluginManager = null
+
+function registerFastTXTIPC(pm) {
+  fasttxtPluginManager = pm
+
+  // 获取插件数据目录
+  ipcMain.handle('fasttxt:getBasePath', (event, pluginId) => {
+    return getFastTXTBasePath(pluginId)
+  })
+
+  // 列出目录
+  ipcMain.handle('fasttxt:readDir', (event, pluginId, dirPath) => {
+    const basePath = getFastTXTBasePath(pluginId)
+    const target = path.join(basePath, dirPath || '')
+    try {
+      if (!fs.existsSync(target)) return []
+      const entries = fs.readdirSync(target, { withFileTypes: true })
+      return entries
+        .filter(e => !e.name.startsWith('.'))
+        .map(e => {
+          const fullPath = path.join(target, e.name)
+          let stat = null
+          try { stat = fs.statSync(fullPath) } catch (_) {}
+          return {
+            name: e.name,
+            isDirectory: e.isDirectory(),
+            mtime: stat ? stat.mtime.getTime() : Date.now(),
+            size: stat ? stat.size : 0
+          }
+        })
+        .sort((a, b) => {
+          // 目录优先，然后按名称
+          if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1
+          return a.name.localeCompare(b.name)
+        })
+    } catch (err) {
+      console.error('[FastTXT] readDir error:', err)
+      return []
+    }
+  })
+
+  // 读取文件
+  ipcMain.handle('fasttxt:readFile', (event, pluginId, filePath) => {
+    const basePath = getFastTXTBasePath(pluginId)
+    const target = path.join(basePath, filePath)
+    try {
+      if (!fs.existsSync(target)) return null
+      return fs.readFileSync(target, 'utf-8')
+    } catch (err) {
+      console.error('[FastTXT] readFile error:', err)
+      return null
+    }
+  })
+
+  // 写入文件
+  ipcMain.handle('fasttxt:writeFile', (event, pluginId, filePath, content) => {
+    const basePath = getFastTXTBasePath(pluginId)
+    const target = path.join(basePath, filePath)
+    try {
+      const dir = path.dirname(target)
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true })
+      }
+      // 原子写入
+      const tmp = target + '.tmp'
+      fs.writeFileSync(tmp, content, 'utf-8')
+      fs.renameSync(tmp, target)
+      return true
+    } catch (err) {
+      console.error('[FastTXT] writeFile error:', err)
+      return false
+    }
+  })
+
+  // 删除文件
+  ipcMain.handle('fasttxt:deleteFile', (event, pluginId, filePath) => {
+    const basePath = getFastTXTBasePath(pluginId)
+    const target = path.join(basePath, filePath)
+    try {
+      if (!fs.existsSync(target)) return true
+      const stat = fs.statSync(target)
+      if (stat.isDirectory()) {
+        fs.rmSync(target, { recursive: true, force: true })
+      } else {
+        fs.unlinkSync(target)
+      }
+      return true
+    } catch (err) {
+      console.error('[FastTXT] deleteFile error:', err)
+      return false
+    }
+  })
+
+  // 创建目录
+  ipcMain.handle('fasttxt:mkdir', (event, pluginId, dirPath) => {
+    const basePath = getFastTXTBasePath(pluginId)
+    const target = path.join(basePath, dirPath)
+    try {
+      fs.mkdirSync(target, { recursive: true })
+      return true
+    } catch (err) {
+      console.error('[FastTXT] mkdir error:', err)
+      return false
+    }
+  })
+
+  // 重命名
+  ipcMain.handle('fasttxt:rename', (event, pluginId, oldPath, newPath) => {
+    const basePath = getFastTXTBasePath(pluginId)
+    const oldTarget = path.join(basePath, oldPath)
+    const newTarget = path.join(basePath, newPath)
+    try {
+      const dir = path.dirname(newTarget)
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true })
+      }
+      fs.renameSync(oldTarget, newTarget)
+      return true
+    } catch (err) {
+      console.error('[FastTXT] rename error:', err)
+      return false
+    }
+  })
+
+  // 检查是否存在
+  ipcMain.handle('fasttxt:exists', (event, pluginId, filePath) => {
+    const basePath = getFastTXTBasePath(pluginId)
+    const target = path.join(basePath, filePath)
+    try {
+      return fs.existsSync(target)
+    } catch (err) {
+      return false
+    }
+  })
+
+  // 获取文件信息
+  ipcMain.handle('fasttxt:stat', (event, pluginId, filePath) => {
+    const basePath = getFastTXTBasePath(pluginId)
+    const target = path.join(basePath, filePath)
+    try {
+      if (!fs.existsSync(target)) return null
+      const stat = fs.statSync(target)
+      return {
+        size: stat.size,
+        mtime: stat.mtime.getTime(),
+        isDirectory: stat.isDirectory()
+      }
+    } catch (err) {
+      return null
+    }
+  })
+
+  // 用系统文件管理器打开目录
+  ipcMain.handle('fasttxt:openInExplorer', (event, pluginId) => {
+    const basePath = getFastTXTBasePath(pluginId)
+    shell.openPath(basePath)
+  })
+}
+
+// 辅助：获取 FastTXT 数据目录（插件目录下的 file/ 子目录）
+function getFastTXTBasePath(pluginId) {
+  let pluginPath = null
+  // 优先从插件管理器获取插件实际路径
+  if (fasttxtPluginManager) {
+    const plugin = fasttxtPluginManager.plugins.get(pluginId)
+    if (plugin && plugin.path) {
+      pluginPath = plugin.path
+    }
+  }
+  // fallback：通过插件扫描器获取
+  if (!pluginPath && fasttxtPluginManager && fasttxtPluginManager.loader) {
+    pluginPath = path.join(fasttxtPluginManager.loader.pluginsDir, pluginId || 'fast-txt')
+  }
+  // 最终 fallback
+  if (!pluginPath) {
+    pluginPath = path.join(__dirname, '../../plugins', pluginId || 'fast-txt')
+  }
+  // 数据目录 = 插件目录/file/
+  const dataPath = path.join(pluginPath, 'file')
+  if (!fs.existsSync(dataPath)) {
+    fs.mkdirSync(dataPath, { recursive: true })
+  }
+  return dataPath
 }
 
 // ========== 主题系统 IPC ==========
