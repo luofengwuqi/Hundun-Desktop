@@ -224,6 +224,11 @@
       box-shadow: 0 0 12px var(--shadow-color);
     }
 
+    .ftxt-search.search-focused {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 12px var(--shadow-color);
+    }
+
     /* Breadcrumb */
     .ftxt-breadcrumb {
       display: flex;
@@ -823,12 +828,146 @@
       background: var(--bg-card);
     }
 
+    .light-mode .ftxt-find-bar {
+      background: var(--bg-secondary);
+    }
+
+    .light-mode .find-input {
+      background: var(--bg-card);
+    }
+
+    .light-mode .find-btn {
+      background: var(--bg-card);
+    }
+
     .light-mode .create-option {
       background: var(--bg-card);
     }
 
     .light-mode .footer-btn.add-btn {
       background: var(--bg-card);
+    }
+
+    /* ========== Find & Replace Bar ========== */
+    .ftxt-find-bar {
+      background: var(--bg-secondary);
+      border-bottom: 2px solid var(--border-color);
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex-shrink: 0;
+      animation: slideDown 0.15s ease;
+    }
+
+    @keyframes slideDown {
+      from { opacity: 0; transform: translateY(-100%); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .find-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .find-icon {
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+
+    .find-input {
+      flex: 1;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 4px 8px;
+      color: var(--text-primary);
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      outline: none;
+      min-width: 0;
+    }
+
+    .find-input:focus {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 6px var(--shadow-color);
+    }
+
+    .find-count {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px;
+      color: var(--text-muted);
+      min-width: 40px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    .find-btn {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      border: 1px solid var(--border-color);
+      background: var(--bg-card);
+      color: var(--text-primary);
+      font-size: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+      flex-shrink: 0;
+    }
+
+    .find-btn:hover {
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+    }
+
+    .find-close-btn:hover {
+      border-color: var(--accent-secondary, #ff0080);
+      color: var(--accent-secondary, #ff0080);
+    }
+
+    .replace-btn {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px;
+      width: auto;
+      padding: 0 8px;
+    }
+
+    .find-match {
+      background: color-mix(in srgb, var(--accent-tertiary, #00d4ff) 30%, transparent);
+      outline: 1px solid var(--accent-tertiary, #00d4ff);
+    }
+
+    .find-match-active {
+      background: color-mix(in srgb, var(--accent-primary) 40%, transparent);
+      outline: 2px solid var(--accent-primary);
+      box-shadow: 0 0 8px var(--shadow-color);
+    }
+
+    /* ========== Auto-save Indicator ========== */
+    .auto-save-indicator {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px;
+      color: var(--accent-primary);
+      letter-spacing: 1px;
+      animation: fadeInOut 1.5s ease;
+    }
+
+    @keyframes fadeInOut {
+      0% { opacity: 0; }
+      20% { opacity: 1; }
+      80% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    .shortcut-hint {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 5px;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
     }
   </style>
 </head>
@@ -902,6 +1041,23 @@
       </header>
 
       <main class="ftxt-editor">
+        <!-- Find & Replace Bar -->
+        <div class="ftxt-find-bar" id="findBar" style="display:none;">
+          <div class="find-row">
+            <span class="find-icon">🔍</span>
+            <input class="find-input" id="findInput" placeholder="Find..." spellcheck="false" />
+            <span class="find-count" id="findCount">0/0</span>
+            <button class="find-btn" id="findPrevBtn" title="Previous (Shift+Enter)">▲</button>
+            <button class="find-btn" id="findNextBtn" title="Next (Enter)">▼</button>
+            <button class="find-btn find-close-btn" id="findCloseBtn" title="Close (Esc)">✕</button>
+          </div>
+          <div class="find-row replace-row" id="replaceRow" style="display:none;">
+            <span class="find-icon">✏️</span>
+            <input class="find-input" id="replaceInput" placeholder="Replace..." spellcheck="false" />
+            <button class="find-btn replace-btn" id="replaceOneBtn" title="Replace One">1</button>
+            <button class="find-btn replace-btn" id="replaceAllBtn" title="Replace All">All</button>
+          </div>
+        </div>
         <div class="editor-line-numbers" id="lineNumbers"></div>
         <textarea class="editor-textarea" id="editorTextarea" spellcheck="false" placeholder="Start typing..."></textarea>
       </main>
@@ -910,10 +1066,12 @@
         <div class="editor-status">
           <span class="status-item" id="statusLines">Lines: 1</span>
           <span class="status-item" id="statusChars">Chars: 0</span>
+          <span class="status-item" id="statusWords">Words: 0</span>
           <span class="status-item" id="statusType">Plain Text</span>
         </div>
         <div class="editor-hint">
-          <span>ESC to save & exit</span>
+          <span id="autoSaveIndicator" class="auto-save-indicator" style="display:none;">✓ Saved</span>
+          <span class="shortcut-hint">Ctrl+S Save | Ctrl+F Find | Ctrl+H Replace</span>
         </div>
       </footer>
     </div>
@@ -1005,6 +1163,20 @@
     const createOptions = document.getElementById('createOptions');
     const createMenuCancel = document.getElementById('createMenuCancel');
 
+    // Find & Replace
+    const findBar = document.getElementById('findBar');
+    const findInput = document.getElementById('findInput');
+    const findCount = document.getElementById('findCount');
+    const findPrevBtn = document.getElementById('findPrevBtn');
+    const findNextBtn = document.getElementById('findNextBtn');
+    const findCloseBtn = document.getElementById('findCloseBtn');
+    const replaceRow = document.getElementById('replaceRow');
+    const replaceInput = document.getElementById('replaceInput');
+    const replaceOneBtn = document.getElementById('replaceOneBtn');
+    const replaceAllBtn = document.getElementById('replaceAllBtn');
+    const autoSaveIndicator = document.getElementById('autoSaveIndicator');
+    const statusWords = document.getElementById('statusWords');
+
     // ========== State ==========
     let currentView = 'main';
     let searchQuery = '';
@@ -1017,6 +1189,7 @@
 
     let selectedRow = 0;
     let selectedCol = 0;
+    let isSearchFocused = false; // 搜索框聚焦状态
 
     let files = [];
     let editingFile = null;
@@ -1032,13 +1205,29 @@
     let showCreateMenuVisible = false;
     let createMenuSelectedIdx = 0;
 
+    // Find & Replace state
+    let findBarVisible = false;
+    let showReplaceMode = false;
+    let findMatches = [];
+    let findCurrentIdx = -1;
+    let lastSearchQuery = '';
+
     const PROGRAM_FOLDER = 'FastTXT_Data';
     const TRASH_DIR = '.trash';
     const ORDER_FILE = '.order.json';
+    const GRID_COLS = 3; // 文件列表网格列数
 
     // ========== Computed ==========
     const getActiveFiles = () => files.filter(f => !f.deleted).sort((a, b) => a.order - b.order);
     const getDeletedFiles = () => files.filter(f => f.deleted);
+
+    // Grid row helpers
+    const getGridRow = (col) => Math.floor(col / GRID_COLS);
+    const getGridRowCount = (total) => Math.ceil(total / GRID_COLS);
+    const getFirstInRow = (row) => row * GRID_COLS;
+    const getLastInRow = (row, total) => Math.min((row + 1) * GRID_COLS - 1, total - 1);
+    const isInFirstRow = (col) => col < GRID_COLS;
+    const isInLastRow = (col, total) => col >= (getGridRowCount(total) - 1) * GRID_COLS;
 
     // 获取当前目录下的文件
     const getFilesInCurrentFolder = () => {
@@ -1229,6 +1418,11 @@
       if (currentView === 'main') {
         viewMain.style.display = '';
         viewEditor.style.display = 'none';
+        // Close find bar when leaving editor
+        if (findBarVisible) {
+          findBarVisible = false;
+          findBar.style.display = 'none';
+        }
         // 面包屑
         if (isFolderMode) {
           folderBreadcrumb.style.display = '';
@@ -1236,6 +1430,8 @@
         } else {
           folderBreadcrumb.style.display = 'none';
         }
+        // 搜索框聚焦视觉状态
+        document.querySelector('.ftxt-search').classList.toggle('search-focused', isSearchFocused);
         renderFileList();
         renderFooter();
         updateFooterInfo();
@@ -1362,6 +1558,7 @@
         el.title = btn.title;
         el.innerHTML = `<span class="btn-icon">${btn.icon}</span>`;
         el.addEventListener('click', () => {
+          isSearchFocused = false;
           selectedRow = 1;
           selectedCol = idx;
           btn.action();
@@ -1424,6 +1621,9 @@
     const renderEditorStatus = () => {
       statusLines.textContent = `Lines: ${getLineCount()}`;
       statusChars.textContent = `Chars: ${editorContent.length}`;
+      // Word count
+      const words = editorContent.trim() ? editorContent.trim().split(/\s+/).length : 0;
+      statusWords.textContent = `Words: ${words}`;
       statusType.textContent = editingFile && editingFile.name.endsWith('.md') ? 'Markdown' : 'Plain Text';
     };
 
@@ -1433,6 +1633,10 @@
     const clampSelection = () => {
       if (currentView === 'main') {
         const list = getDisplayFiles();
+        if (isSearchFocused) {
+          // 搜索框聚焦时不需要clamp文件列表
+          return;
+        }
         if (list.length === 0) {
           selectedCol = 0;
         } else if (selectedCol >= list.length) {
@@ -1449,6 +1653,7 @@
     // ========== File Operations ==========
     const handleFileClick = (file) => {
       playSound('click');
+      isSearchFocused = false;
       const list = getDisplayFiles();
       const idx = list.findIndex(f => f.id === file.id);
 
@@ -1491,6 +1696,11 @@
       editingFile = file;
       editorContent = file.content || '';
       currentView = 'editor';
+      // Reset find bar state
+      findBarVisible = false;
+      findBar.style.display = 'none';
+      findMatches = [];
+      findCurrentIdx = -1;
       updateUI();
       setTimeout(() => editorTextarea.focus(), 0);
     };
@@ -1509,6 +1719,10 @@
     };
 
     const closeEditor = async () => {
+      // Close find bar if open
+      if (findBarVisible) {
+        closeFindBar();
+      }
       if (editingFile) {
         const api = fsAPI();
         const newContent = editorContent;
@@ -1627,8 +1841,10 @@
       currentFolderPath = '';
       selectedRow = 0;
       selectedCol = 0;
+      isSearchFocused = false;
       searchQuery = '';
       searchInput.value = '';
+      searchInput.blur();
       updateUI();
     };
 
@@ -1640,8 +1856,10 @@
       currentFolderPath = folderFile.name;
       selectedRow = 0;
       selectedCol = 0;
+      isSearchFocused = false;
       searchQuery = '';
       searchInput.value = '';
+      searchInput.blur();
       updateUI();
     };
 
@@ -1659,8 +1877,10 @@
       currentFolderPath = '';
       selectedRow = 0;
       selectedCol = 0;
+      isSearchFocused = false;
       searchQuery = '';
       searchInput.value = '';
+      searchInput.blur();
       updateUI();
     };
 
@@ -1851,6 +2071,184 @@
       updateUI();
     };
 
+    // ========== Find & Replace ==========
+    const openFindBar = (withReplace) => {
+      playSound('click');
+      findBarVisible = true;
+      showReplaceMode = withReplace;
+      findBar.style.display = '';
+      replaceRow.style.display = withReplace ? '' : 'none';
+      findInput.value = '';
+      replaceInput.value = '';
+      findMatches = [];
+      findCurrentIdx = -1;
+      lastSearchQuery = '';
+      findCount.textContent = '0/0';
+      setTimeout(() => findInput.focus(), 0);
+    };
+
+    const closeFindBar = () => {
+      playSound('click');
+      findBarVisible = false;
+      findBar.style.display = 'none';
+      clearFindHighlights();
+      setTimeout(() => editorTextarea.focus(), 0);
+    };
+
+    const clearFindHighlights = () => {
+      // Clear any visual highlights (we track matches in JS)
+      findMatches = [];
+      findCurrentIdx = -1;
+      findCount.textContent = '0/0';
+    };
+
+    const performFind = () => {
+      const query = findInput.value;
+      if (!query) {
+        clearFindHighlights();
+        return;
+      }
+
+      findMatches = [];
+      const content = editorContent;
+      const lowerContent = content.toLowerCase();
+      const lowerQuery = query.toLowerCase();
+      let pos = 0;
+
+      while (pos < content.length) {
+        const idx = lowerContent.indexOf(lowerQuery, pos);
+        if (idx === -1) break;
+        findMatches.push({ start: idx, end: idx + query.length });
+        pos = idx + 1;
+      }
+
+      if (findMatches.length > 0) {
+        // Find the match closest to cursor position
+        const cursorPos = editorTextarea.selectionStart;
+        findCurrentIdx = 0;
+        for (let i = 0; i < findMatches.length; i++) {
+          if (findMatches[i].start >= cursorPos) {
+            findCurrentIdx = i;
+            break;
+          }
+        }
+      } else {
+        findCurrentIdx = -1;
+      }
+
+      lastSearchQuery = query;
+      updateFindCount();
+      scrollToFindMatch();
+    };
+
+    const updateFindCount = () => {
+      if (findMatches.length === 0) {
+        findCount.textContent = findInput.value ? '0/0' : '0/0';
+        findCount.style.color = findInput.value ? 'var(--accent-secondary, #ff0080)' : '';
+      } else {
+        findCount.textContent = `${findCurrentIdx + 1}/${findMatches.length}`;
+        findCount.style.color = '';
+      }
+    };
+
+    const scrollToFindMatch = () => {
+      if (findCurrentIdx < 0 || findCurrentIdx >= findMatches.length) return;
+      const match = findMatches[findCurrentIdx];
+      editorTextarea.focus();
+      editorTextarea.setSelectionRange(match.start, match.end);
+
+      // Scroll the textarea to show the match
+      const linesBefore = editorContent.substring(0, match.start).split('\n').length - 1;
+      const lineHeight = parseFloat(getComputedStyle(editorTextarea).lineHeight) || 23.4;
+      const scrollTarget = linesBefore * lineHeight - editorTextarea.clientHeight / 3;
+      editorTextarea.scrollTop = Math.max(0, scrollTarget);
+    };
+
+    const findNext = () => {
+      if (findMatches.length === 0) return;
+      findCurrentIdx = (findCurrentIdx + 1) % findMatches.length;
+      updateFindCount();
+      scrollToFindMatch();
+      playSound('click');
+    };
+
+    const findPrev = () => {
+      if (findMatches.length === 0) return;
+      findCurrentIdx = (findCurrentIdx - 1 + findMatches.length) % findMatches.length;
+      updateFindCount();
+      scrollToFindMatch();
+      playSound('click');
+    };
+
+    const replaceOne = () => {
+      if (findCurrentIdx < 0 || findCurrentIdx >= findMatches.length) return;
+      const match = findMatches[findCurrentIdx];
+      const replacement = replaceInput.value;
+      const before = editorContent.substring(0, match.start);
+      const after = editorContent.substring(match.end);
+      editorContent = before + replacement + after;
+      editorTextarea.value = editorContent;
+      renderEditorStatus();
+      renderLineNumbers();
+      performFind(); // Re-search after replacement
+      playSound('click');
+    };
+
+    const replaceAll = () => {
+      if (findMatches.length === 0) return;
+      const query = findInput.value;
+      const replacement = replaceInput.value;
+      const count = findMatches.length;
+
+      // Replace from end to start to preserve indices
+      let newContent = editorContent;
+      const lowerContent = newContent.toLowerCase();
+      const lowerQuery = query.toLowerCase();
+
+      // Build new content by replacing all occurrences
+      let result = '';
+      let pos = 0;
+      while (pos < newContent.length) {
+        const idx = lowerContent.indexOf(lowerQuery, pos);
+        if (idx === -1) {
+          result += newContent.substring(pos);
+          break;
+        }
+        result += newContent.substring(pos, idx) + replacement;
+        pos = idx + query.length;
+      }
+
+      editorContent = result;
+      editorTextarea.value = editorContent;
+      renderEditorStatus();
+      renderLineNumbers();
+      performFind(); // Re-search
+      playSound('OK');
+    };
+
+    // ========== Auto-save ==========
+    const saveEditorContent = async () => {
+      if (!editingFile) return;
+      const api = fsAPI();
+      if (api) {
+        const subPath = editingFile.parentPath ? `${editingFile.parentPath}/${editingFile.name}` : editingFile.name;
+        await api.writeFile(subPath, editorContent);
+      }
+      editingFile.content = editorContent;
+      await saveFiles();
+    };
+
+    const showAutoSaveIndicator = () => {
+      autoSaveIndicator.style.display = '';
+      // Reset animation
+      autoSaveIndicator.style.animation = 'none';
+      autoSaveIndicator.offsetHeight; // Trigger reflow
+      autoSaveIndicator.style.animation = '';
+      setTimeout(() => {
+        autoSaveIndicator.style.display = 'none';
+      }, 1500);
+    };
+
     // ========== Modal ==========
     const showModal = (icon, title, message, buttons) => {
       modalIconText = icon;
@@ -1898,20 +2296,25 @@
         renderEditorStatus();
         renderLineNumbers();
       }
+      // Prevent Backspace from triggering browser back when at start
+      if (e.key === 'Backspace' && editorTextarea.selectionStart === 0 && editorTextarea.selectionEnd === 0) {
+        e.preventDefault();
+      }
     };
 
     // ========== Global Keyboard ==========
     const handleKeydown = (e) => {
       let key = e.key;
-      if (key === 'w' || key === 'W') key = 'ArrowUp';
-      if (key === 's' || key === 'S') key = 'ArrowDown';
-      if (key === 'a' || key === 'A') key = 'ArrowLeft';
-      if (key === 'd' || key === 'D') key = 'ArrowRight';
 
-      // Modal open
+      // Modal open - use original key, WASD works as arrows via mapping below
       if (modalVisible) {
         e.preventDefault();
         e.stopImmediatePropagation();
+        // Map WASD to arrows for modal navigation
+        if (key === 'w' || key === 'W') key = 'ArrowUp';
+        if (key === 's' || key === 'S') key = 'ArrowDown';
+        if (key === 'a' || key === 'A') key = 'ArrowLeft';
+        if (key === 'd' || key === 'D') key = 'ArrowRight';
         if (key === 'Escape') {
           closeModal();
           playSound('click');
@@ -1939,6 +2342,11 @@
       if (showCreateMenuVisible) {
         e.preventDefault();
         e.stopImmediatePropagation();
+        // Map WASD to arrows for create menu navigation
+        if (key === 'w' || key === 'W') key = 'ArrowUp';
+        if (key === 's' || key === 'S') key = 'ArrowDown';
+        if (key === 'a' || key === 'A') key = 'ArrowLeft';
+        if (key === 'd' || key === 'D') key = 'ArrowRight';
         const totalOpts = 3;
         if (key === 'Escape') {
           closeCreateMenu();
@@ -1961,8 +2369,35 @@
         return;
       }
 
-      // Editor mode
+      // Find/Replace bar open - let it handle its own keys
+      if (findBarVisible) {
+        return;
+      }
+
+      // Editor mode - only handle global shortcuts (Ctrl+S, Ctrl+F, etc.)
       if (currentView === 'editor') {
+        // Ctrl/Cmd shortcuts
+        if (e.ctrlKey || e.metaKey) {
+          if (key === 's' || key === 'S') {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            saveEditorContent();
+            showAutoSaveIndicator();
+            return;
+          }
+          if (key === 'f' || key === 'F') {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            openFindBar(false);
+            return;
+          }
+          if (key === 'h' || key === 'H') {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            openFindBar(true);
+            return;
+          }
+        }
         if (e.key === 'Escape') {
           e.preventDefault();
           e.stopImmediatePropagation();
@@ -1971,27 +2406,69 @@
         return;
       }
 
-      // Main view
+      // Main view - WASD mapped to arrows for gamepad-style navigation
+      let mappedKey = key;
+      if (mappedKey === 'w' || mappedKey === 'W') mappedKey = 'ArrowUp';
+      if (mappedKey === 's' || mappedKey === 'S') mappedKey = 'ArrowDown';
+      if (mappedKey === 'a' || mappedKey === 'A') mappedKey = 'ArrowLeft';
+      if (mappedKey === 'd' || mappedKey === 'D') mappedKey = 'ArrowRight';
+
       if (e.key === 'Escape') {
-        if (isTrashMode) {
+        if (isSearchFocused) {
+          // 搜索框聚焦时 Escape → 清空搜索并取消聚焦
+          isSearchFocused = false;
+          searchInput.value = '';
+          searchQuery = '';
+          searchInput.blur();
+          updateUI();
+        } else if (isFolderMode) {
+          // 文件夹模式 → 返回上一级（根目录）
+          e.stopImmediatePropagation();
+          exitFolderMode();
+        } else if (isTrashMode) {
+          // 回收站模式 → 返回文件列表
           e.stopImmediatePropagation();
           isTrashMode = false;
           playSound('exit');
           updateUI();
         } else {
+          // 根目录 → 关闭子程序
           returnToParent();
         }
         return;
       }
 
-      if (key === ' ') key = 'Enter';
+      if (mappedKey === ' ') mappedKey = 'Enter';
 
-      switch (key) {
+      switch (mappedKey) {
         case 'ArrowUp':
           e.preventDefault();
-          if (selectedRow === 1) {
+          if (isSearchFocused) {
+            // 搜索框已聚焦，不再上移
+            break;
+          } else if (selectedRow === 0) {
+            // 文件网格中
+            const list = getDisplayFiles();
+            const total = list.length;
+            if (total > 0 && isInFirstRow(selectedCol)) {
+              // 在网格第一行 → 聚焦搜索框
+              isSearchFocused = true;
+              searchInput.focus();
+              playSound('click');
+              updateUI();
+              break;
+            }
+            // 不在第一行 → 向上移动一行
+            if (selectedCol >= GRID_COLS) {
+              selectedCol -= GRID_COLS;
+            }
+          } else if (selectedRow === 1) {
+            // 底部按钮行 → 回到最后一个文件
             selectedRow = 0;
-            clampSelection();
+            const btns = getFooterButtons();
+            const lastFileCol = getDisplayFiles().length - 1;
+            // 尝试对齐到按钮所在的列
+            selectedCol = Math.min(selectedCol, lastFileCol);
           }
           playSound('click');
           updateUI();
@@ -1999,10 +2476,30 @@
 
         case 'ArrowDown':
           e.preventDefault();
-          if (selectedRow === 0) {
-            selectedRow = 1;
-            const btns = getFooterButtons();
-            selectedCol = Math.min(selectedCol, btns.length - 1);
+          if (isSearchFocused) {
+            // 搜索框聚焦 → 选中第一个文件
+            isSearchFocused = false;
+            searchInput.blur();
+            selectedRow = 0;
+            selectedCol = 0;
+            playSound('click');
+            updateUI();
+            break;
+          } else if (selectedRow === 0) {
+            // 文件网格中
+            const list = getDisplayFiles();
+            const total = list.length;
+            if (total === 0) break;
+            if (isInLastRow(selectedCol, total)) {
+              // 在网格最后一行 → 跳到底部按钮
+              selectedRow = 1;
+              const btns = getFooterButtons();
+              selectedCol = Math.min(selectedCol, btns.length - 1);
+            } else {
+              // 向下移动一行，但不超过总数
+              const next = selectedCol + GRID_COLS;
+              selectedCol = Math.min(next, total - 1);
+            }
           }
           playSound('click');
           updateUI();
@@ -2010,8 +2507,12 @@
 
         case 'ArrowLeft':
           e.preventDefault();
-          if (selectedCol > 0) {
-            selectedCol--;
+          if (!isSearchFocused) {
+            if (selectedRow === 0 && selectedCol > 0) {
+              selectedCol--;
+            } else if (selectedRow === 1 && selectedCol > 0) {
+              selectedCol--;
+            }
           }
           playSound('click');
           updateUI();
@@ -2019,12 +2520,14 @@
 
         case 'ArrowRight':
           e.preventDefault();
-          if (selectedRow === 0) {
-            const maxFileCol = getDisplayFiles().length - 1;
-            if (selectedCol < maxFileCol) selectedCol++;
-          } else {
-            const maxBtnCol = getFooterButtons().length - 1;
-            if (selectedCol < maxBtnCol) selectedCol++;
+          if (!isSearchFocused) {
+            if (selectedRow === 0) {
+              const maxFileCol = getDisplayFiles().length - 1;
+              if (selectedCol < maxFileCol) selectedCol++;
+            } else {
+              const maxBtnCol = getFooterButtons().length - 1;
+              if (selectedCol < maxBtnCol) selectedCol++;
+            }
           }
           playSound('click');
           updateUI();
@@ -2032,7 +2535,16 @@
 
         case 'Enter':
           e.preventDefault();
-          if (selectedRow === 0) {
+          if (isSearchFocused) {
+            // 搜索框中按 Enter → 打开当前选中的文件（如果有的话）
+            isSearchFocused = false;
+            searchInput.blur();
+            const list = getDisplayFiles();
+            if (list.length > 0) {
+              selectedRow = 0;
+              openFile(list[selectedCol] || list[0]);
+            }
+          } else if (selectedRow === 0) {
             const file = getDisplayFiles()[selectedCol];
             if (file) openFile(file);
           } else {
@@ -2044,7 +2556,7 @@
         case 'Delete':
         case 'Backspace':
           e.preventDefault();
-          if (selectedRow === 0 && !isTrashMode) {
+          if (!isSearchFocused && selectedRow === 0 && !isTrashMode) {
             const file = getDisplayFiles()[selectedCol];
             if (file && !file.deleted) {
               const api = fsAPI();
@@ -2072,12 +2584,53 @@
     document.addEventListener('drop', handleGlobalDrop);
 
     // Search
+    searchInput.addEventListener('focus', () => {
+      isSearchFocused = true;
+      updateUI();
+    });
     searchInput.addEventListener('input', (e) => {
       searchQuery = e.target.value;
       selectedCol = 0;
       updateUI();
     });
-    searchInput.addEventListener('keydown', (e) => e.stopPropagation());
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        searchInput.value = '';
+        searchQuery = '';
+        searchInput.blur();
+        isSearchFocused = false;
+        updateUI();
+      } else if (e.key === 'ArrowDown') {
+        // 从搜索框按下 → 选中第一个文件
+        e.preventDefault();
+        e.stopPropagation();
+        searchInput.blur();
+        isSearchFocused = false;
+        selectedRow = 0;
+        selectedCol = 0;
+        playSound('click');
+        updateUI();
+      } else if (e.key === 'Backspace' && searchInput.value === '') {
+        // Prevent browser back navigation when search is empty
+        e.preventDefault();
+        e.stopPropagation();
+      } else {
+        e.stopPropagation();
+      }
+    });
+
+    // 搜索框失去焦点时清除高亮
+    searchInput.addEventListener('blur', () => {
+      // 延迟清除，避免点击搜索框时闪烁
+      setTimeout(() => {
+        if (document.activeElement !== searchInput) {
+          isSearchFocused = false;
+          updateUI();
+        }
+      }, 150);
+    });
 
     // File list drag
     fileList.addEventListener('dragover', handleListDragOver);
@@ -2119,6 +2672,10 @@
       editorContent = e.target.value;
       renderEditorStatus();
       renderLineNumbers();
+      // Update find matches if find bar is open
+      if (findBarVisible && findInput.value) {
+        performFind();
+      }
     });
     editorTextarea.addEventListener('keydown', handleEditorKeydown);
 
@@ -2140,6 +2697,35 @@
       });
     });
     createMenuCancel.addEventListener('click', closeCreateMenu);
+
+    // Find bar
+    findInput.addEventListener('input', () => performFind());
+    findInput.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (e.shiftKey) findPrev();
+        else findNext();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        closeFindBar();
+      }
+    });
+    findPrevBtn.addEventListener('click', findPrev);
+    findNextBtn.addEventListener('click', findNext);
+    findCloseBtn.addEventListener('click', closeFindBar);
+    replaceOneBtn.addEventListener('click', replaceOne);
+    replaceAllBtn.addEventListener('click', replaceAll);
+    replaceInput.addEventListener('keydown', (e) => {
+      e.stopPropagation();
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeFindBar();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        replaceOne();
+      }
+    });
 
     // Global keyboard
     document.addEventListener('keydown', handleKeydown);
