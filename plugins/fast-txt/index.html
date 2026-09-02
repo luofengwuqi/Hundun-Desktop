@@ -572,8 +572,14 @@
       background: var(--bg-secondary);
       border-right: 2px solid var(--border-color);
       padding: 12px 0;
-      overflow-y: hidden;
+      overflow-y: auto;
+      overflow-x: hidden;
       flex-shrink: 0;
+      scrollbar-width: none;
+    }
+
+    .editor-line-numbers::-webkit-scrollbar {
+      display: none;
     }
 
     .line-num {
@@ -582,7 +588,8 @@
       color: var(--text-muted);
       text-align: right;
       padding: 0 8px;
-      line-height: 1.8;
+      line-height: 23.4px;
+      height: 23.4px;
     }
 
     .editor-textarea {
@@ -593,10 +600,12 @@
       color: var(--text-primary);
       font-family: 'Courier New', monospace;
       font-size: 13px;
-      line-height: 1.8;
+      line-height: 23.4px;
       padding: 12px 16px;
       resize: none;
       tab-size: 2;
+      overflow-x: hidden;
+      overflow-y: auto;
     }
 
     .editor-textarea::placeholder {
@@ -1256,7 +1265,7 @@
       const btns = [
         { id: 'add', icon: '+', action: showCreateMenu, title: 'Create new' },
         { id: 'trash', icon: '🗑️', action: toggleTrashMode, title: isTrashMode ? 'Back to files' : 'Show deleted' },
-        { id: 'folder', icon: '📁', action: isFolderMode ? exitFolderMode : enterFolderFromSelection, title: isFolderMode ? `Back to root (${currentFolderPath})` : 'Open folder' },
+        { id: 'folder', icon: '📁', action: openFolder, title: 'Open in Explorer' },
       ];
       if (isTrashMode) {
         btns.push({ id: 'shredder', icon: '⚙️', action: showShredConfirm, title: 'Shred all' });
@@ -1476,7 +1485,7 @@
       list.forEach((file, idx) => {
         const card = document.createElement('div');
         card.className = 'ftxt-file-card';
-        if (selectedRow === 0 && selectedCol === idx) card.classList.add('selected');
+        if (selectedRow === 0 && selectedCol === idx && !isSearchFocused) card.classList.add('selected');
         if (dragFileId === file.id) card.classList.add('dragging');
         if (file.deleted) card.classList.add('is-deleted');
         card.draggable = true;
@@ -1508,7 +1517,7 @@
         if (!file) return;
 
         // 更新选中状态（只在状态变化时改 class，避免抖动）
-        const isSelected = selectedRow === 0 && selectedCol === idx;
+        const isSelected = selectedRow === 0 && selectedCol === idx && !isSearchFocused;
         const wasSelected = card.classList.contains('selected');
         if (isSelected !== wasSelected) {
           card.classList.toggle('selected', isSelected);
@@ -1609,11 +1618,14 @@
 
     const renderLineNumbers = () => {
       const count = getLineCount();
+      const lineHeight = editorFontSize * 1.8;
       lineNumbers.innerHTML = '';
       for (let n = 1; n <= count; n++) {
         const div = document.createElement('div');
         div.className = 'line-num';
         div.textContent = n;
+        div.style.lineHeight = lineHeight + 'px';
+        div.style.height = lineHeight + 'px';
         lineNumbers.appendChild(div);
       }
     };
@@ -1696,6 +1708,9 @@
       editingFile = file;
       editorContent = file.content || '';
       currentView = 'editor';
+      // 更新编辑器标题
+      editorTitle.textContent = file.name;
+      editorIcon.textContent = file.name.endsWith('.md') ? '📝' : '📄';
       // Reset find bar state
       findBarVisible = false;
       findBar.style.display = 'none';
@@ -1830,6 +1845,8 @@
 
       saveFiles();
       playSound('click');
+      // 强制重建文件列表DOM，确保排序后内容顺序正确
+      fileList.innerHTML = '';
       updateUI();
     };
 
@@ -1986,6 +2003,18 @@
       }
     };
 
+    // ========== 重名检测 ==========
+    const getUniqueName = (baseName, ext) => {
+      const currentFiles = isFolderMode
+        ? files.filter(f => !f.deleted && f.parentPath === currentFolderPath)
+        : files.filter(f => !f.deleted && !f.parentPath);
+      const existingNames = new Set(currentFiles.map(f => f.name));
+
+      let candidate = baseName + ext;
+      if (!existingNames.has(candidate)) return candidate;
+      return baseName + '1' + ext;
+    };
+
     // ========== Create File / Folder ==========
     const showCreateMenu = () => {
       playSound('click');
@@ -2011,7 +2040,8 @@
     const createFile = async (type) => {
       closeCreateMenu();
       const ext = type === 'txt' ? '.txt' : '.md';
-      const name = `new_file${ext}`;
+      const baseName = `new_file`;
+      const name = getUniqueName(baseName, ext);
       const api = fsAPI();
       const subPath = isFolderMode ? `${currentFolderPath}/${name}` : name;
       if (api) {
@@ -2048,7 +2078,7 @@
     const createFolder = async () => {
       closeCreateMenu();
       const api = fsAPI();
-      const folderName = 'NewFolder';
+      const folderName = getUniqueName('NewFolder', '');
       const subPath = isFolderMode ? `${currentFolderPath}/${folderName}` : folderName;
       if (api) {
         await api.mkdir(subPath);
@@ -2678,6 +2708,42 @@
       }
     });
     editorTextarea.addEventListener('keydown', handleEditorKeydown);
+
+    // ========== Ctrl+Scroll Font Zoom ==========
+    let editorFontSize = 13; // 当前编辑器字号
+    const EDITOR_FONT_SIZE_MIN = 8;
+    const EDITOR_FONT_SIZE_MAX = 32;
+
+    const syncLineNumbersLineHeight = () => {
+      // 行号行高始终与textarea一致
+      const lineHeight = editorFontSize * 1.8;
+      document.querySelectorAll('.line-num').forEach(el => {
+        el.style.lineHeight = lineHeight + 'px';
+        el.style.height = lineHeight + 'px';
+      });
+    };
+
+    editorTextarea.addEventListener('wheel', (e) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+
+      const delta = e.deltaY > 0 ? -1 : 1;
+      const newSize = Math.min(EDITOR_FONT_SIZE_MAX, Math.max(EDITOR_FONT_SIZE_MIN, editorFontSize + delta));
+      if (newSize === editorFontSize) return;
+
+      editorFontSize = newSize;
+      const lineHeight = editorFontSize * 1.8;
+      editorTextarea.style.fontSize = editorFontSize + 'px';
+      editorTextarea.style.lineHeight = lineHeight + 'px';
+
+      // 重新渲染行号以匹配新行高
+      renderLineNumbers();
+    }, { passive: false });
+
+    // 行号跟随textarea滚动同步
+    editorTextarea.addEventListener('scroll', () => {
+      lineNumbers.scrollTop = editorTextarea.scrollTop;
+    });
 
     // Modal overlay click to close
     modalOverlay.addEventListener('click', (e) => {

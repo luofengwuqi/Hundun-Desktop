@@ -1,6 +1,6 @@
 # Hundun Lite - 项目进度文档
 
-> 最后更新: 2026-08-28
+> 最后更新: 2026-09-02
 > 当前阶段: Phase 4 - BrowserWindow 插件架构完成，Calculator/FastTXT 已迁移为独立 HTML 插件
 
 ---
@@ -444,6 +444,17 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 - [x] 磁盘操作: loadFilesFromDisk 递归读取文件夹内容，parentPath 记录归属
 - [x] 存储文档: `plugins/fast-txt/STORAGE.md`
 - [x] UI: 去除 hover 效果，点击选中再点击打开交互
+
+#### 4.3.1 FastTXT 优化 (2026-09-02)
+- [x] 搜索框聚焦时文件列表取消高亮 (isSearchFocused 条件判断)
+- [x] 拖拽排序后强制重建DOM，修复排序后显示错位
+- [x] 行号与编辑器行高对齐 (line-height 统一为 23.4px 绝对值)
+- [x] Ctrl+滚轮缩放字体 (范围 8px~32px，行号行高同步)
+- [x] 编辑器 X轴 overflow:hidden / Y轴 overflow:auto
+- [x] 行号跟随textarea滚动同步 (scroll事件监听)
+- [x] 文件夹按钮改为打开系统文件资源管理器 (openFolder)
+- [x] 新建文件/文件夹重名检测 (自动拼接 "1" 后缀)
+- [x] 编辑器标题显示实际文件名 + 文件类型图标
 
 #### 4.4 插件开发规范
 - [x] PLUGIN_SPEC.md v2.0 (781行完整规范)
