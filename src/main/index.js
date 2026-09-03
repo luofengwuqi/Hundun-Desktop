@@ -542,6 +542,21 @@ function registerFastTXTIPC(pm) {
     const basePath = getFastTXTBasePath(pluginId)
     shell.openPath(basePath)
   })
+
+  // 同步写入文件（beforeunload 时使用，确保窗口关闭前数据落盘）
+  ipcMain.on('fasttxt:writeFileSync', (event, pluginId, filePath, content) => {
+    const basePath = getFastTXTBasePath(pluginId)
+    const target = path.join(basePath, filePath)
+    try {
+      const dir = path.dirname(target)
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true })
+      }
+      fs.writeFileSync(target, content, 'utf-8')
+    } catch (err) {
+      console.error('[FastTXT] writeFileSync error:', err)
+    }
+  })
 }
 
 // 辅助：获取 FastTXT 数据目录（插件目录下的 file/ 子目录）

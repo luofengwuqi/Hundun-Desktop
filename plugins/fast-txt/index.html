@@ -359,6 +359,7 @@
       user-select: none;
       min-height: 48px;
       overflow: hidden;
+      position: relative;
     }
 
     .ftxt-file-card.selected {
@@ -409,6 +410,68 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+    }
+
+    /* ========== Rename Input ========== */
+    .file-rename-input {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      color: var(--text-primary);
+      background: var(--bg-primary);
+      border: 2px solid var(--accent-primary);
+      border-radius: 4px;
+      padding: 3px 6px;
+      width: 100%;
+      outline: none;
+      box-shadow: 0 0 8px var(--shadow-color);
+      user-select: text;
+    }
+
+    .file-rename-input::selection {
+      background: var(--accent-primary);
+      color: #000;
+    }
+
+    .light-mode .file-rename-input {
+      background: var(--bg-card);
+    }
+
+    /* ========== Rename Button (on card) ========== */
+    .file-rename-btn {
+      position: absolute;
+      top: 50%;
+      right: 8px;
+      transform: translateY(-50%);
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 1px solid var(--border-color);
+      background: var(--bg-secondary);
+      color: var(--text-muted);
+      font-size: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: all 0.15s ease;
+      z-index: 2;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    .ftxt-file-card.selected .file-rename-btn {
+      opacity: 1;
+    }
+
+    .file-rename-btn:hover {
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+      box-shadow: 0 0 8px var(--shadow-color);
+    }
+
+    .ftxt-file-card.is-deleted .file-rename-btn {
+      display: none;
     }
 
     .file-deleted-badge {
@@ -1200,6 +1263,10 @@
     let selectedCol = 0;
     let isSearchFocused = false; // 搜索框聚焦状态
 
+    // 重命名状态
+    let isRenaming = false;
+    let renamingFileId = null;
+
     let files = [];
     let editingFile = null;
     let editorContent = '';
@@ -1300,6 +1367,9 @@
     };
 
     const loadFilesFromDisk = async () => {
+      // 编辑器打开时禁止重建 files[]，避免 editingFile 变成孤儿引用
+      if (currentView === 'editor') return;
+
       const api = fsAPI();
       if (!api) { files = []; return; }
 
@@ -1457,6 +1527,12 @@
     const renderFileList = () => {
       const list = getDisplayFiles();
 
+      // 重命名中不重建 DOM（保留 input 元素）
+      if (isRenaming) {
+        updateFileListSelection(list);
+        return;
+      }
+
       // 如果文件数量变了，才重建 DOM
       const existingCards = fileList.querySelectorAll('.ftxt-file-card');
       if (existingCards.length !== list.length) {
@@ -1500,11 +1576,27 @@
             <div class="file-name">${escapeHtml(file.name)}</div>
           </div>
           ${file.deleted ? '<div class="file-deleted-badge">DELETED</div>' : ''}
+          <button class="file-rename-btn" title="Rename (M)">✎</button>
         `;
 
         card.addEventListener('dragstart', (e) => handleFileDragStart(e, file));
         card.addEventListener('dragend', handleFileDragEnd);
         card.addEventListener('click', () => handleFileClick(file));
+        // 双击文件名 → 重命名
+        card.addEventListener('dblclick', (e) => {
+          e.preventDefault();
+          if (!isTrashMode && !file.isFolder) {
+            startRename(file);
+          }
+        });
+        // 重命名按钮
+        const renameBtn = card.querySelector('.file-rename-btn');
+        if (renameBtn) {
+          renameBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!isTrashMode) startRename(file);
+          });
+        }
 
         fileList.appendChild(card);
       });
@@ -1535,9 +1627,9 @@
           card.classList.toggle('is-deleted', isDeleted);
         }
 
-        // 更新文件名（以防万一）
+        // 更新文件名（以防万一）—— 重命名中跳过
         const nameEl = card.querySelector('.file-name');
-        if (nameEl && nameEl.textContent !== file.name) {
+        if (nameEl && nameEl.textContent !== file.name && !(isRenaming && renamingFileId === file.id)) {
           nameEl.textContent = file.name;
         }
       });
@@ -1681,6 +1773,140 @@
       updateUI();
     };
 
+    // ========== Rename ==========
+    const startRename = (file) => {
+      if (isRenaming) return;
+      // 文件夹暂不支持重命名
+      if (file.isFolder) return;
+
+      isRenaming = true;
+      renamingFileId = file.id;
+
+      const list = getDisplayFiles();
+      const idx = list.findIndex(f => f.id === file.id);
+      const cards = fileList.querySelectorAll('.ftxt-file-card');
+      const card = cards[idx];
+      if (!card) { isRenaming = false; return; }
+
+      const nameEl = card.querySelector('.file-name');
+      if (!nameEl) { isRenaming = false; return; }
+
+      // 创建 input 元素
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'file-rename-input';
+      input.value = file.name;
+
+      // 替换文件名文本为 input
+      nameEl.textContent = '';
+      nameEl.appendChild(input);
+      input.focus();
+      input.select();
+
+      // Enter → 确认, Esc → 取消, 失焦 → 确认
+      input.addEventListener('keydown', (e) => {
+        e.stopPropagation();
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          confirmRename(file, input.value);
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          cancelRename(file);
+        } else if (e.key === 'Tab') {
+          // Tab → 确认当前，重命名下一个
+          e.preventDefault();
+          confirmRename(file, input.value).then(() => {
+            const nextIdx = idx + 1;
+            const nextList = getDisplayFiles();
+            if (nextIdx < nextList.length) {
+              selectedCol = nextIdx;
+              updateUI();
+              startRename(nextList[nextIdx]);
+            }
+          });
+        }
+      });
+
+      input.addEventListener('blur', () => {
+        // 延迟处理，避免与 click 事件冲突
+        setTimeout(() => {
+          if (isRenaming && renamingFileId === file.id) {
+            confirmRename(file, input.value);
+          }
+        }, 100);
+      });
+
+      // 阻止点击 input 时的文件选中逻辑
+      input.addEventListener('click', (e) => e.stopPropagation());
+    };
+
+    const confirmRename = async (file, newName) => {
+      if (!isRenaming) return;
+      isRenaming = false;
+      renamingFileId = null;
+
+      newName = newName.trim();
+
+      // 空名 → 取消
+      if (!newName || newName === file.name) {
+        cancelRename(file);
+        return;
+      }
+
+      // 检查重名（同目录下不能有同名文件）
+      const currentFiles = file.parentPath
+        ? files.filter(f => !f.deleted && f.parentPath === file.parentPath && f.id !== file.id)
+        : files.filter(f => !f.deleted && !f.parentPath && f.id !== file.id);
+      const duplicate = currentFiles.some(f => f.name === newName);
+      if (duplicate) {
+        showModal('⚠️', 'RENAME FAILED', `A file named "${newName}" already exists`, [
+          { text: 'OK', class: 'primary', action: closeModal }
+        ]);
+        cancelRename(file);
+        return;
+      }
+
+      const api = fsAPI();
+      if (api) {
+        const oldPath = file.parentPath ? `${file.parentPath}/${file.name}` : file.name;
+        const newPath = file.parentPath ? `${file.parentPath}/${newName}` : newName;
+        await api.rename(oldPath, newPath);
+      }
+
+      // 更新文件对象
+      const oldId = file.id;
+      file.name = newName;
+      file.id = file.parentPath ? `${file.parentPath}/${newName}` : newName;
+      // content 缓存清空，下次打开时从磁盘重新读取
+      file.content = null;
+
+      await saveFiles();
+      playSound('OK');
+      updateUI();
+    };
+
+    const cancelRename = (file) => {
+      isRenaming = false;
+      renamingFileId = null;
+      // 恢复文件名显示
+      const list = getDisplayFiles();
+      const idx = list.findIndex(f => f.id === file.id);
+      const cards = fileList.querySelectorAll('.ftxt-file-card');
+      const card = cards[idx];
+      if (card) {
+        const nameEl = card.querySelector('.file-name');
+        if (nameEl) {
+          // 移除 input，恢复原始文本
+          const input = nameEl.querySelector('.file-rename-input');
+          if (input) {
+            nameEl.removeChild(input);
+          }
+          nameEl.textContent = file.name;
+        }
+      }
+      playSound('click');
+    };
+
     const openFile = async (file) => {
       if (file.deleted) {
         restoreFile(file);
@@ -1696,17 +1922,14 @@
       const api = fsAPI();
       if (!api) return;
 
-      // 从磁盘读取文件内容
-      let content = file.content;
-      if (content === null) {
-        const subPath = file.parentPath ? `${file.parentPath}/${file.name}` : file.name;
-        content = await api.readFile(subPath);
-        file.content = content !== null ? content : '';
-      }
+      // 始终从磁盘读取最新内容（不信任缓存，防止旧数据覆盖新编辑）
+      const subPath = file.parentPath ? `${file.parentPath}/${file.name}` : file.name;
+      const diskContent = await api.readFile(subPath);
+      file.content = diskContent !== null ? diskContent : '';
+      editorContent = file.content;
 
       playSound('OK');
       editingFile = file;
-      editorContent = file.content || '';
       currentView = 'editor';
       // 更新编辑器标题
       editorTitle.textContent = file.name;
@@ -1717,6 +1940,10 @@
       findMatches = [];
       findCurrentIdx = -1;
       updateUI();
+      // 立即将内容写入 textarea（避免异步时序导致空内容覆盖磁盘数据）
+      editorTextarea.value = editorContent;
+      renderEditorStatus();
+      renderLineNumbers();
       setTimeout(() => editorTextarea.focus(), 0);
     };
 
@@ -1804,6 +2031,11 @@
 
     // ========== File Drag & Reorder ==========
     const handleFileDragStart = (e, file) => {
+      // 拖拽时取消正在进行的重命名
+      if (isRenaming) {
+        const renamingFile = files.find(f => f.id === renamingFileId);
+        if (renamingFile) cancelRename(renamingFile);
+      }
       dragFileId = file.id;
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', file.id);
@@ -2399,6 +2631,11 @@
         return;
       }
 
+      // Rename mode - only F2 to re-trigger, Escape handled by input itself
+      if (isRenaming) {
+        return;
+      }
+
       // Find/Replace bar open - let it handle its own keys
       if (findBarVisible) {
         return;
@@ -2563,6 +2800,15 @@
           updateUI();
           break;
 
+        case 'M':
+        case 'm':
+          e.preventDefault();
+          if (selectedRow === 0 && !isTrashMode) {
+            const file = getDisplayFiles()[selectedCol];
+            if (file && !file.isFolder) startRename(file);
+          }
+          break;
+
         case 'Enter':
           e.preventDefault();
           if (isSearchFocused) {
@@ -2710,7 +2956,7 @@
     editorTextarea.addEventListener('keydown', handleEditorKeydown);
 
     // ========== Ctrl+Scroll Font Zoom ==========
-    let editorFontSize = 13; // 当前编辑器字号
+    let editorFontSize = 16; // 当前编辑器字号
     const EDITOR_FONT_SIZE_MIN = 8;
     const EDITOR_FONT_SIZE_MAX = 32;
 
@@ -2800,6 +3046,30 @@
     const applyTheme = (isDark) => {
       document.body.classList.toggle('light-mode', !isDark);
     };
+
+    // ========== Sync Save (beforeunload 用) ==========
+    const saveFileSync = (filePath, content) => {
+      try {
+        const pluginId = window.__PLUGIN_ID__;
+        if (pluginId && window.hundun && window.hundun.fs && window.hundun.fs.getBasePath) {
+          // 通过主进程同步写入
+          const { ipcRenderer } = require('electron');
+          ipcRenderer.send('fasttxt:writeFileSync', pluginId, filePath, content);
+        }
+      } catch (e) {
+        console.error('[FastTXT] saveFileSync error:', e);
+      }
+    };
+
+    // 窗口关闭前同步保存当前编辑文件
+    window.addEventListener('beforeunload', () => {
+      if (editingFile && editorContent !== undefined) {
+        const subPath = editingFile.parentPath
+          ? `${editingFile.parentPath}/${editingFile.name}`
+          : editingFile.name;
+        saveFileSync(subPath, editorContent);
+      }
+    });
 
     // ========== Init ==========
     const init = async () => {

@@ -456,6 +456,14 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 - [x] 新建文件/文件夹重名检测 (自动拼接 "1" 后缀)
 - [x] 编辑器标题显示实际文件名 + 文件类型图标
 
+#### 4.3.2 FastTXT 优化 (2026-09-03)
+- [x] 文件重命名 UI — M 键 + 卡片选中时显示 ✎ 按钮
+- [x] 重命名交互：像素风 input 覆盖文件名 / Enter 确认 / Esc 取消 / Tab 下一个
+- [x] 重名检测 + 空名保护 + 文件夹暂不支持重命名
+- [x] 编辑器默认字号 13px → 16px
+- [x] 数据持久化修复 — beforeunload 同步保存 (fasttxt:writeFileSync IPC)
+- [x] openFile 始终从磁盘读取最新内容 + 立即写入 textarea (修复异步时序导致空内容覆盖)
+
 #### 4.4 插件开发规范
 - [x] PLUGIN_SPEC.md v2.0 (781行完整规范)
 - [x] Architecture / 生命周期 / 通信 / Manifest / SDK 文档
