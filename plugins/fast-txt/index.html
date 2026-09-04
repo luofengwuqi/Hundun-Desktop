@@ -651,8 +651,8 @@
       color: var(--text-muted);
       text-align: right;
       padding: 0 8px;
-      line-height: 23.4px;
-      height: 23.4px;
+      line-height: 32.4px;
+      height: 32.4px;
     }
 
     .editor-textarea {
@@ -662,8 +662,8 @@
       outline: none;
       color: var(--text-primary);
       font-family: 'Courier New', monospace;
-      font-size: 13px;
-      line-height: 23.4px;
+      font-size: 18px;
+      line-height: 32.4px;
       padding: 12px 16px;
       resize: none;
       tab-size: 2;
@@ -673,6 +673,23 @@
 
     .editor-textarea::placeholder {
       color: var(--text-muted);
+    }
+
+    .editor-textarea::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .editor-textarea::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .editor-textarea::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 3px;
+    }
+
+    .editor-textarea::-webkit-scrollbar-thumb:hover {
+      background: var(--accent-primary);
     }
 
     .editor-footer {
@@ -2956,7 +2973,7 @@
     editorTextarea.addEventListener('keydown', handleEditorKeydown);
 
     // ========== Ctrl+Scroll Font Zoom ==========
-    let editorFontSize = 16; // 当前编辑器字号
+    let editorFontSize = 18; // 当前编辑器字号
     const EDITOR_FONT_SIZE_MIN = 8;
     const EDITOR_FONT_SIZE_MAX = 32;
 
