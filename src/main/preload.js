@@ -123,17 +123,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
   }
 })
 
-// 直接监听 play-sound 并播放音效（兼容 contextIsolation: false）
-const audioCache = {}
+// 直接监听 play-sound 并播放音效（插件窗口用）
+const _audioCache = {}
+const _soundFiles = {
+  click: 'sounds/click.mp3', change: 'sounds/change.mp3',
+  OK: 'sounds/OK.wav', exit: 'sounds/exit.mp3', error: 'sounds/error.mp3',
+  bengbeng: 'sounds/bengbeng.wav', loading: 'sounds/loading.wav',
+  home: 'sounds/home.wav', setting: 'sounds/setting.wav'
+}
 ipcRenderer.on('play-sound', (event, soundName) => {
-  // 通过 electronAPI 回调到渲染进程
   try {
-    if (window.electronAPI && window.electronAPI._playSoundCallback) {
-      window.electronAPI._playSoundCallback(soundName)
+    const src = _soundFiles[soundName]
+    if (!src) return
+    if (!_audioCache[soundName]) {
+      _audioCache[soundName] = new Audio(src)
     }
-  } catch (e) {
-    // 忽略
-  }
+    const audio = _audioCache[soundName]
+    audio.currentTime = 0
+    audio.volume = 0.5
+    audio.play().catch(() => {})
+  } catch (e) {}
 })
 
 // 暴露 Node.js 环境信息

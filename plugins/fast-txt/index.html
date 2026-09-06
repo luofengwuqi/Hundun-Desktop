@@ -1795,6 +1795,7 @@
       if (isRenaming) return;
       // 文件夹暂不支持重命名
       if (file.isFolder) return;
+      playSound('click');
 
       isRenaming = true;
       renamingFileId = file.id;
@@ -2009,12 +2010,12 @@
         const f = droppedFiles[i];
         const name = f.name.toLowerCase();
         if (name.endsWith('.txt') || name.endsWith('.md')) {
-          importFile(f);
+          importFile(f, f.path);
         }
       }
     };
 
-    const importFile = (file) => {
+    const importFile = (file, originalPath) => {
       const reader = new FileReader();
       reader.onload = async (e) => {
         const content = e.target.result;
@@ -2038,6 +2039,14 @@
             parentPath: currentFolderPath
           };
           files.push(newFile);
+        }
+        // 导入成功后删除原始文件
+        if (originalPath) {
+          try {
+            require('fs').unlinkSync(originalPath);
+          } catch (err) {
+            console.warn('[FastTXT] 删除原始文件失败:', err.message);
+          }
         }
         saveFiles();
         playSound('OK');

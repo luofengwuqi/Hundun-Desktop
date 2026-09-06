@@ -464,6 +464,10 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 - [x] 数据持久化修复 — beforeunload 同步保存 (fasttxt:writeFileSync IPC)
 - [x] openFile 始终从磁盘读取最新内容 + 立即写入 textarea (修复异步时序导致空内容覆盖)
 
+#### 4.3.3 FastTXT 优化 (2026-09-06)
+- [x] 拖入文件导入后自动删除原始文件 (通过 Electron file.path + Node.js fs.unlinkSync)
+- [x] FastTXT 音效系统修复 — preload.js 直接用 Audio API 播放插件音效 (替换失效的回调链路)
+
 #### 4.4 插件开发规范
 - [x] PLUGIN_SPEC.md v2.0 (781行完整规范)
 - [x] Architecture / 生命周期 / 通信 / Manifest / SDK 文档
