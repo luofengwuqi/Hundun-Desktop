@@ -127,9 +127,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 const _audioCache = {}
 const _soundFiles = {
   click: 'sounds/click.mp3', change: 'sounds/change.mp3',
-  OK: 'sounds/OK.wav', exit: 'sounds/exit.mp3', error: 'sounds/error.mp3',
-  bengbeng: 'sounds/bengbeng.wav', loading: 'sounds/loading.wav',
-  home: 'sounds/home.wav', setting: 'sounds/setting.wav'
+  OK: 'sounds/OK.mp3', exit: 'sounds/exit.mp3', error: 'sounds/error.mp3',
+  bengbeng: 'sounds/bengbeng.mp3', loading: 'sounds/loading.mp3',
+  home: 'sounds/home.mp3', setting: 'sounds/setting.mp3'
 }
 ipcRenderer.on('play-sound', (event, soundName) => {
   try {
