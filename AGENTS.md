@@ -466,7 +466,7 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 
 #### 4.3.3 FastTXT 优化 (2026-09-06)
 - [x] 拖入文件导入后自动删除原始文件 (通过 Electron file.path + Node.js fs.unlinkSync)
-- [x] FastTXT 音效系统修复 — preload.js 直接用 Audio API 播放插件音效 (替换失效的回调链路)
+- [x] 插件音效修复 — 插件直接用绝对路径 `new Audio('file:///...')` 播放音效，不依赖主窗口 IPC 转发
 
 #### 4.4 插件开发规范
 - [x] PLUGIN_SPEC.md v2.0 (781行完整规范)
