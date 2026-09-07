@@ -7,7 +7,15 @@
 
       let candidate = baseName + ext;
       if (!existingNames.has(candidate)) return candidate;
-      return baseName + '1' + ext;
+
+      // 重名时循环递增后缀 (base1 / base2 / base3 ...)，直到找到唯一名
+      let n = 1;
+      let next = baseName + n + ext;
+      while (existingNames.has(next)) {
+        n++;
+        next = baseName + n + ext;
+      }
+      return next;
     };
 
     // ========== Create File / Folder ==========

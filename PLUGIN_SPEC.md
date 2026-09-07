@@ -806,5 +806,5 @@ unzip my-plugin-v1.0.0.zip -d /path/to/huntunLite/plugins/my-plugin/
 ---
 
 **文档版本**: 2.0
-**最后更新**: 2026-08-26
+**最后更新**: 2026-09-07
 **适用版本**: Hundun Lite 2.0+

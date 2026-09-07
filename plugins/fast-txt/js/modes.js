@@ -1,5 +1,9 @@
     // ========== Trash Operations ==========
-    const toggleTrashMode = () => {
+    const toggleTrashMode = async () => {
+      // 进入垃圾桶前先从磁盘读取最新回收站内容, 避免外部修改后看不到
+      if (!isTrashMode) {
+        await loadFilesFromDisk();
+      }
       playSound('click');
       isTrashMode = !isTrashMode;
       isFolderMode = false;
@@ -58,19 +62,12 @@
 
       const file = files.find(f => f.id === fileId);
       if (file && !file.deleted) {
-        const api = fsAPI();
-        if (api) {
-          // 确保 .trash 目录存在
-          await api.mkdir(TRASH_DIR);
-          // 移动文件到回收站
-          const srcPath = file.parentPath ? `${file.parentPath}/${file.name}` : file.name;
-          const trashPath = `${TRASH_DIR}/${file.name}`;
-          await api.rename(srcPath, trashPath);
+        // 统一删除入口 (文件/文件夹; 文件夹非空时会弹确认)
+        if (file.isFolder) {
+          await deleteFolderToTrash(file);
+        } else {
+          await deleteFileToTrash(file);
         }
-        file.deleted = true;
-        saveFiles();
-        playSound('exit');
-        updateUI();
       }
     };
 
@@ -85,16 +82,15 @@
       if (file && file.deleted) {
         const api = fsAPI();
         if (api) {
-          // 从磁盘永久删除
-          await api.deleteFile(`${TRASH_DIR}/${file.name}`);
+          const diskName = file.diskName || file.name;
+          try {
+            // 从磁盘永久删除 (回收站为平铺文件/兼容的旧文件夹)
+            await api.deleteFile(`${TRASH_DIR}/${diskName}`);
+          } catch (err) {
+            console.warn('[FastTXT] shred single failed:', diskName, err);
+          }
         }
-        const idx = files.findIndex(f => f.id === fileId);
-        if (idx !== -1) {
-          files.splice(idx, 1);
-          saveFiles();
-          playSound('error');
-          updateUI();
-        }
+        await finalizeFsChange('error');
       }
     };
 
@@ -115,18 +111,20 @@
 
     const shredAll = async () => {
       const api = fsAPI();
+      const deleted = getDeletedFiles();
       if (api) {
-        // 从磁盘永久删除回收站中所有文件
-        const deleted = getDeletedFiles();
+        // 从磁盘永久删除回收站中所有条目
         for (const file of deleted) {
-          await api.deleteFile(`${TRASH_DIR}/${file.name}`);
+          const diskName = file.diskName || file.name;
+          try {
+            await api.deleteFile(`${TRASH_DIR}/${diskName}`);
+          } catch (err) {
+            console.warn('[FastTXT] shred failed:', diskName, err);
+          }
         }
       }
-      files = files.filter(f => !f.deleted);
-      saveFiles();
+      await finalizeFsChange('error');
       closeModal();
-      playSound('error');
-      updateUI();
     };
 
     const openFolder = async () => {
@@ -144,7 +142,7 @@
       try {
         const { shell } = require('electron');
         const filePath = decodeURIComponent(window.location.pathname);
-        const dirPath = filePath.replace(/^\/?([A-Z]:)/, '$1').replace(/\/index\.html$/, '');
+        const dirPath = filePath.replace(/^\/?([A-Z]:)/, '$1').replace(/\/(index|main)\.html$/, '');
         shell.openPath(dirPath);
       } catch (e) {
         console.error('[FastTXT] openFolder fallback error:', e);

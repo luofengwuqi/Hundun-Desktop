@@ -287,19 +287,12 @@
           if (!isSearchFocused && selectedRow === 0 && !isTrashMode) {
             const file = getDisplayFiles()[selectedCol];
             if (file && !file.deleted) {
-              const api = fsAPI();
-              if (api) {
-                const srcPath = file.parentPath ? `${file.parentPath}/${file.name}` : file.name;
-                api.mkdir(TRASH_DIR).then(() => {
-                  api.rename(srcPath, `${TRASH_DIR}/${file.name}`);
-                });
+              // 统一删除入口 (完整 await + 重新读盘; 文件夹非空会弹确认)
+              if (file.isFolder) {
+                deleteFolderToTrash(file);
+              } else {
+                deleteFileToTrash(file);
               }
-              file.deleted = true;
-              saveFiles();
-              playSound('exit');
-              const maxIdx = getDisplayFiles().length - 1;
-              if (selectedCol > maxIdx) selectedCol = maxIdx;
-              updateUI();
             }
           }
           break;

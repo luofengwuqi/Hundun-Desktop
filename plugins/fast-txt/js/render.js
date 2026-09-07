@@ -39,12 +39,23 @@
         return;
       }
 
-      // 如果文件数量变了，才重建 DOM
-      const existingCards = fileList.querySelectorAll('.ftxt-file-card');
-      if (existingCards.length !== list.length) {
+      // 仅当现有卡片集合与目标列表【数量+顺序+id】完全一致时增量更新选中态；
+      // 否则(切垃圾桶/文件夹、搜索、排序、删除恢复等导致内容变化)完整重建 DOM，
+      // 避免卡片残留上一视图的 DELETED 徽标/图标/删除样式(表现为"正常文件显示为已删除")
+      const cards = fileList.querySelectorAll('.ftxt-file-card');
+      let sameSet = cards.length === list.length;
+      if (sameSet) {
+        for (let i = 0; i < list.length; i++) {
+          if (cards[i].dataset.fileId !== list[i].id) {
+            sameSet = false;
+            break;
+          }
+        }
+      }
+      if (!sameSet) {
         rebuildFileListDOM(list);
       } else {
-        // 只更新选中状态和内容
+        // 只更新选中状态
         updateFileListSelection(list);
       }
     };
@@ -194,7 +205,6 @@
     };
 
     const updateFooterInfo = () => {
-      const active = getActiveFiles();
       const deleted = getDeletedFiles();
       if (isTrashMode) {
         fileCountEl.textContent = `${deleted.length} deleted`;
@@ -204,7 +214,8 @@
         fileCountEl.textContent = `${inFolder.length} files in ${currentFolderPath}`;
         trashCountEl.style.display = 'none';
       } else {
-        fileCountEl.textContent = `${active.length} files`;
+        const rootCount = getRootFiles().length;
+        fileCountEl.textContent = `${rootCount} files`;
         trashCountEl.style.display = 'none';
       }
     };
@@ -217,23 +228,53 @@
     const renderLineNumbers = () => {
       const count = getLineCount();
       const lineHeight = editorFontSize * 1.8;
-      lineNumbers.innerHTML = '';
-      for (let n = 1; n <= count; n++) {
-        const div = document.createElement('div');
-        div.className = 'line-num';
-        div.textContent = n;
-        div.style.lineHeight = lineHeight + 'px';
-        div.style.height = lineHeight + 'px';
-        lineNumbers.appendChild(div);
+      const cur = lineNumbers.childElementCount;
+      const lastLH = parseFloat(lineNumbers.dataset.lh || '0');
+
+      // 行数与行高均未变化 → 零 DOM 操作 (打字路径的优化分支)
+      if (cur === count && lastLH === lineHeight) return;
+
+      if (cur === count) {
+        // 仅行高变化 (Ctrl+滚轮缩放) → 全量更新行高样式
+        lineNumbers.dataset.lh = lineHeight;
+        lineNumbers.querySelectorAll('.line-num').forEach(el => {
+          el.style.lineHeight = lineHeight + 'px';
+          el.style.height = lineHeight + 'px';
+        });
+        return;
       }
+
+      // 行数变化 → 增量增删尾部节点，避免全量重建
+      if (cur < count) {
+        const frag = document.createDocumentFragment();
+        for (let n = cur + 1; n <= count; n++) {
+          const div = document.createElement('div');
+          div.className = 'line-num';
+          div.textContent = n;
+          div.style.lineHeight = lineHeight + 'px';
+          div.style.height = lineHeight + 'px';
+          frag.appendChild(div);
+        }
+        lineNumbers.appendChild(frag);
+      } else {
+        while (lineNumbers.childElementCount > count) {
+          lineNumbers.lastChild.remove();
+        }
+      }
+      lineNumbers.dataset.lh = lineHeight;
     };
 
+    let _statusWordTimer = null; // 字数统计防抖定时器
     const renderEditorStatus = () => {
       statusLines.textContent = `Lines: ${getLineCount()}`;
       statusChars.textContent = `Chars: ${editorContent.length}`;
-      // Word count
-      const words = editorContent.trim() ? editorContent.trim().split(/\s+/).length : 0;
-      statusWords.textContent = `Words: ${words}`;
+      // Word count (防抖: 大文件避免每次击键全量 split)
+      if (_statusWordTimer) clearTimeout(_statusWordTimer);
+      _statusWordTimer = setTimeout(() => {
+        _statusWordTimer = null;
+        const words = editorContent.trim() ? editorContent.trim().split(/\s+/).length : 0;
+        statusWords.textContent = `Words: ${words}`;
+      }, 200);
       statusType.textContent = editingFile && editingFile.name.endsWith('.md') ? 'Markdown' : 'Plain Text';
     };
 

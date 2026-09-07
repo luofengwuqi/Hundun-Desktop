@@ -40,7 +40,13 @@
         }
       }
 
-      const active = getActiveFiles().filter(f => f.id !== fileId);
+      // 只对当前视图内的文件重排 (不走搜索过滤, 也不跨视图)
+      const viewFiles = isFolderMode
+        ? getFilesInCurrentFolder()
+        : isTrashMode
+          ? getDeletedFiles()
+          : getRootFiles();
+      const active = viewFiles.filter(f => f.id !== fileId);
       active.splice(newOrder, 0, file);
       active.forEach((f, i) => f.order = i);
 

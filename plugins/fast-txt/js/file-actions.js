@@ -154,7 +154,7 @@
 
     const openFile = async (file) => {
       if (file.deleted) {
-        restoreFile(file);
+        await restoreFile(file);
         return;
       }
 
@@ -192,17 +192,156 @@
       setTimeout(() => editorTextarea.focus(), 0);
     };
 
-    const restoreFile = (file) => {
+    // ========== Delete to Trash (统一入口: 键盘 Delete / 拖入垃圾桶) ==========
+    // 删除文件 → 平铺移入 .trash/<唯一名>; 不再保留文件夹归属/路径, 恢复时回到 file/ 根目录
+    const deleteFileToTrash = async (file) => {
+      const api = fsAPI();
+      if (!api) {
+        // fallback: 无磁盘 API，仅内存标记
+        file.deleted = true;
+        saveFiles();
+        updateUI();
+        return;
+      }
+      await runFsOp(async () => {
+        try {
+          await api.mkdir(TRASH_DIR);
+          const diskName = await pickFreeName(TRASH_DIR, file.name); // 磁盘不存在为目标, 防覆盖
+          await api.rename(getRelPath(file), `${TRASH_DIR}/${diskName}`);
+        } catch (err) {
+          console.error('[FastTXT] move to trash failed:', err);
+          showModal('⚠️', 'TRASH FAILED', `Cannot move "${file.name}" to trash`, [
+            { text: 'OK', class: 'primary', action: closeModal }
+          ]);
+          playSound('error');
+          return;
+        }
+        await finalizeFsChange('exit');
+      });
+    };
+
+    // ========== 文件夹删除 (不保留文件夹/路径, 内容平铺入回收站) ==========
+    // 空文件夹 → 直接物理删除; 非空 → 弹警告, 确认后把文件夹内所有文件(含子目录, 递归)逐个
+    // 移入 .trash/ 平铺存放, 最后删除已搬空的文件夹树; 恢复时每个文件回到 file/ 根目录
+    const deleteFolderToTrash = async (folderFile) => {
+      const api = fsAPI();
+      if (!api) {
+        folderFile.deleted = true;
+        saveFiles();
+        updateUI();
+        return;
+      }
+      const rel = getRelPath(folderFile);
+      const relFiles = await collectFolderFiles(rel);
+      if (relFiles.length > 0) {
+        showModal('⚠️', 'DELETE FOLDER?',
+          `"${folderFile.name}" contains ${relFiles.length} file(s). Move them ALL to trash and delete this folder?`, [
+          { text: 'Cancel', class: 'secondary', action: closeModal },
+          { text: '🗑️ Move to Trash', class: 'danger', action: () => { closeModal(); performFolderDelete(folderFile, relFiles); } }
+        ]);
+        playSound('click');
+        return;
+      }
+      // 空文件夹 → 直接物理删除
+      await runFsOp(async () => {
+        try {
+          await api.deleteFile(rel);
+        } catch (err) {
+          console.error('[FastTXT] delete empty folder failed:', err);
+          showModal('⚠️', 'DELETE FAILED', `Cannot delete folder "${folderFile.name}"`, [
+            { text: 'OK', class: 'primary', action: closeModal }
+          ]);
+          playSound('error');
+          return;
+        }
+        await finalizeFsChange('exit');
+      });
+    };
+
+    // 收集文件夹内所有文件 (任意深度, 跳过隐藏项), 返回相对路径数组
+    const collectFolderFiles = async (rel) => {
+      const api = fsAPI();
+      const out = [];
+      if (!api) return out;
+      let entries = [];
+      try { entries = await api.readDir(rel); } catch (_) { return out; }
+      for (const en of entries) {
+        const subRel = `${rel}/${en.name}`;
+        if (en.isDirectory) {
+          out.push(...await collectFolderFiles(subRel));
+        } else {
+          out.push(subRel);
+        }
+      }
+      return out;
+    };
+
+    // 确认后的级联删除: 逐个搬移文件入回收站 → 全部成功后删除空文件夹树
+    const performFolderDelete = async (folderFile, relFiles) => {
+      const api = fsAPI();
+      if (!api) return;
+      await runFsOp(async () => {
+        await api.mkdir(TRASH_DIR);
+        let moved = 0;
+        for (const relPath of relFiles) {
+          const name = relPath.split('/').pop();
+          try {
+            const diskName = await pickFreeName(TRASH_DIR, name); // 逐个取磁盘上不存在的名字
+            await api.rename(relPath, `${TRASH_DIR}/${diskName}`);
+            moved++;
+          } catch (err) {
+            console.warn('[FastTXT] move file to trash failed:', relPath, err);
+          }
+        }
+        // 仅当所有文件都搬移成功, 且文件夹内确实无残留文件时, 才删除文件夹树
+        // (二次核对避免确认期间有新文件进入文件夹而被误删)
+        let folderRemoved = false;
+        const folderRel = getRelPath(folderFile);
+        const remaining = (await collectFolderFiles(folderRel)).length;
+        if (moved === relFiles.length && remaining === 0) {
+          try {
+            await api.deleteFile(folderRel);
+            folderRemoved = true;
+          } catch (err) {
+            console.warn('[FastTXT] remove folder tree failed:', err);
+          }
+        }
+        if (moved !== relFiles.length || !folderRemoved) {
+          showModal('⚠️', 'DELETE INCOMPLETE',
+            `Moved ${moved}/${relFiles.length} file(s) to trash.${folderRemoved ? '' : ` ${remaining} file(s) left; folder kept.`}`, [
+            { text: 'OK', class: 'primary', action: closeModal }
+          ]);
+          playSound('error');
+        }
+        await finalizeFsChange('exit');
+      });
+    };
+
+    const restoreFile = async (file) => {
       playSound('click');
       const api = fsAPI();
-      if (api) {
-        // 从回收站移动回来
-        const trashName = file.name.includes('/') ? file.name.split('/').pop() : file.name;
-        api.rename(`${TRASH_DIR}/${trashName}`, file.name);
+      if (!api) {
+        file.deleted = false;
+        saveFiles();
+        updateUI();
+        return;
       }
-      file.deleted = false;
-      saveFiles();
-      updateUI();
+      // 恢复: 直接移回 file/ 根目录 (平铺); 根目录已有同名项 → 自动 +1 递增改名
+      await runFsOp(async () => {
+        const diskName = file.diskName || file.name; // .trash 下的实际磁盘名
+        try {
+          const targetName = await pickFreeName('', file.name); // 目标必须磁盘上不存在
+          await api.rename(`${TRASH_DIR}/${diskName}`, targetName);
+        } catch (err) {
+          console.error('[FastTXT] restore failed:', err);
+          showModal('⚠️', 'RESTORE FAILED', `Cannot restore "${file.name}" to the root folder`, [
+            { text: 'OK', class: 'primary', action: closeModal }
+          ]);
+          playSound('error');
+          return;
+        }
+        await finalizeFsChange('OK');
+      });
     };
 
     const closeEditor = async () => {

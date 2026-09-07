@@ -84,12 +84,13 @@
     let lastSearchQuery = '';
 
     const PROGRAM_FOLDER = 'FastTXT_Data';
-    const TRASH_DIR = '.trash';
+    const TRASH_DIR = '.trash'; // 回收站: 平铺存放被删文件 (恢复时回到 file/ 根目录)
     const ORDER_FILE = '.order.json';
     const GRID_COLS = 3; // 文件列表网格列数
 
     // ========== Computed ==========
     const getActiveFiles = () => files.filter(f => !f.deleted).sort((a, b) => a.order - b.order);
+    const getRootFiles = () => files.filter(f => !f.deleted && !f.parentPath).sort((a, b) => a.order - b.order);
     const getDeletedFiles = () => files.filter(f => f.deleted);
 
     // Grid row helpers
@@ -115,7 +116,8 @@
       } else if (isFolderMode) {
         base = getFilesInCurrentFolder();
       } else {
-        base = getActiveFiles();
+        // 根目录模式: 只显示根级文件和文件夹, 不显示文件夹内的文件
+        base = getRootFiles();
       }
       if (!searchQuery) return base;
       const q = searchQuery.toLowerCase();
