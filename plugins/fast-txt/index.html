@@ -3042,6 +3042,12 @@
       lineNumbers.scrollTop = editorTextarea.scrollTop;
     });
 
+    // 阻止行号区域被鼠标滚轮单独滚动，将滚轮事件转发给textarea
+    lineNumbers.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      editorTextarea.scrollTop += e.deltaY;
+    }, { passive: false });
+
     // Modal overlay click to close
     modalOverlay.addEventListener('click', (e) => {
       if (e.target === modalOverlay) closeModal();

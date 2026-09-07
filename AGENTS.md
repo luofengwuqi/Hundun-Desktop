@@ -468,6 +468,9 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 - [x] 拖入文件导入后自动删除原始文件 (通过 Electron file.path + Node.js fs.unlinkSync)
 - [x] 插件音效修复 — 插件直接用绝对路径 `new Audio('file:///...')` 播放音效，不依赖主窗口 IPC 转发
 
+#### 4.3.4 FastTXT Bug修复 (2026-09-07)
+- [x] 修复行号列可被鼠标滚轮单独滚动导致与编辑器错位的bug (wheel事件拦截 + 转发至textarea)
+
 #### 4.4 插件开发规范
 - [x] PLUGIN_SPEC.md v2.0 (781行完整规范)
 - [x] Architecture / 生命周期 / 通信 / Manifest / SDK 文档
