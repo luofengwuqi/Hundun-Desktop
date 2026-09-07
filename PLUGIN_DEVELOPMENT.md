@@ -8,6 +8,8 @@ Hundun Lite采用插件化架构，允许用户动态加载和使用各种功能
 
 每个插件是一个独立的目录，包含以下文件：
 
+### 单文件架构（推荐简单插件）
+
 ```
 my-plugin/
 ├── manifest.json         # 插件元数据 (必须)
@@ -18,6 +20,33 @@ my-plugin/
     ├── icon.png         # 插件图标
     └── ...
 ```
+
+### 多文件架构（推荐复杂插件）
+
+对于较复杂的插件（如 FastTXT），建议拆分为多个文件便于维护：
+
+```
+my-plugin/
+├── manifest.json        # 插件元数据
+├── main.html            # 入口页面 (引用外部 css/js)
+├── css/                 # 样式文件夹
+│   ├── base.css         # 基础样式
+│   ├── components.css   # 组件样式
+│   └── ...
+├── js/                  # 脚本文件夹
+│   ├── sdk.js           # SDK 相关
+│   ├── state.js         # 状态管理
+│   ├── render.js        # 渲染逻辑
+│   ├── events.js        # 事件绑定
+│   └── init.js          # 初始化入口
+└── assets/              # 插件资源
+```
+
+> **多文件架构要点：**
+> - 入口文件通过 `manifest.json` 的 `entry` 字段指定
+> - JS 文件按顺序加载（参考 FastTXT 的 js/ 目录）
+> - CSS 文件通过 `<link>` 标签引入
+> - 保持文件职责单一，便于后续维护
 
 ## manifest.json 规范
 

@@ -1,0 +1,62 @@
+    /* ========== Trash Zone ========== */
+    .ftxt-trash-zone {
+      position: absolute;
+      bottom: 60px;
+      right: 16px;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      border: 2px dashed var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      z-index: 5;
+    }
+
+    .ftxt-trash-zone.drag-over {
+      border-color: var(--accent-secondary, #ff0080);
+      background: color-mix(in srgb, var(--accent-secondary, #ff0080) 15%, transparent);
+      transform: scale(1.15);
+      box-shadow: 0 0 20px var(--accent-secondary, #ff0080);
+    }
+
+    .trash-icon-large {
+      font-size: 28px;
+    }
+
+    /* ========== Shredder Zone ========== */
+    .ftxt-shredder-zone {
+      position: absolute;
+      bottom: 60px;
+      right: 16px;
+      width: 80px;
+      height: 60px;
+      border-radius: 10px;
+      border: 2px dashed var(--accent-secondary, #ff0080);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: all 0.3s ease;
+      z-index: 5;
+    }
+
+    .ftxt-shredder-zone.drag-over {
+      border-color: #ff0000;
+      background: color-mix(in srgb, #ff0000 20%, transparent);
+      transform: scale(1.1);
+      box-shadow: 0 0 20px #ff0000;
+    }
+
+    .shredder-icon {
+      font-size: 24px;
+    }
+
+    .shredder-label {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 6px;
+      color: var(--accent-secondary, #ff0080);
+      letter-spacing: 1px;
+    }

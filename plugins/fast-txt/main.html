@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FastTXT</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/deco-screws.css">
+  <link rel="stylesheet" href="css/header.css">
+  <link rel="stylesheet" href="css/content.css">
+  <link rel="stylesheet" href="css/file-list.css">
+  <link rel="stylesheet" href="css/drop-zones.css">
+  <link rel="stylesheet" href="css/footer.css">
+  <link rel="stylesheet" href="css/editor.css">
+  <link rel="stylesheet" href="css/overlays.css">
+  <link rel="stylesheet" href="css/find-bar.css">
+  <link rel="stylesheet" href="css/status.css">
+</head>
+<body>
+  <div class="fasttxt-app" id="app">
+    <!-- Decorative Screws -->
+    <div class="deco-screw screw-tl"></div>
+    <div class="deco-screw screw-tr"></div>
+    <div class="deco-screw screw-bl"></div>
+    <div class="deco-screw screw-br"></div>
+
+    <!-- ===== Main View ===== -->
+    <div id="view-main">
+      <!-- Header -->
+      <header class="ftxt-header">
+        <div class="ftxt-logo">
+          <span class="logo-icon">📄</span>
+          <span class="logo-text">FastTXT</span>
+          <span class="logo-chip">v1.0</span>
+        </div>
+        <button class="ftxt-close-btn" id="closeBtn" title="Back">✕</button>
+      </header>
+
+      <!-- Main Content -->
+      <main class="ftxt-content">
+        <!-- Search Box -->
+        <div class="ftxt-search">
+          <span class="search-icon">🔍</span>
+          <input class="search-input" id="searchInput" placeholder="Search files..." />
+        </div>
+
+        <!-- Folder Breadcrumb -->
+        <div class="ftxt-breadcrumb" id="folderBreadcrumb" style="display:none;">
+          <button class="breadcrumb-back" id="breadcrumbBack">← Back</button>
+          <span class="breadcrumb-path" id="breadcrumbPath"></span>
+        </div>
+
+        <!-- File List -->
+        <div class="ftxt-file-list" id="fileList"></div>
+
+        <!-- Trash Drop Zone -->
+        <div class="ftxt-trash-zone" id="trashZone">
+          <span class="trash-icon-large">🗑️</span>
+        </div>
+
+        <!-- Shredder Drop Zone -->
+        <div class="ftxt-shredder-zone" id="shredderZone" style="display:none;">
+          <span class="shredder-icon">⚙️</span>
+          <span class="shredder-label">SHREDDER</span>
+        </div>
+      </main>
+
+      <!-- Footer -->
+      <footer class="ftxt-footer">
+        <div class="footer-buttons" id="footerButtons"></div>
+        <div class="footer-info" id="footerInfo">
+          <span class="file-count" id="fileCount"></span>
+          <span class="trash-count" id="trashCount" style="display:none;"></span>
+        </div>
+      </footer>
+    </div>
+
+    <!-- ===== Editor View ===== -->
+    <div id="view-editor" style="display:none;">
+      <header class="ftxt-header editor-header">
+        <div class="ftxt-logo">
+          <span class="logo-icon" id="editorIcon">📄</span>
+          <span class="logo-text editor-title" id="editorTitle">Untitled</span>
+        </div>
+        <button class="ftxt-close-btn" id="editorCloseBtn" title="Save & Back">✕</button>
+      </header>
+
+      <main class="ftxt-editor">
+        <!-- Find & Replace Bar -->
+        <div class="ftxt-find-bar" id="findBar" style="display:none;">
+          <div class="find-row">
+            <span class="find-icon">🔍</span>
+            <input class="find-input" id="findInput" placeholder="Find..." spellcheck="false" />
+            <span class="find-count" id="findCount">0/0</span>
+            <button class="find-btn" id="findPrevBtn" title="Previous (Shift+Enter)">▲</button>
+            <button class="find-btn" id="findNextBtn" title="Next (Enter)">▼</button>
+            <button class="find-btn find-close-btn" id="findCloseBtn" title="Close (Esc)">✕</button>
+          </div>
+          <div class="find-row replace-row" id="replaceRow" style="display:none;">
+            <span class="find-icon">✏️</span>
+            <input class="find-input" id="replaceInput" placeholder="Replace..." spellcheck="false" />
+            <button class="find-btn replace-btn" id="replaceOneBtn" title="Replace One">1</button>
+            <button class="find-btn replace-btn" id="replaceAllBtn" title="Replace All">All</button>
+          </div>
+        </div>
+        <div class="editor-line-numbers" id="lineNumbers"></div>
+        <textarea class="editor-textarea" id="editorTextarea" spellcheck="false" placeholder="Start typing..."></textarea>
+      </main>
+
+      <footer class="ftxt-footer editor-footer">
+        <div class="editor-status">
+          <span class="status-item" id="statusLines">Lines: 1</span>
+          <span class="status-item" id="statusChars">Chars: 0</span>
+          <span class="status-item" id="statusWords">Words: 0</span>
+          <span class="status-item" id="statusType">Plain Text</span>
+        </div>
+        <div class="editor-hint">
+          <span id="autoSaveIndicator" class="auto-save-indicator" style="display:none;">✓ Saved</span>
+          <span class="shortcut-hint">Ctrl+S Save | Ctrl+F Find | Ctrl+H Replace</span>
+        </div>
+      </footer>
+    </div>
+
+    <!-- ===== Modal Overlay ===== -->
+    <div class="ftxt-modal-overlay" id="modalOverlay" style="display:none;">
+      <div class="ftxt-modal" id="modalBox">
+        <div class="modal-icon" id="modalIcon"></div>
+        <div class="modal-title" id="modalTitle"></div>
+        <div class="modal-message" id="modalMessage"></div>
+        <div class="modal-buttons" id="modalButtons"></div>
+      </div>
+    </div>
+
+    <!-- ===== Create Menu Overlay ===== -->
+    <div class="ftxt-modal-overlay" id="createMenuOverlay" style="display:none;">
+      <div class="ftxt-modal create-menu">
+        <div class="modal-icon">+</div>
+        <div class="modal-title">CREATE NEW</div>
+        <div class="create-options" id="createOptions">
+          <button class="create-option" data-idx="0">
+            <span class="create-icon">📄</span>
+            <span class="create-label">.txt File</span>
+          </button>
+          <button class="create-option" data-idx="1">
+            <span class="create-icon">📝</span>
+            <span class="create-label">.md File</span>
+          </button>
+          <button class="create-option" data-idx="2">
+            <span class="create-icon">📁</span>
+            <span class="create-label">Folder</span>
+          </button>
+        </div>
+        <div class="modal-buttons">
+          <button class="modal-btn secondary" id="createMenuCancel">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="js/sdk.js"></script>
+  <script src="js/app-state.js"></script>
+  <script src="js/filesystem.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/file-actions.js"></script>
+  <script src="js/reorder.js"></script>
+  <script src="js/modes.js"></script>
+  <script src="js/create.js"></script>
+  <script src="js/find-replace.js"></script>
+  <script src="js/autosave.js"></script>
+  <script src="js/modal.js"></script>
+  <script src="js/keyboard.js"></script>
+  <script src="js/events.js"></script>
+  <script src="js/theme-sync.js"></script>
+  <script src="js/init.js"></script>
+</body>
+</html>

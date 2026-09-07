@@ -6,7 +6,7 @@
   "color": "#00d4ff",
   "version": "1.0.0",
   "author": "Hundun Lite",
-  "entry": "index.html",
+  "entry": "main.html",
   "windowSize": {
     "width": 800,
     "height": 540

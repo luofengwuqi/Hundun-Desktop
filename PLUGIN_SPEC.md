@@ -76,6 +76,35 @@ plugins/
 > **注意**: Vue 模式需要先运行 `npm run build` 构建为纯 HTML，
 > 或使用 `npm run dev` 在开发模式下运行（需手动配置 Vite 端口）。
 
+### 2.3 多文件架构目录 (推荐复杂插件)
+
+```
+plugins/
+└── my-plugin/                    # 子程序目录 (目录名 = 插件ID)
+    ├── manifest.json             # [必须] 插件元数据
+    ├── main.html                 # [必须] 入口页面
+    ├── css/                      # [可选] 样式文件夹
+    │   ├── base.css              #   基础样式
+    │   ├── components.css        #   组件样式
+    │   └── ...
+    ├── js/                       # [可选] 脚本文件夹
+    │   ├── sdk.js                #   SDK 相关
+    │   ├── state.js              #   状态管理
+    │   ├── render.js             #   渲染逻辑
+    │   ├── events.js             #   事件绑定
+    │   └── init.js               #   初始化入口
+    └── assets/                   # [可选] 资源目录
+        ├── icon.png
+        └── ...
+```
+
+> **多文件架构要点：**
+> - 入口文件通过 `manifest.json` 的 `entry` 字段指定（如 `"entry": "main.html"`）
+> - JS 文件按顺序加载，参考 FastTXT 插件的实现
+> - CSS 文件通过 `<link rel="stylesheet">` 标签引入
+> - 文件拆分后，各文件拼接结果必须与原单文件完全一致（可通过脚本验证）
+> - 推荐按功能模块拆分（如 SDK、状态、渲染、事件等）
+
 ---
 
 ## 三、manifest.json 规范

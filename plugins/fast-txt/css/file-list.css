@@ -1,0 +1,202 @@
+    /* ========== File List ========== */
+    .ftxt-file-list {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 44px 4px 8px 4px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      align-content: start;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-color) transparent;
+    }
+
+    .ftxt-file-list::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .ftxt-file-list::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .ftxt-file-list::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 3px;
+    }
+
+    /* Empty State */
+    .ftxt-empty {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      opacity: 0.6;
+      padding: 40px 0;
+    }
+
+    .empty-icon {
+      font-size: 48px;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    .empty-text {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+    }
+
+    .empty-hint {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px;
+      color: var(--text-muted);
+      opacity: 0.6;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-8px); }
+    }
+
+    /* File Card */
+    .ftxt-file-card {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: var(--bg-card);
+      border: 2px solid var(--border-color);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      animation: cardFadeIn 0.3s ease-out both;
+      user-select: none;
+      min-height: 48px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .ftxt-file-card.selected {
+      border-color: var(--accent-primary);
+      background: color-mix(in srgb, var(--accent-primary) 10%, var(--bg-card));
+      box-shadow: 0 0 16px var(--shadow-color);
+    }
+
+    .ftxt-file-card.dragging {
+      opacity: 0.4;
+      transform: scale(0.95);
+    }
+
+    .ftxt-file-card.is-deleted {
+      opacity: 0.7;
+      border-style: dashed;
+    }
+
+    .ftxt-file-card.is-deleted:hover {
+      border-color: var(--accent-secondary, #ff0080);
+    }
+
+    @keyframes cardFadeIn {
+      from {
+        opacity: 0;
+        transform: scale(0.9);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    .file-icon {
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .file-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .file-name {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ========== Rename Input ========== */
+    .file-rename-input {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      color: var(--text-primary);
+      background: var(--bg-primary);
+      border: 2px solid var(--accent-primary);
+      border-radius: 4px;
+      padding: 3px 6px;
+      width: 100%;
+      outline: none;
+      box-shadow: 0 0 8px var(--shadow-color);
+      user-select: text;
+    }
+
+    .file-rename-input::selection {
+      background: var(--accent-primary);
+      color: #000;
+    }
+
+    .light-mode .file-rename-input {
+      background: var(--bg-card);
+    }
+
+    /* ========== Rename Button (on card) ========== */
+    .file-rename-btn {
+      position: absolute;
+      top: 50%;
+      right: 8px;
+      transform: translateY(-50%);
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 1px solid var(--border-color);
+      background: var(--bg-secondary);
+      color: var(--text-muted);
+      font-size: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: all 0.15s ease;
+      z-index: 2;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    .ftxt-file-card.selected .file-rename-btn {
+      opacity: 1;
+    }
+
+    .file-rename-btn:hover {
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+      box-shadow: 0 0 8px var(--shadow-color);
+    }
+
+    .ftxt-file-card.is-deleted .file-rename-btn {
+      display: none;
+    }
+
+    .file-deleted-badge {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 5px;
+      color: var(--accent-secondary, #ff0080);
+      border: 1px solid var(--accent-secondary, #ff0080);
+      border-radius: 4px;
+      padding: 2px 4px;
+      flex-shrink: 0;
+    }

@@ -1,0 +1,86 @@
+    /* ========== CSS Variables - Dark Mode (default) ========== */
+    :root {
+      --bg-primary: #0a0a0a;
+      --bg-secondary: #141414;
+      --bg-card: #1a1a1a;
+      --bg-slot: #0d0d0d;
+      --text-primary: #e0e0e0;
+      --text-secondary: #888888;
+      --text-muted: #555555;
+      --accent-primary: #00ff88;
+      --accent-secondary: #ff0080;
+      --accent-tertiary: #00d4ff;
+      --border-color: #333333;
+      --shadow-color: rgba(0, 255, 136, 0.3);
+      --scanline-opacity: 0.03;
+    }
+
+    /* Light Mode */
+    .light-mode {
+      --bg-primary: #FFF8E8;
+      --bg-secondary: #FFF3D6;
+      --bg-card: #FFFEFB;
+      --bg-slot: #FFEEC2;
+      --text-primary: #C3272B;
+      --text-secondary: #C3272B;
+      --text-muted: #C3272B;
+      --accent-primary: #C3272B;
+      --accent-secondary: #cc0066;
+      --accent-tertiary: #0099cc;
+      --border-color: #E8DCC8;
+      --shadow-color: rgba(0, 0, 0, 0.1);
+      --scanline-opacity: 0.01;
+    }
+
+    /* ========== Base ========== */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html { background: transparent; }
+
+    body {
+      font-family: 'Press Start 2P', monospace;
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .fasttxt-app {
+      width: 100%;
+      height: 100%;
+      background: var(--bg-secondary);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+    }
+
+    /* Views must fill the flex container */
+    #view-main, #view-editor {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* CRT Scanline */
+    .fasttxt-app::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, var(--scanline-opacity, 0.03)) 0px,
+        rgba(0, 0, 0, var(--scanline-opacity, 0.03)) 1px,
+        transparent 1px,
+        transparent 2px
+      );
+      pointer-events: none;
+      z-index: 100;
+    }

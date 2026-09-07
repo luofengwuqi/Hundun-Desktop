@@ -300,9 +300,11 @@ plugins/                       # 插件目录 (每个插件一个子目录)
 ├── calculator/                # 计算器插件 (独立 HTML)
 │   ├── manifest.json
 │   └── index.html
-├── fast-txt/                  # 文本管理器插件 (独立 HTML)
+├── fast-txt/                  # 文本管理器插件 (多文件架构)
 │   ├── manifest.json
-│   └── index.html
+│   ├── main.html             # 入口页面
+│   ├── css/                  # 样式文件夹 (11个)
+│   └── js/                   # 脚本文件夹 (15个)
 ├── command-executor/          # 命令执行器 (占位)
 └── timer-manager/             # 定时任务管理器 (占位)
 ```
@@ -324,7 +326,7 @@ plugins/                       # 插件目录 (每个插件一个子目录)
 ├──────────────────────────────────────────────┤
 │  插件窗口 (独立 BrowserWindow)                │
 │  ├── plugin-preload.js → window.hundun.*     │
-│  ├── index.html (纯 HTML/CSS/JS)             │
+│  ├── main.html (纯 HTML/CSS/JS)              │
 │  └── PluginSDK (window.hundun.host/storage)  │
 └──────────────────────────────────────────────┘
 ```
@@ -470,6 +472,56 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 
 #### 4.3.4 FastTXT Bug修复 (2026-09-07)
 - [x] 修复行号列可被鼠标滚轮单独滚动导致与编辑器错位的bug (wheel事件拦截 + 转发至textarea)
+
+#### 4.3.5 FastTXT 架构拆分 (2026-09-07)
+- [x] 将单文件 index.html (3160行) 拆分为多文件架构，便于维护
+- [x] 入口改为 main.html，manifest.json entry 同步更新
+- [x] CSS 拆分为 11 个文件 (css/ 目录)，按功能模块划分
+- [x] JS 拆分为 15 个文件 (js/ 目录)，严格保持原执行顺序
+- [x] 保留原 index.html 作为备份（新入口已切换为 main.html）
+
+**拆分后的目录结构：**
+```
+plugins/fast-txt/
+├── main.html            ← 入口 (引用外部 css/js)
+├── manifest.json        ← entry: "main.html"
+├── css/                 ← 11 个 CSS 文件
+│   ├── base.css         变量/深色浅色/基础/扫描线
+│   ├── deco-screws.css  装饰螺丝
+│   ├── header.css       头部
+│   ├── content.css      内容区/搜索框/面包屑
+│   ├── file-list.css    文件卡片/空态/重命名
+│   ├── drop-zones.css   垃圾桶/粉碎机拖放区
+│   ├── footer.css       底部按钮栏
+│   ├── editor.css       编辑器/行号
+│   ├── overlays.css     模态框/新建菜单/浅色适配
+│   ├── find-bar.css     查找替换栏
+│   └── status.css       自动保存指示/快捷键提示
+├── js/                  ← 15 个 JS 文件 (执行顺序从上到下)
+│   ├── sdk.js           playSound + returnToParent
+│   ├── app-state.js     DOM引用 + State + Computed
+│   ├── filesystem.js    fs API + 磁盘操作
+│   ├── render.js        UI 渲染 + 选区钳制
+│   ├── file-actions.js  文件点击/重命名/打开/关闭/导入
+│   ├── reorder.js       文件拖拽排序
+│   ├── modes.js         回收站/文件夹/粉碎机
+│   ├── create.js        新建菜单
+│   ├── find-replace.js  查找与替换
+│   ├── autosave.js      自动保存
+│   ├── modal.js         模态框
+│   ├── keyboard.js      键盘导航
+│   ├── events.js        事件绑定 + 字号缩放
+│   ├── theme-sync.js    主题 + 同步保存
+│   └── init.js          初始化入口
+├── file/                ← 用户数据目录
+├── .trash/              ← 回收站
+└── STORAGE.md
+```
+
+**拆分校验结果：**
+- 11 个 CSS 按序拼接 == 原 style 内容 ✅
+- 15 个 JS 按序拼接 == 原 script 内容 ✅
+- 全部 JS 语法检查通过 ✅
 
 #### 4.4 插件开发规范
 - [x] PLUGIN_SPEC.md v2.0 (781行完整规范)

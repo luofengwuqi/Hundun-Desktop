@@ -1,0 +1,221 @@
+    /* ========== Modal ========== */
+    .ftxt-modal-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .ftxt-modal {
+      background: var(--bg-secondary);
+      border: 2px solid var(--border-color);
+      border-radius: 16px;
+      padding: 24px;
+      max-width: 320px;
+      width: 90%;
+      text-align: center;
+      animation: modalPop 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    }
+
+    .modal-icon {
+      font-size: 36px;
+      margin-bottom: 12px;
+    }
+
+    .modal-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 11px;
+      color: var(--accent-primary);
+      margin-bottom: 12px;
+      letter-spacing: 2px;
+    }
+
+    .modal-message {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      color: var(--text-secondary);
+      line-height: 1.8;
+      margin-bottom: 20px;
+      white-space: pre-line;
+    }
+
+    .modal-buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+
+    .modal-btn {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: 2px solid var(--border-color);
+      background: var(--bg-card);
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      letter-spacing: 1px;
+    }
+
+    .modal-btn:hover {
+      transform: scale(1.05);
+    }
+
+    .modal-btn.primary {
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+    }
+
+    .modal-btn.primary:hover {
+      background: var(--accent-primary);
+      color: #000;
+    }
+
+    .modal-btn.secondary {
+      border-color: var(--text-muted);
+      color: var(--text-muted);
+    }
+
+    .modal-btn.danger {
+      border-color: var(--accent-secondary, #ff0080);
+      color: var(--accent-secondary, #ff0080);
+    }
+
+    .modal-btn.danger:hover {
+      background: var(--accent-secondary, #ff0080);
+      color: #fff;
+    }
+
+    /* Keyboard selected state */
+    .btn-selected {
+      border-color: var(--accent-primary) !important;
+      box-shadow: 0 0 12px var(--accent-primary);
+      transform: scale(1.05);
+    }
+
+    .create-option.btn-selected {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 12px var(--shadow-color);
+      background: color-mix(in srgb, var(--accent-primary) 15%, var(--bg-card));
+    }
+
+    /* Create Menu */
+    .create-menu {
+      min-width: 200px;
+    }
+
+    .create-options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .create-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: var(--bg-card);
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .create-option:hover {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 12px var(--shadow-color);
+    }
+
+    .create-icon {
+      font-size: 20px;
+    }
+
+    .create-label {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      color: var(--text-primary);
+      letter-spacing: 1px;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes modalPop {
+      from {
+        opacity: 0;
+        transform: scale(0.8) translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+
+    /* ========== Light Mode tweaks ========== */
+    .light-mode .ftxt-search {
+      background: var(--bg-card);
+    }
+
+    .light-mode .ftxt-file-card {
+      background: var(--bg-card);
+    }
+
+    .light-mode .ftxt-file-card.selected {
+      background: color-mix(in srgb, var(--accent-primary) 10%, var(--bg-card));
+    }
+
+    .light-mode .ftxt-trash-zone {
+      border-color: #d8cbb2;
+    }
+
+    .light-mode .footer-btn {
+      background: var(--bg-card);
+    }
+
+    .light-mode .ftxt-modal {
+      background: var(--bg-secondary);
+    }
+
+    .light-mode .modal-btn {
+      background: var(--bg-card);
+    }
+
+    .light-mode .editor-line-numbers {
+      background: var(--bg-secondary);
+    }
+
+    .light-mode .ftxt-editor {
+      background: var(--bg-card);
+    }
+
+    .light-mode .ftxt-find-bar {
+      background: var(--bg-secondary);
+    }
+
+    .light-mode .find-input {
+      background: var(--bg-card);
+    }
+
+    .light-mode .find-btn {
+      background: var(--bg-card);
+    }
+
+    .light-mode .create-option {
+      background: var(--bg-card);
+    }
+
+    .light-mode .footer-btn.add-btn {
+      background: var(--bg-card);
+    }
