@@ -12,11 +12,34 @@
         // 无 fs API 时的 fallback（不应发生）
         files = [];
       }
+
+      // 加载本地主题设置
+      loadTheme();
+
+      // 绑定主题切换拨动开关
+      const themeToggle = document.getElementById('themeToggle');
+      const themeToggleEditor = document.getElementById('themeToggleEditor');
+      if (themeToggle) {
+        themeToggle.addEventListener('click', toggleTheme);
+      }
+      if (themeToggleEditor) {
+        themeToggleEditor.addEventListener('click', toggleTheme);
+      }
+
       updateUI();
 
+      // 同步母程序主题（如果可用，且本地无设置则使用母程序主题）
       if (window.hundun && window.hundun.host) {
-        window.hundun.host.getTheme().then(applyTheme);
-        window.hundun.host.onThemeChange(applyTheme);
+        const savedTheme = localStorage.getItem('fasttxt-theme');
+        if (!savedTheme) {
+          window.hundun.host.getTheme().then(applyTheme);
+        }
+        window.hundun.host.onThemeChange((theme) => {
+          // 仅在本地无设置时同步母程序主题
+          if (!localStorage.getItem('fasttxt-theme')) {
+            applyTheme(theme);
+          }
+        });
       }
     };
 

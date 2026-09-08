@@ -74,3 +74,51 @@
       box-shadow: 0 0 12px var(--shadow-color);
       transform: scale(1.1);
     }
+
+    .toggle-container {
+      position: absolute;
+      left: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      -webkit-app-region: no-drag;
+      z-index: 102;
+    }
+
+    .toggle-label {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+    }
+
+    .toggle-switch {
+      width: 48px;
+      height: 24px;
+      background: var(--bg-slot);
+      border-radius: 12px;
+      position: relative;
+      cursor: pointer;
+      border: 2px solid var(--border-color);
+      transition: all 0.3s ease;
+    }
+
+    .toggle-knob {
+      width: 18px;
+      height: 18px;
+      background: var(--accent-primary);
+      border-radius: 50%;
+      position: absolute;
+      top: 1px;
+      left: 2px;
+      transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    }
+
+    .toggle-switch.active .toggle-knob {
+      left: 26px;
+    }
+
+    .toggle-switch:active .toggle-knob {
+      width: 22px;
+    }

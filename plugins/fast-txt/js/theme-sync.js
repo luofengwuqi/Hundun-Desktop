@@ -1,6 +1,35 @@
     // ========== Theme ==========
+    let isDarkMode = true;
+
     const applyTheme = (isDark) => {
-      document.body.classList.toggle('light-mode', !isDark);
+      isDarkMode = typeof isDark === 'boolean' ? isDark : isDark === 'dark';
+      document.body.classList.toggle('light-mode', !isDarkMode);
+      updateThemeToggle();
+    };
+
+    const toggleTheme = () => {
+      isDarkMode = !isDarkMode;
+      document.body.classList.toggle('light-mode', !isDarkMode);
+      localStorage.setItem('fasttxt-theme', isDarkMode ? 'dark' : 'light');
+      updateThemeToggle();
+    };
+
+    const updateThemeToggle = () => {
+      const themeToggle = document.getElementById('themeToggle');
+      const themeToggleEditor = document.getElementById('themeToggleEditor');
+      if (themeToggle) {
+        themeToggle.classList.toggle('active', !isDarkMode);
+      }
+      if (themeToggleEditor) {
+        themeToggleEditor.classList.toggle('active', !isDarkMode);
+      }
+    };
+
+    const loadTheme = () => {
+      const savedTheme = localStorage.getItem('fasttxt-theme');
+      if (savedTheme) {
+        applyTheme(savedTheme === 'dark');
+      }
     };
 
     // ========== Sync Save (beforeunload 用) ==========
