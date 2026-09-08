@@ -126,6 +126,12 @@
       :size="modalSize"
       @close="handleModalClose"
     />
+
+    <!-- 设置页面 -->
+    <Settings 
+      v-if="settingsVisible"
+      @close="closeSettings"
+    />
   </div>
 </template>
 
@@ -136,6 +142,7 @@ import { usePluginStore } from './stores/plugin'
 import { playSound } from './utils/audio'
 import Modal from './components/Modal.vue'
 import LoadingMask from './components/LoadingMask.vue'
+import Settings from './components/Settings.vue'
 
 const themeStore = useThemeStore()
 const pluginStore = usePluginStore()
@@ -165,6 +172,9 @@ const modalTitle = ref('')
 const modalMessage = ref('')
 const modalButtons = ref([])
 const modalSize = ref('normal')
+
+// 设置页面状态
+const settingsVisible = ref(false)
 
 // DOM 引用
 const shelfRef = ref(null)
@@ -420,12 +430,12 @@ const handleAddApp = () => {
 }
 
 const handleSettings = () => {
-  showModal(
-    '⚙️',
-    'SETTINGS',
-    'Configure Hundun Lite<br>(Coming soon...)',
-    [{ text: 'OK', class: 'primary', action: closeModal }]
-  )
+  settingsVisible.value = true
+  playSound('setting')
+}
+
+const closeSettings = () => {
+  settingsVisible.value = false
 }
 
 // ========== 拖拽系统 ==========
@@ -542,6 +552,11 @@ const handleModalClose = () => {
 
 // ========== 键盘导航 ==========
 const handleKeydown = (e) => {
+  // 设置页面打开时，不处理其他键盘事件
+  if (settingsVisible.value) {
+    return
+  }
+  
   if (modalVisible.value) {
     if (e.key === 'Escape') closeModal()
     return

@@ -158,9 +158,11 @@ src/
 │   │   ├── CalculatorApp.vue # 原 Vue 组件 (已弃用，迁移到 plugins/calculator/)
 │   │   ├── FastTXTApp.vue    # 原 Vue 组件 (已弃用，迁移到 plugins/fast-txt/)
 │   │   ├── LoadingMask.vue   # 加载蒙版组件
-│   │   └── Modal.vue         # 弹窗组件
+│   │   ├── Modal.vue         # 弹窗组件
+│   │   └── Settings.vue      # 设置页面 (声音/主题/插件/关于)
 │   └── stores/
-│       └── plugin.js         # 插件状态管理 (scanAllPlugins IPC)
+│       ├── plugin.js         # 插件状态管理 (scanAllPlugins IPC)
+│       └── theme.js          # 主题状态管理 (dark/light)
 ├── shared/
 │   ├── plugin-loader.js      # 插件加载器 (扫描 plugins/ 目录)
 │   └── plugin-sdk.js         # 插件开发 SDK (host API)
@@ -341,4 +343,4 @@ chore: 构建/工具链更新
 
 ---
 
-**项目状态**: 🟢 Phase 4 进行中 - BrowserWindow 插件架构完成，Calculator/FastTXT 已迁移为独立 HTML 插件
+**项目状态**: 🟢 Phase 4 进行中 - BrowserWindow 插件架构完成，Calculator/FastTXT 已迁移为独立 HTML 插件，设置页面已开发
