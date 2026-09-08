@@ -179,6 +179,11 @@ plugins/                       # 插件目录 (每个插件一个子目录)
 │   ├── manifest.json
 │   ├── main.html             # 入口页面
 │   ├── css/                  # 样式文件夹 (11个)
+│   │   ├── base.css          # 全局样式 (普通字体)
+│   │   ├── header.css        # 头部 (标题用像素字体)
+│   │   ├── footer.css        # 页脚 (普通字体)
+│   │   ├── editor.css        # 编辑器 (普通字体)
+│   │   └── ...               # 其他样式 (普通字体)
 │   └── js/                   # 脚本文件夹 (17个)
 │       ├── i18n.js           # 多语言核心模块
 │       ├── i18n-html.js      # 静态 HTML 翻译应用
@@ -301,6 +306,8 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 14. **多语言方案**: 轻量级 i18n 模块 (无第三方依赖)，Pinia store 响应式管理
 15. **翻译文件结构**: `src/renderer/i18n/{lang}.js`，支持嵌套键和参数替换
 16. **语言持久化**: localStorage 存储，自动检测浏览器语言作为默认值
+17. **FastTXT 字体策略**: 仅标题保留像素字体 (Press Start 2P)，内容使用普通字体 (Noto Sans SC / Microsoft YaHei)
+18. **FastTXT i18n**: 独立多语言模块，支持中英文切换，68 个翻译字符串
 
 ### 待定
 1. 插件市场实现方案

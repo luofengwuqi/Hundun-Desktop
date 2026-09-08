@@ -6,6 +6,14 @@
 
 ## 2026-09-08
 
+### FastTXT UI 优化
+- [x] 底部按钮键盘导航修复 (ArrowDown 可从空文件列表跳转到底部)
+- [x] 修复 `clampSelection` 在文件列表为空时错误重置 `selectedCol` 的问题
+- [x] 底部文字字号放大: 7px → 14px
+- [x] 字体策略优化: 仅标题保留像素字体 (Press Start 2P)
+- [x] 所有内容文本改用普通字体 (Noto Sans SC / Microsoft YaHei)
+- [x] 涉及 9 个 CSS 文件共 21 处字体修改
+
 ### 多语言支持 (i18n)
 - [x] 轻量级 i18n 模块 (无第三方依赖)
 - [x] 中文/英文双语支持

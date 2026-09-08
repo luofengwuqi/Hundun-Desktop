@@ -1,6 +1,6 @@
     /* ========== Auto-save Indicator ========== */
     .auto-save-indicator {
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
       font-size: 7px;
       color: var(--accent-primary);
       letter-spacing: 1px;
@@ -15,7 +15,7 @@
     }
 
     .shortcut-hint {
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
       font-size: 5px;
       color: var(--text-muted);
       letter-spacing: 0.5px;

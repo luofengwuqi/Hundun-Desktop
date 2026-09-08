@@ -45,7 +45,7 @@
     }
 
     .find-count {
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
       font-size: 7px;
       color: var(--text-muted);
       min-width: 40px;
@@ -80,7 +80,7 @@
     }
 
     .replace-btn {
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
       font-size: 7px;
       width: auto;
       padding: 0 8px;

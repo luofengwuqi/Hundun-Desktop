@@ -38,7 +38,7 @@
     html { background: transparent; }
 
     body {
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
       background: var(--bg-secondary);
       color: var(--text-primary);
       width: 100vw;
