@@ -62,6 +62,9 @@
     let isRenaming = false;
     let renamingFileId = null;
 
+    // 书签状态 (line number -> true)
+    let bookmarks = {};
+
     let files = [];
     let editingFile = null;
     let editorContent = '';
@@ -86,6 +89,7 @@
     const PROGRAM_FOLDER = 'FastTXT_Data';
     const TRASH_DIR = '.trash'; // 回收站: 平铺存放被删文件 (恢复时回到 file/ 根目录)
     const ORDER_FILE = '.order.json';
+    const BOOKMARKS_FILE = '.bookmarks.json'; // 书签存储文件
     const GRID_COLS = 3; // 文件列表网格列数
 
     // ========== Computed ==========

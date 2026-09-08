@@ -169,6 +169,47 @@
       await api.writeFile(ORDER_FILE, JSON.stringify({ ids }, null, 2));
     };
 
+    // ========== 书签持久化 ==========
+    const saveBookmarksToDisk = async (filePath) => {
+      const api = fsAPI();
+      if (!api) return;
+      const key = filePath || '__default__';
+      try {
+        // 读取现有书签数据
+        let allBookmarks = {};
+        const existing = await api.readFile(BOOKMARKS_FILE);
+        if (existing) {
+          allBookmarks = JSON.parse(existing);
+        }
+        // 更新指定文件的书签
+        const bookmarkArray = Object.keys(bookmarks).map(Number);
+        allBookmarks[key] = bookmarkArray;
+        await api.writeFile(BOOKMARKS_FILE, JSON.stringify(allBookmarks, null, 2));
+      } catch (err) {
+        console.warn('[FastTXT] saveBookmarks failed:', err);
+      }
+    };
+
+    const loadBookmarksFromDisk = async (filePath) => {
+      const api = fsAPI();
+      bookmarks = {};
+      if (!api) return;
+      const key = filePath || '__default__';
+      try {
+        const data = await api.readFile(BOOKMARKS_FILE);
+        if (data) {
+          const allBookmarks = JSON.parse(data);
+          if (allBookmarks[key] && Array.isArray(allBookmarks[key])) {
+            allBookmarks[key].forEach(line => {
+              bookmarks[Number(line)] = true;
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('[FastTXT] loadBookmarks failed:', err);
+      }
+    };
+
     const saveFiles = async () => {
       await saveOrderToDisk();
     };

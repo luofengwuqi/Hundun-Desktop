@@ -33,6 +33,36 @@
       padding: 0 8px;
       line-height: 32.4px;
       height: 32.4px;
+      cursor: pointer;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    .line-num:hover {
+      color: var(--accent-primary);
+    }
+
+    .line-num.has-bookmark {
+      text-indent: -9999px;
+      overflow: hidden;
+    }
+
+    .bookmark-dot {
+      width: 10px;
+      height: 10px;
+      background: #ff6b6b;
+      border-radius: 50%;
+      position: absolute;
+      right: 12px;
+      box-shadow: 0 0 6px rgba(255, 107, 107, 0.6);
+      transition: transform 0.15s ease;
+    }
+
+    .bookmark-dot:hover {
+      transform: scale(1.2);
+      background: #ff4757;
     }
 
     .editor-textarea {

@@ -232,7 +232,27 @@
       const lastLH = parseFloat(lineNumbers.dataset.lh || '0');
 
       // 行数与行高均未变化 → 零 DOM 操作 (打字路径的优化分支)
-      if (cur === count && lastLH === lineHeight) return;
+      // 但书签状态可能变化，需要更新书签显示
+      if (cur === count && lastLH === lineHeight) {
+        // 更新书签显示
+        lineNumbers.querySelectorAll('.line-num').forEach((el, idx) => {
+          const lineNum = idx + 1;
+          const hasBookmark = bookmarks[lineNum];
+          const existingBookmark = el.querySelector('.bookmark-dot');
+          if (hasBookmark && !existingBookmark) {
+            el.classList.add('has-bookmark');
+            el.textContent = '';
+            const dot = document.createElement('div');
+            dot.className = 'bookmark-dot';
+            el.appendChild(dot);
+          } else if (!hasBookmark && existingBookmark) {
+            el.classList.remove('has-bookmark');
+            existingBookmark.remove();
+            el.textContent = lineNum;
+          }
+        });
+        return;
+      }
 
       if (cur === count) {
         // 仅行高变化 (Ctrl+滚轮缩放) → 全量更新行高样式
@@ -250,9 +270,21 @@
         for (let n = cur + 1; n <= count; n++) {
           const div = document.createElement('div');
           div.className = 'line-num';
-          div.textContent = n;
           div.style.lineHeight = lineHeight + 'px';
           div.style.height = lineHeight + 'px';
+          
+          // 书签状态
+          if (bookmarks[n]) {
+            div.classList.add('has-bookmark');
+            const dot = document.createElement('div');
+            dot.className = 'bookmark-dot';
+            div.appendChild(dot);
+          } else {
+            div.textContent = n;
+          }
+          
+          // 点击事件
+          div.addEventListener('click', () => toggleBookmark(n, div));
           frag.appendChild(div);
         }
         lineNumbers.appendChild(frag);
@@ -262,6 +294,29 @@
         }
       }
       lineNumbers.dataset.lh = lineHeight;
+    };
+
+    const toggleBookmark = async (lineNum, lineEl) => {
+      if (bookmarks[lineNum]) {
+        // 移除书签
+        delete bookmarks[lineNum];
+        lineEl.classList.remove('has-bookmark');
+        const dot = lineEl.querySelector('.bookmark-dot');
+        if (dot) dot.remove();
+        lineEl.textContent = lineNum;
+      } else {
+        // 添加书签
+        bookmarks[lineNum] = true;
+        lineEl.textContent = '';
+        lineEl.classList.add('has-bookmark');
+        const dot = document.createElement('div');
+        dot.className = 'bookmark-dot';
+        lineEl.appendChild(dot);
+      }
+      playSound('click');
+      // 持久化书签
+      const filePath = editingFile ? (editingFile.parentPath ? `${editingFile.parentPath}/${editingFile.name}` : editingFile.name) : null;
+      await saveBookmarksToDisk(filePath);
     };
 
     let _statusWordTimer = null; // 字数统计防抖定时器

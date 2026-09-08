@@ -173,6 +173,9 @@
       file.content = diskContent !== null ? diskContent : '';
       editorContent = file.content;
 
+      // 加载书签
+      await loadBookmarksFromDisk(subPath);
+
       playSound('OK');
       editingFile = file;
       currentView = 'editor';
@@ -188,8 +191,25 @@
       // 立即将内容写入 textarea（避免异步时序导致空内容覆盖磁盘数据）
       editorTextarea.value = editorContent;
       renderEditorStatus();
+      // 清空行号DOM和缓存的行高，强制重建以显示正确的书签状态
+      lineNumbers.innerHTML = '';
+      delete lineNumbers.dataset.lh;
       renderLineNumbers();
-      setTimeout(() => editorTextarea.focus(), 0);
+      
+      // 跳转到第一个书签位置
+      const bookmarkLines = Object.keys(bookmarks).map(Number).sort((a, b) => a - b);
+      
+      // 先 focus，再滚动到书签 (focus 会滚到光标末尾，所以必须在 focus 之后重新滚)
+      setTimeout(() => {
+        editorTextarea.focus();
+        if (bookmarkLines.length > 0) {
+          const firstBookmarkLine = bookmarkLines[0];
+          const lineHeight = editorFontSize * 1.8;
+          const scrollTo = (firstBookmarkLine - 1) * lineHeight;
+          editorTextarea.scrollTop = scrollTo;
+          lineNumbers.scrollTop = scrollTo;
+        }
+      }, 0);
     };
 
     // ========== Delete to Trash (统一入口: 键盘 Delete / 拖入垃圾桶) ==========
