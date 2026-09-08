@@ -136,12 +136,12 @@
 
     const getFooterButtons = () => {
       const btns = [
-        { id: 'add', icon: '+', action: showCreateMenu, title: 'Create new' },
-        { id: 'trash', icon: '🗑️', action: toggleTrashMode, title: isTrashMode ? 'Back to files' : 'Show deleted' },
-        { id: 'folder', icon: '📁', action: openFolder, title: 'Open in Explorer' },
+        { id: 'add', icon: '+', action: showCreateMenu, title: FastTXTI18n.t('buttons.create') },
+        { id: 'trash', icon: '🗑️', action: toggleTrashMode, title: isTrashMode ? FastTXTI18n.t('buttons.backToFiles') : FastTXTI18n.t('buttons.showDeleted') },
+        { id: 'folder', icon: '📁', action: openFolder, title: FastTXTI18n.t('buttons.openInExplorer') },
       ];
       if (isTrashMode) {
-        btns.push({ id: 'shredder', icon: '⚙️', action: showShredConfirm, title: 'Shred all' });
+        btns.push({ id: 'shredder', icon: '⚙️', action: showShredConfirm, title: FastTXTI18n.t('buttons.shredAll') });
       }
       return btns;
     };

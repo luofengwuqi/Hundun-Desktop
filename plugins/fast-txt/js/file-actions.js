@@ -104,8 +104,8 @@
         : files.filter(f => !f.deleted && !f.parentPath && f.id !== file.id);
       const duplicate = currentFiles.some(f => f.name === newName);
       if (duplicate) {
-        showModal('⚠️', 'RENAME FAILED', `A file named "${newName}" already exists`, [
-          { text: 'OK', class: 'primary', action: closeModal }
+        showModal('⚠️', FastTXTI18n.t('modal.renameFailed'), FastTXTI18n.t('modal.renameExists', { name: newName }), [
+          { text: FastTXTI18n.t('modal.ok'), class: 'primary', action: closeModal }
         ]);
         cancelRename(file);
         return;
@@ -234,8 +234,8 @@
           await api.rename(getRelPath(file), `${TRASH_DIR}/${diskName}`);
         } catch (err) {
           console.error('[FastTXT] move to trash failed:', err);
-          showModal('⚠️', 'TRASH FAILED', `Cannot move "${file.name}" to trash`, [
-            { text: 'OK', class: 'primary', action: closeModal }
+          showModal('⚠️', FastTXTI18n.t('modal.trashFailed'), FastTXTI18n.t('modal.trashCannotMove', { name: file.name }), [
+            { text: FastTXTI18n.t('modal.ok'), class: 'primary', action: closeModal }
           ]);
           playSound('error');
           return;
@@ -258,10 +258,10 @@
       const rel = getRelPath(folderFile);
       const relFiles = await collectFolderFiles(rel);
       if (relFiles.length > 0) {
-        showModal('⚠️', 'DELETE FOLDER?',
-          `"${folderFile.name}" contains ${relFiles.length} file(s). Move them ALL to trash and delete this folder?`, [
-          { text: 'Cancel', class: 'secondary', action: closeModal },
-          { text: '🗑️ Move to Trash', class: 'danger', action: () => { closeModal(); performFolderDelete(folderFile, relFiles); } }
+        showModal('⚠️', FastTXTI18n.t('modal.deleteFolder'),
+          FastTXTI18n.t('modal.deleteFolderConfirm', { name: folderFile.name, count: relFiles.length }), [
+          { text: FastTXTI18n.t('modal.cancel'), class: 'secondary', action: closeModal },
+          { text: FastTXTI18n.t('modal.deleteFolderBtn'), class: 'danger', action: () => { closeModal(); performFolderDelete(folderFile, relFiles); } }
         ]);
         playSound('click');
         return;
@@ -272,8 +272,8 @@
           await api.deleteFile(rel);
         } catch (err) {
           console.error('[FastTXT] delete empty folder failed:', err);
-          showModal('⚠️', 'DELETE FAILED', `Cannot delete folder "${folderFile.name}"`, [
-            { text: 'OK', class: 'primary', action: closeModal }
+          showModal('⚠️', FastTXTI18n.t('modal.deleteFailed'), FastTXTI18n.t('modal.deleteCannotFolder', { name: folderFile.name }), [
+            { text: FastTXTI18n.t('modal.ok'), class: 'primary', action: closeModal }
           ]);
           playSound('error');
           return;
@@ -331,9 +331,11 @@
           }
         }
         if (moved !== relFiles.length || !folderRemoved) {
-          showModal('⚠️', 'DELETE INCOMPLETE',
-            `Moved ${moved}/${relFiles.length} file(s) to trash.${folderRemoved ? '' : ` ${remaining} file(s) left; folder kept.`}`, [
-            { text: 'OK', class: 'primary', action: closeModal }
+          const msg = folderRemoved 
+            ? FastTXTI18n.t('modal.deleteIncompleteMsg', { moved, total: relFiles.length })
+            : FastTXTI18n.t('modal.deleteIncompleteMsg', { moved, total: relFiles.length }) + ' ' + FastTXTI18n.t('modal.deleteIncompleteRemain', { n: remaining });
+          showModal('⚠️', FastTXTI18n.t('modal.deleteIncomplete'), msg, [
+            { text: FastTXTI18n.t('modal.ok'), class: 'primary', action: closeModal }
           ]);
           playSound('error');
         }
@@ -358,8 +360,8 @@
           await api.rename(`${TRASH_DIR}/${diskName}`, targetName);
         } catch (err) {
           console.error('[FastTXT] restore failed:', err);
-          showModal('⚠️', 'RESTORE FAILED', `Cannot restore "${file.name}" to the root folder`, [
-            { text: 'OK', class: 'primary', action: closeModal }
+          showModal('⚠️', FastTXTI18n.t('modal.restoreFailed'), FastTXTI18n.t('modal.restoreCannot', { name: file.name }), [
+            { text: FastTXTI18n.t('modal.ok'), class: 'primary', action: closeModal }
           ]);
           playSound('error');
           return;

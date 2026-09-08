@@ -97,15 +97,15 @@
     // ========== Shredder Operation ==========
     const showShredConfirm = () => {
       if (getDeletedFiles().length === 0) {
-        showModal('📭', 'EMPTY TRASH', 'No files to shred', [
-          { text: 'OK', class: 'primary', action: closeModal }
+        showModal('📭', FastTXTI18n.t('modal.emptyTrash'), FastTXTI18n.t('modal.noFilesToShred'), [
+          { text: FastTXTI18n.t('modal.ok'), class: 'primary', action: closeModal }
         ]);
         return;
       }
 
-      showModal('⚙️', 'SHRED ALL?', `Permanently delete ${getDeletedFiles().length} file(s)?`, [
-        { text: 'Cancel', class: 'secondary', action: closeModal },
-        { text: '⚙️ Shred All', class: 'danger', action: shredAll }
+      showModal('⚙️', FastTXTI18n.t('modal.shredAll'), FastTXTI18n.t('modal.shredConfirm', { count: getDeletedFiles().length }), [
+        { text: FastTXTI18n.t('modal.cancel'), class: 'secondary', action: closeModal },
+        { text: FastTXTI18n.t('modal.shredBtn'), class: 'danger', action: shredAll }
       ]);
     };
 

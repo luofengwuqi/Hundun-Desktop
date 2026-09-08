@@ -3,7 +3,7 @@
     <!-- Header -->
     <header class="settings-header">
       <div class="toggle-container">
-        <span class="toggle-label">深色</span>
+        <span class="toggle-label">{{ t('settings.dark') }}</span>
         <div 
           class="toggle-switch" 
           :class="{ active: !isDarkMode }"
@@ -11,13 +11,13 @@
         >
           <div class="toggle-knob"></div>
         </div>
-        <span class="toggle-label">浅色</span>
+        <span class="toggle-label">{{ t('settings.light') }}</span>
       </div>
       <div class="settings-logo">
         <span class="logo-icon">⚙️</span>
-        <span class="logo-text">SETTINGS</span>
+        <span class="logo-text">{{ t('settings.title') }}</span>
       </div>
-      <button class="settings-close-btn" @click="closeSettings" title="Back">✕</button>
+      <button class="settings-close-btn" @click="closeSettings" :title="t('settings.back')">✕</button>
     </header>
 
     <!-- Content -->
@@ -42,7 +42,7 @@
         <div v-if="selectedTab === 0" class="tab-content">
           <div class="setting-group">
             <div class="setting-row">
-              <span class="setting-label">Sound Effects</span>
+              <span class="setting-label">{{ t('settings.soundEffects') }}</span>
               <div 
                 class="toggle-switch small"
                 :class="{ active: settings.soundEnabled }"
@@ -52,7 +52,7 @@
               </div>
             </div>
             <div class="setting-row" :class="{ disabled: !settings.soundEnabled }">
-              <span class="setting-label">Volume</span>
+              <span class="setting-label">{{ t('settings.volume') }}</span>
               <div class="volume-control">
                 <span class="volume-icon">🔊</span>
                 <input 
@@ -73,7 +73,7 @@
               @click="testSound"
             >
               <span class="btn-icon">▶</span>
-              <span class="btn-text">TEST SOUND</span>
+              <span class="btn-text">{{ t('settings.testSound') }}</span>
             </button>
           </div>
         </div>
@@ -91,7 +91,7 @@
                   <div class="preview-header"></div>
                   <div class="preview-body"></div>
                 </div>
-                <span class="theme-name">LIGHT</span>
+                <span class="theme-name">{{ t('settings.light') }}</span>
               </button>
               <button 
                 class="theme-option"
@@ -102,14 +102,36 @@
                   <div class="preview-header"></div>
                   <div class="preview-body"></div>
                 </div>
-                <span class="theme-name">DARK</span>
+                <span class="theme-name">{{ t('settings.dark') }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Language Settings -->
+        <div v-if="selectedTab === 2" class="tab-content">
+          <div class="setting-group">
+            <div class="language-options">
+              <button 
+                v-for="option in languageOptions"
+                :key="option.id"
+                class="language-option"
+                :class="{ active: currentLocale === option.id }"
+                @click="setLanguage(option.id)"
+              >
+                <span class="lang-flag">{{ option.flag }}</span>
+                <div class="lang-info">
+                  <span class="lang-name">{{ option.name }}</span>
+                  <span class="lang-native">{{ option.id === 'zh' ? '中文' : 'English' }}</span>
+                </div>
+                <span v-if="currentLocale === option.id" class="lang-check">✓</span>
               </button>
             </div>
           </div>
         </div>
 
         <!-- Plugin Settings -->
-        <div v-if="selectedTab === 2" class="tab-content">
+        <div v-if="selectedTab === 3" class="tab-content">
           <div class="setting-group">
             <div class="plugin-list">
               <div 
@@ -123,7 +145,7 @@
                   <span class="plugin-version">v{{ plugin.version }}</span>
                 </div>
                 <span class="plugin-status" :class="plugin.state">
-                  {{ plugin.state === 'running' ? '● RUNNING' : '○ IDLE' }}
+                  {{ plugin.state === 'running' ? t('plugin.running') : t('plugin.idle') }}
                 </span>
               </div>
             </div>
@@ -131,21 +153,21 @@
         </div>
 
         <!-- About -->
-        <div v-if="selectedTab === 3" class="tab-content">
+        <div v-if="selectedTab === 4" class="tab-content">
           <div class="setting-group about-section">
             <div class="about-logo">🎮</div>
             <div class="about-title">HUNDUN LITE</div>
             <div class="about-version">v1.0.0-alpha</div>
             <div class="about-desc">
-              Retro pocket console style desktop efficiency tool
+              {{ t('settings.desc') }}
             </div>
             <div class="about-links">
               <div class="about-link">
-                <span class="link-label">Engine</span>
+                <span class="link-label">{{ t('settings.engine') }}</span>
                 <span class="link-value">Electron + Vue3</span>
               </div>
               <div class="about-link">
-                <span class="link-label">Platform</span>
+                <span class="link-label">{{ t('settings.platform') }}</span>
                 <span class="link-value">{{ platform }}</span>
               </div>
             </div>
@@ -156,7 +178,7 @@
 
     <!-- Footer -->
     <footer class="settings-footer">
-      <span class="footer-hint">ESC to exit</span>
+      <span class="footer-hint">{{ t('keys.escToExit') }}</span>
     </footer>
   </div>
 </template>
@@ -165,18 +187,26 @@
 import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
 import { useThemeStore } from '../stores/theme'
 import { usePluginStore } from '../stores/plugin'
+import { useI18nStore } from '../stores/i18n'
 import { playSound } from '../utils/audio'
+import { localeOptions } from '../i18n/index.js'
 
 const emit = defineEmits(['close'])
 
 const themeStore = useThemeStore()
 const pluginStore = usePluginStore()
+const i18nStore = useI18nStore()
 
 // State
 const isDarkMode = computed(() => themeStore.isDarkMode)
 const plugins = computed(() => pluginStore.plugins)
 const selectedTab = ref(0)
 const platform = ref('Unknown')
+const currentLocale = computed(() => i18nStore.locale)
+const languageOptions = localeOptions
+
+// i18n
+const t = (key, params = {}) => i18nStore.t(key, params)
 
 // Settings
 const settings = reactive({
@@ -185,12 +215,13 @@ const settings = reactive({
 })
 
 // Tabs
-const tabs = [
-  { id: 'sound', icon: '🔊', label: 'SOUND' },
-  { id: 'theme', icon: '🎨', label: 'THEME' },
-  { id: 'plugins', icon: '📦', label: 'PLUGINS' },
-  { id: 'about', icon: 'ℹ️', label: 'ABOUT' }
-]
+const tabs = computed(() => [
+  { id: 'sound', icon: '🔊', label: t('settings.sound') },
+  { id: 'theme', icon: '🎨', label: t('settings.theme') },
+  { id: 'language', icon: '🌐', label: t('settings.language') },
+  { id: 'plugins', icon: '📦', label: t('settings.plugins') },
+  { id: 'about', icon: 'ℹ️', label: t('settings.about') }
+])
 
 // Methods
 const selectTab = (idx) => {
@@ -206,6 +237,11 @@ const toggleTheme = () => {
 const setTheme = (theme) => {
   playSound('click')
   themeStore.setTheme(theme)
+}
+
+const setLanguage = (lang) => {
+  playSound('click')
+  i18nStore.setLocale(lang)
 }
 
 const toggleSoundEnabled = () => {
@@ -263,7 +299,7 @@ const handleKeydown = (e) => {
   
   if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
     e.preventDefault()
-    selectedTab.value = Math.min(tabs.length - 1, selectedTab.value + 1)
+    selectedTab.value = Math.min(tabs.value.length - 1, selectedTab.value + 1)
     playSound('click')
   }
 }
@@ -407,8 +443,8 @@ onUnmounted(() => {
 }
 
 .tab-label {
-  font-family: 'Press Start 2P', cursive;
-  font-size: 8px;
+  font-family: 'Noto Sans SC', 'Press Start 2P', cursive;
+  font-size: 11px;
 }
 
 /* Panel */
@@ -453,8 +489,8 @@ onUnmounted(() => {
 }
 
 .setting-label {
-  font-family: 'Press Start 2P', cursive;
-  font-size: 10px;
+  font-family: 'Noto Sans SC', 'Press Start 2P', cursive;
+  font-size: 13px;
   color: var(--text-primary);
 }
 
@@ -516,8 +552,8 @@ onUnmounted(() => {
 }
 
 .volume-value {
-  font-family: 'Press Start 2P', cursive;
-  font-size: 8px;
+  font-family: 'Noto Sans SC', 'Press Start 2P', cursive;
+  font-size: 11px;
   color: var(--text-secondary);
   min-width: 35px;
   text-align: right;
@@ -553,8 +589,8 @@ onUnmounted(() => {
 }
 
 .btn-text {
-  font-family: 'Press Start 2P', cursive;
-  font-size: 8px;
+  font-family: 'Noto Sans SC', 'Press Start 2P', cursive;
+  font-size: 11px;
 }
 
 /* Theme Options */
@@ -625,9 +661,67 @@ onUnmounted(() => {
 }
 
 .theme-name {
-  font-family: 'Press Start 2P', cursive;
-  font-size: 8px;
+  font-family: 'Noto Sans SC', 'Press Start 2P', cursive;
+  font-size: 11px;
   color: var(--text-primary);
+}
+
+/* Language Options */
+.language-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.language-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: var(--bg-slot);
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.language-option:hover {
+  border-color: var(--accent-primary);
+}
+
+.language-option.active {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 15px var(--shadow-color);
+}
+
+.lang-flag {
+  font-size: 24px;
+}
+
+.lang-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lang-name {
+  font-family: 'Noto Sans SC', 'Press Start 2P', cursive;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.lang-native {
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.lang-check {
+  font-size: 16px;
+  color: var(--accent-primary);
+  font-weight: bold;
 }
 
 /* Plugin List */
@@ -659,20 +753,20 @@ onUnmounted(() => {
 }
 
 .plugin-name {
-  font-family: 'Press Start 2P', cursive;
-  font-size: 10px;
+  font-family: 'Noto Sans SC', 'Press Start 2P', cursive;
+  font-size: 13px;
   color: var(--text-primary);
 }
 
 .plugin-version {
-  font-family: 'Press Start 2P', cursive;
-  font-size: 7px;
+  font-family: 'Noto Sans SC', 'Press Start 2P', cursive;
+  font-size: 10px;
   color: var(--text-muted);
 }
 
 .plugin-status {
-  font-family: 'Press Start 2P', cursive;
-  font-size: 7px;
+  font-family: 'Noto Sans SC', 'Press Start 2P', cursive;
+  font-size: 10px;
 }
 
 .plugin-status.running {
@@ -696,23 +790,23 @@ onUnmounted(() => {
 }
 
 .about-title {
-  font-family: 'Press Start 2P', cursive;
-  font-size: 18px;
+  font-family: 'Noto Sans SC', 'Press Start 2P', cursive;
+  font-size: 20px;
   color: var(--accent-primary);
   margin-bottom: 8px;
   text-shadow: 0 0 10px var(--accent-primary);
 }
 
 .about-version {
-  font-family: 'Press Start 2P', cursive;
-  font-size: 10px;
+  font-family: 'Noto Sans SC', 'Press Start 2P', cursive;
+  font-size: 13px;
   color: var(--text-secondary);
   margin-bottom: 16px;
 }
 
 .about-desc {
   font-family: 'Noto Sans SC', sans-serif;
-  font-size: 14px;
+  font-size: 16px;
   color: var(--text-secondary);
   margin-bottom: 24px;
   line-height: 1.6;
@@ -733,14 +827,14 @@ onUnmounted(() => {
 }
 
 .link-label {
-  font-family: 'Press Start 2P', cursive;
-  font-size: 8px;
+  font-family: 'Noto Sans SC', 'Press Start 2P', cursive;
+  font-size: 11px;
   color: var(--text-muted);
 }
 
 .link-value {
-  font-family: 'Press Start 2P', cursive;
-  font-size: 8px;
+  font-family: 'Noto Sans SC', 'Press Start 2P', cursive;
+  font-size: 11px;
   color: var(--text-primary);
 }
 
@@ -755,8 +849,8 @@ onUnmounted(() => {
 }
 
 .footer-hint {
-  font-family: 'Press Start 2P', cursive;
-  font-size: 8px;
+  font-family: 'Noto Sans SC', 'Press Start 2P', cursive;
+  font-size: 11px;
   color: var(--text-muted);
 }
 

@@ -6,6 +6,21 @@
 
 ## 2026-09-08
 
+### 多语言支持 (i18n)
+- [x] 轻量级 i18n 模块 (无第三方依赖)
+- [x] 中文/英文双语支持
+- [x] Pinia 响应式 store (`useI18nStore`)
+- [x] 支持嵌套键翻译: `t('settings.sound')`
+- [x] 支持参数替换: `t('cartridge.alreadyRunningMsg', { name: 'FastTXT' })`
+- [x] 自动检测浏览器语言
+- [x] 设置持久化到 localStorage
+- [x] 设置页面新增语言选择器 (🌐 语言/LANGUAGE 标签)
+- [x] App.vue 所有 UI 文本已接入 i18n
+- [x] FastTXT 插件双语支持 (68 个翻译字符串)
+- [x] FastTXT 独立 i18n 模块 (`plugins/fast-txt/js/i18n.js`)
+- [x] FastTXT 所有 JS 文件已接入 i18n (render, file-actions, modes, app-state)
+- [x] FastTXT 静态 HTML 文本已接入 i18n
+
 ### 母程序设置页面
 - [x] 全新设置页面 (复古掌机风格)
 - [x] 四个设置分类: 声音、主题、插件、关于

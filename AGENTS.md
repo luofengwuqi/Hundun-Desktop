@@ -159,8 +159,13 @@ src/
 │   │   ├── FastTXTApp.vue    # 原 Vue 组件 (已弃用，迁移到 plugins/fast-txt/)
 │   │   ├── LoadingMask.vue   # 加载蒙版组件
 │   │   ├── Modal.vue         # 弹窗组件
-│   │   └── Settings.vue      # 设置页面 (声音/主题/插件/关于)
+│   │   └── Settings.vue      # 设置页面 (声音/主题/语言/插件/关于)
+│   ├── i18n/
+│   │   ├── index.js          # i18n 核心模块 (翻译函数、语言检测)
+│   │   ├── zh.js             # 中文翻译
+│   │   └── en.js             # 英文翻译
 │   └── stores/
+│       ├── i18n.js           # 语言状态管理 (Pinia store)
 │       ├── plugin.js         # 插件状态管理 (scanAllPlugins IPC)
 │       └── theme.js          # 主题状态管理 (dark/light)
 ├── shared/
@@ -174,7 +179,10 @@ plugins/                       # 插件目录 (每个插件一个子目录)
 │   ├── manifest.json
 │   ├── main.html             # 入口页面
 │   ├── css/                  # 样式文件夹 (11个)
-│   └── js/                   # 脚本文件夹 (15个)
+│   └── js/                   # 脚本文件夹 (17个)
+│       ├── i18n.js           # 多语言核心模块
+│       ├── i18n-html.js      # 静态 HTML 翻译应用
+│       └── ...
 ├── command-executor/          # 命令执行器 (占位)
 └── timer-manager/             # 定时任务管理器 (占位)
 ```
@@ -288,6 +296,11 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 11. **preload 兼容性**: 直接挂载 `window.hundun` (兼容 `contextIsolation: false`)
 12. **主题路由**: themeRequestSender 跟踪机制，theme:get 响应路由到正确窗口
 13. **音效路由**: 插件 → plugin:playSound IPC → 主进程 → play-sound 事件 → 主窗口播放
+
+### 已决策 (2026-09-08)
+14. **多语言方案**: 轻量级 i18n 模块 (无第三方依赖)，Pinia store 响应式管理
+15. **翻译文件结构**: `src/renderer/i18n/{lang}.js`，支持嵌套键和参数替换
+16. **语言持久化**: localStorage 存储，自动检测浏览器语言作为默认值
 
 ### 待定
 1. 插件市场实现方案

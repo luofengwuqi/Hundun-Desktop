@@ -13,7 +13,7 @@
       <!-- 头部 -->
       <header class="header">
         <div class="toggle-container">
-          <span class="toggle-label">深色</span>
+          <span class="toggle-label">{{ t('settings.dark') }}</span>
           <div 
             class="toggle-switch" 
             :class="{ active: !isDarkMode }"
@@ -21,11 +21,11 @@
           >
             <div class="toggle-knob"></div>
           </div>
-          <span class="toggle-label">浅色</span>
+          <span class="toggle-label">{{ t('settings.light') }}</span>
           <div class="status-dot"></div>
         </div>
         <!-- 右上角退出按钮 -->
-        <button class="header-close-btn" @click="quitApp" title="Exit">
+        <button class="header-close-btn" @click="quitApp" :title="t('app.exit')">
           ✕
         </button>
       </header>
@@ -40,7 +40,7 @@
           <span v-else-if="selectedRow === 1" class="cartridge-info-name">
             {{ bottomRowNames[selectedCol] }}
           </span>
-          <span v-else class="cartridge-info-empty">← → Select cartridge</span>
+          <span v-else class="cartridge-info-empty">{{ t('app.selectHint') }}</span>
         </div>
 
         <!-- 卡带货架 (水平滚动) -->
@@ -102,7 +102,7 @@
               <div class="slot-cartridge-icon">{{ slotPlugin.icon }}</div>
               <div class="slot-cartridge-name">{{ slotPlugin.name }}</div>
             </div>
-            <span v-else class="slot-empty">Drag to start</span>
+            <span v-else class="slot-empty">{{ t('cartridge.slotEmpty') }}</span>
           </div>
         </div>
       </main>
@@ -139,6 +139,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useThemeStore } from './stores/theme'
 import { usePluginStore } from './stores/plugin'
+import { useI18nStore } from './stores/i18n'
 import { playSound } from './utils/audio'
 import Modal from './components/Modal.vue'
 import LoadingMask from './components/LoadingMask.vue'
@@ -146,6 +147,10 @@ import Settings from './components/Settings.vue'
 
 const themeStore = useThemeStore()
 const pluginStore = usePluginStore()
+const i18nStore = useI18nStore()
+
+// i18n
+const t = (key, params = {}) => i18nStore.t(key, params)
 
 // ========== 过渡状态 ==========
 // 子程序现在是独立 BrowserWindow，不再需要 Vue 组件切换
@@ -240,9 +245,9 @@ const insertSelectedToSlot = () => {
   if (slotPlugin.value && slotPlugin.value.id === plugin.id) {
     showModal(
       '⚠️',
-      'ALREADY RUNNING',
-      `<strong>${plugin.icon} ${plugin.name}</strong> is already running!<br>Only one instance allowed.`,
-      [{ text: 'OK', class: 'primary', action: closeModal }]
+      t('cartridge.alreadyRunning'),
+      t('cartridge.alreadyRunningMsg', { name: `${plugin.icon} ${plugin.name}` }),
+      [{ text: t('cartridge.ok'), class: 'primary', action: closeModal }]
     )
     return
   }
@@ -253,11 +258,14 @@ const insertSelectedToSlot = () => {
     
     showModal(
       '🔌',
-      'SWITCH CARTRIDGE',
-      `Running: <strong>${currentPlugin.icon} ${currentPlugin.name}</strong><br><br>Switch to: <strong>${newPlugin.icon} ${newPlugin.name}</strong>`,
+      t('cartridge.switchTitle'),
+      t('cartridge.switchMsg', { 
+        current: `${currentPlugin.icon} ${currentPlugin.name}`, 
+        target: `${newPlugin.icon} ${newPlugin.name}` 
+      }),
       [
-        { text: 'Cancel', class: 'secondary', action: closeModal },
-        { text: '🔌 Eject & Switch', class: 'danger', action: () => {
+        { text: t('cartridge.cancel'), class: 'secondary', action: closeModal },
+        { text: t('cartridge.switchBtn'), class: 'danger', action: () => {
           shelfPlugins.value.push(currentPlugin)
           sortShelfPlugins()
           shelfPlugins.value = shelfPlugins.value.filter(p => p.id !== newPlugin.id)
@@ -310,14 +318,14 @@ const launchApp = async (plugin) => {
       })
       if (!result || !result.success) {
         console.error('Plugin launch failed:', result?.error)
-        showModal('❌', 'LAUNCH FAILED', result?.error || 'Unknown error', [
-          { text: 'OK', class: 'primary', action: closeModal }
+        showModal('❌', t('error.launchFailed'), result?.error || t('error.unknownError'), [
+          { text: t('cartridge.ok'), class: 'primary', action: closeModal }
         ])
       }
     } catch (e) {
       console.error('Failed to launch plugin window:', e)
-      showModal('❌', 'LAUNCH FAILED', e.message, [
-        { text: 'OK', class: 'primary', action: closeModal }
+      showModal('❌', t('error.launchFailed'), e.message, [
+        { text: t('cartridge.ok'), class: 'primary', action: closeModal }
       ])
     }
   } finally {
@@ -397,19 +405,19 @@ const handleSlotClick = () => {
     if (!slotPlugin.value) {
       showModal(
         '🎮',
-        'CARTRIDGE SLOT',
-        'Drag a cartridge here or press Enter to insert',
-        [{ text: 'OK', class: 'primary', action: closeModal }]
+        t('bottom.slot'),
+        t('cartridge.slotEmpty'),
+        [{ text: t('cartridge.ok'), class: 'primary', action: closeModal }]
       )
     } else {
       showModal(
         slotPlugin.value.icon,
         slotPlugin.value.name,
-        '<span style="color: var(--accent-primary);">● RUNNING</span>',
+        `<span style="color: var(--accent-primary);">${t('cartridge.slotRunning')}</span>`,
         [
-          { text: '✓ Continue', class: 'primary', action: continueToChild },
-          { text: '🔌 Eject', class: 'danger', action: ejectCurrentPlugin },
-          { text: 'Cancel', class: 'secondary', action: closeModal }
+          { text: t('cartridge.continue'), class: 'primary', action: continueToChild },
+          { text: t('cartridge.eject'), class: 'danger', action: ejectCurrentPlugin },
+          { text: t('cartridge.cancel'), class: 'secondary', action: closeModal }
         ],
         'large'
       )
@@ -423,9 +431,9 @@ const handleSlotClick = () => {
 const handleAddApp = () => {
   showModal(
     '➕',
-    'ADD APP',
-    'Get more cartridge apps from the store<br>(Coming soon...)',
-    [{ text: 'OK', class: 'primary', action: closeModal }]
+    t('addApp.title'),
+    t('addApp.msg'),
+    [{ text: t('cartridge.ok'), class: 'primary', action: closeModal }]
   )
 }
 
@@ -468,9 +476,9 @@ const handleDrop = () => {
   if (slotPlugin.value && slotPlugin.value.id === plugin.id) {
     showModal(
       '⚠️',
-      'ALREADY RUNNING',
-      `<strong>${plugin.icon} ${plugin.name}</strong> is already running!<br>Only one instance allowed.`,
-      [{ text: 'OK', class: 'primary', action: closeModal }]
+      t('cartridge.alreadyRunning'),
+      t('cartridge.alreadyRunningMsg', { name: `${plugin.icon} ${plugin.name}` }),
+      [{ text: t('cartridge.ok'), class: 'primary', action: closeModal }]
     )
     dragPlugin.value = null
     return

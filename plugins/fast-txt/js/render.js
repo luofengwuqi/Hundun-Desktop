@@ -66,10 +66,16 @@
       if (list.length === 0) {
         const emptyDiv = document.createElement('div');
         emptyDiv.className = 'ftxt-empty';
+        const emptyText = isTrashMode 
+          ? FastTXTI18n.t('empty.trash') 
+          : isFolderMode 
+            ? FastTXTI18n.t('empty.folder', { folder: currentFolderPath }) 
+            : FastTXTI18n.t('empty.root');
+        const emptyHint = isTrashMode || isFolderMode ? '' : FastTXTI18n.t('empty.hint');
         emptyDiv.innerHTML = `
           <div class="empty-icon">📁</div>
-          <div class="empty-text">${isTrashMode ? 'Trash is empty' : isFolderMode ? `No files in ${currentFolderPath}` : 'No files yet'}</div>
-          <div class="empty-hint">${isTrashMode || isFolderMode ? '' : 'Drag .txt or .md files here'}</div>
+          <div class="empty-text">${emptyText}</div>
+          <div class="empty-hint">${emptyHint}</div>
         `;
         fileList.appendChild(emptyDiv);
         return;
@@ -92,8 +98,8 @@
           <div class="file-info">
             <div class="file-name">${escapeHtml(file.name)}</div>
           </div>
-          ${file.deleted ? '<div class="file-deleted-badge">DELETED</div>' : ''}
-          <button class="file-rename-btn" title="Rename (M)">✎</button>
+          ${file.deleted ? `<div class="file-deleted-badge">${FastTXTI18n.t('file.deleted')}</div>` : ''}
+          <button class="file-rename-btn" title="${FastTXTI18n.t('file.rename')}">✎</button>
         `;
 
         card.addEventListener('dragstart', (e) => handleFileDragStart(e, file));
@@ -207,15 +213,15 @@
     const updateFooterInfo = () => {
       const deleted = getDeletedFiles();
       if (isTrashMode) {
-        fileCountEl.textContent = `${deleted.length} deleted`;
+        fileCountEl.textContent = FastTXTI18n.t('footer.deleted', { count: deleted.length });
         trashCountEl.style.display = 'none';
       } else if (isFolderMode) {
         const inFolder = getFilesInCurrentFolder();
-        fileCountEl.textContent = `${inFolder.length} files in ${currentFolderPath}`;
+        fileCountEl.textContent = FastTXTI18n.t('footer.inFolder', { count: inFolder.length, folder: currentFolderPath });
         trashCountEl.style.display = 'none';
       } else {
         const rootCount = getRootFiles().length;
-        fileCountEl.textContent = `${rootCount} files`;
+        fileCountEl.textContent = FastTXTI18n.t('footer.files', { count: rootCount });
         trashCountEl.style.display = 'none';
       }
     };
@@ -321,16 +327,16 @@
 
     let _statusWordTimer = null; // 字数统计防抖定时器
     const renderEditorStatus = () => {
-      statusLines.textContent = `Lines: ${getLineCount()}`;
-      statusChars.textContent = `Chars: ${editorContent.length}`;
+      statusLines.textContent = FastTXTI18n.t('status.lines', { n: getLineCount() });
+      statusChars.textContent = FastTXTI18n.t('status.chars', { n: editorContent.length });
       // Word count (防抖: 大文件避免每次击键全量 split)
       if (_statusWordTimer) clearTimeout(_statusWordTimer);
       _statusWordTimer = setTimeout(() => {
         _statusWordTimer = null;
         const words = editorContent.trim() ? editorContent.trim().split(/\s+/).length : 0;
-        statusWords.textContent = `Words: ${words}`;
+        statusWords.textContent = FastTXTI18n.t('status.words', { n: words });
       }, 200);
-      statusType.textContent = editingFile && editingFile.name.endsWith('.md') ? 'Markdown' : 'Plain Text';
+      statusType.textContent = editingFile && editingFile.name.endsWith('.md') ? FastTXTI18n.t('status.markdown') : FastTXTI18n.t('status.plainText');
     };
 
     const escapeHtml = (str) => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

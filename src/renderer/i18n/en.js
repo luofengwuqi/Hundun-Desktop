@@ -1,0 +1,75 @@
+export default {
+  // 母程序
+  app: {
+    title: 'HUNDUN LITE',
+    selectHint: '← → Select cartridge',
+    exit: 'Exit',
+  },
+
+  // 卡带信息
+  cartridge: {
+    running: 'Running',
+    idle: 'Idle',
+    alreadyRunning: 'ALREADY RUNNING',
+    alreadyRunningMsg: '<strong>{name}</strong> is already running!<br>Only one instance allowed.',
+    switchTitle: 'SWITCH CARTRIDGE',
+    switchMsg: 'Running: <strong>{current}</strong><br><br>Switch to: <strong>{target}</strong>',
+    switchBtn: '🔌 Eject & Switch',
+    slotEmpty: 'Drag a cartridge here or press Enter',
+    slotRunning: '● RUNNING',
+    continue: '✓ Continue',
+    eject: '🔌 Eject',
+    cancel: 'Cancel',
+    ok: 'OK',
+  },
+
+  // 底部按钮
+  bottom: {
+    add: 'ADD',
+    settings: 'SETTINGS',
+    slot: 'SLOT',
+  },
+
+  // 添加应用
+  addApp: {
+    title: 'ADD APP',
+    msg: 'Get more cartridge apps from the store<br>(Coming soon...)',
+  },
+
+  // 设置页面
+  settings: {
+    title: 'SETTINGS',
+    back: 'Back',
+    sound: 'SOUND',
+    theme: 'THEME',
+    language: 'LANGUAGE',
+    plugins: 'PLUGINS',
+    about: 'ABOUT',
+    soundEffects: 'Sound Effects',
+    volume: 'Volume',
+    testSound: 'TEST SOUND',
+    light: 'LIGHT',
+    dark: 'DARK',
+    version: 'Version',
+    engine: 'Engine',
+    platform: 'Platform',
+    desc: 'Retro pocket console style desktop efficiency tool',
+  },
+
+  // 插件状态
+  plugin: {
+    running: '● RUNNING',
+    idle: '○ IDLE',
+  },
+
+  // 键盘提示
+  keys: {
+    escToExit: 'ESC to exit',
+  },
+
+  // 错误
+  error: {
+    launchFailed: 'LAUNCH FAILED',
+    unknownError: 'Unknown error',
+  },
+}
