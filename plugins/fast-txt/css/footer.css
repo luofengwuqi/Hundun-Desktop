@@ -64,7 +64,7 @@
 
     .file-count, .trash-count {
       font-family: 'Press Start 2P', monospace;
-      font-size: 7px;
+      font-size: 14px;
       color: var(--text-muted);
       letter-spacing: 1px;
     }

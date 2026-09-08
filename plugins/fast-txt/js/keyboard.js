@@ -232,8 +232,11 @@
             // 文件网格中
             const list = getDisplayFiles();
             const total = list.length;
-            if (total === 0) break;
-            if (isInLastRow(selectedCol, total)) {
+            if (total === 0) {
+              // 无文件 → 直接跳到底部按钮
+              selectedRow = 1;
+              selectedCol = 0;
+            } else if (isInLastRow(selectedCol, total)) {
               // 在网格最后一行 → 跳到底部按钮
               selectedRow = 1;
               const btns = getFooterButtons();

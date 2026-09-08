@@ -349,15 +349,19 @@
           // 搜索框聚焦时不需要clamp文件列表
           return;
         }
-        if (list.length === 0) {
-          selectedCol = 0;
-        } else if (selectedCol >= list.length) {
-          selectedCol = list.length - 1;
+        if (selectedRow === 0) {
+          // 仅在文件行时 clamp 文件列表
+          if (list.length === 0) {
+            selectedCol = 0;
+          } else if (selectedCol >= list.length) {
+            selectedCol = list.length - 1;
+          }
+          if (selectedCol < 0) selectedCol = 0;
         }
-        if (selectedCol < 0) selectedCol = 0;
         if (selectedRow === 1) {
           const btns = getFooterButtons();
           if (selectedCol >= btns.length) selectedCol = btns.length - 1;
+          if (selectedCol < 0) selectedCol = 0;
         }
       }
     };
