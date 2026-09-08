@@ -116,6 +116,30 @@
             openFindBar(true);
             return;
           }
+          if (key === 'x' || key === 'X') {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            cutCurrentLine();
+            return;
+          }
+          if (key === 'd' || key === 'D') {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            duplicateCurrentLine();
+            return;
+          }
+          if (key === 'z' || key === 'Z') {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            undo();
+            return;
+          }
+          if (key === 'y' || key === 'Y') {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+            redo();
+            return;
+          }
         }
         if (e.key === 'Escape') {
           e.preventDefault();

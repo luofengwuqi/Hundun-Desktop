@@ -176,6 +176,10 @@
       // 加载书签
       await loadBookmarksFromDisk(subPath);
 
+      // 初始化撤销/重做历史
+      undoStack = [editorContent];
+      redoStack = [];
+
       playSound('OK');
       editingFile = file;
       currentView = 'editor';
@@ -362,6 +366,114 @@
         }
         await finalizeFsChange('OK');
       });
+    };
+
+    // ========== Ctrl+X: 剪切当前行 ==========
+    const cutCurrentLine = () => {
+      const textarea = editorTextarea;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const content = editorContent;
+
+      // 找到当前行的起始和结束位置
+      let lineStart = content.lastIndexOf('\n', start - 1) + 1;
+      let lineEnd = content.indexOf('\n', start);
+      if (lineEnd === -1) lineEnd = content.length;
+
+      // 如果有选中文本，只剪切选中部分
+      if (start !== end) {
+        const selectedText = content.substring(start, end);
+        navigator.clipboard.writeText(selectedText);
+        editorContent = content.substring(0, start) + content.substring(end);
+        textarea.value = editorContent;
+        textarea.selectionStart = textarea.selectionEnd = start;
+      } else {
+        // 剪切整行
+        const lineText = content.substring(lineStart, lineEnd);
+        navigator.clipboard.writeText(lineText);
+        // 如果是最后一行且前面有换行符，删除换行符
+        if (lineEnd === content.length && lineStart > 0) {
+          editorContent = content.substring(0, lineStart - 1);
+        } else {
+          editorContent = content.substring(0, lineStart) + content.substring(lineEnd);
+        }
+        textarea.value = editorContent;
+        textarea.selectionStart = textarea.selectionEnd = lineStart;
+      }
+
+      renderEditorStatus();
+      renderLineNumbers();
+    };
+
+    // ========== Ctrl+D: 复制当前行到下一行 ==========
+    const duplicateCurrentLine = () => {
+      const textarea = editorTextarea;
+      const start = textarea.selectionStart;
+      const content = editorContent;
+
+      // 找到当前行的起始和结束位置
+      let lineStart = content.lastIndexOf('\n', start - 1) + 1;
+      let lineEnd = content.indexOf('\n', start);
+      if (lineEnd === -1) lineEnd = content.length;
+
+      // 如果有选中文本，复制选中部分到下一行
+      if (textarea.selectionStart !== textarea.selectionEnd) {
+        const selectedText = content.substring(textarea.selectionStart, textarea.selectionEnd);
+        const insertPos = textarea.selectionEnd;
+        const newline = insertPos < content.length ? '\n' : '';
+        editorContent = content.substring(0, insertPos) + newline + selectedText + content.substring(insertPos);
+        textarea.value = editorContent;
+        textarea.selectionStart = textarea.selectionEnd = insertPos + newline.length + selectedText.length;
+      } else {
+        // 复制整行到下一行
+        const lineText = content.substring(lineStart, lineEnd);
+        if (lineEnd === content.length) {
+          // 文件末尾：追加换行 + 重复行
+          editorContent = content + '\n' + lineText;
+          textarea.value = editorContent;
+          textarea.selectionStart = textarea.selectionEnd = content.length + 1 + lineText.length;
+        } else {
+          // 非末尾：在下一行插入
+          const insertPos = lineEnd + 1;
+          editorContent = content.substring(0, insertPos) + lineText + '\n' + content.substring(insertPos);
+          textarea.value = editorContent;
+          textarea.selectionStart = textarea.selectionEnd = insertPos + lineText.length + 1;
+        }
+      }
+
+      renderEditorStatus();
+      renderLineNumbers();
+    };
+
+    // ========== 撤销/重做 ==========
+    const pushUndoState = () => {
+      // 保存当前状态到撤销栈
+      if (undoStack.length === 0 || undoStack[undoStack.length - 1] !== editorContent) {
+        undoStack.push(editorContent);
+        if (undoStack.length > MAX_UNDO) undoStack.shift();
+        // 新操作清空重做栈
+        redoStack = [];
+      }
+    };
+
+    const undo = () => {
+      if (undoStack.length <= 1) return;
+      const current = undoStack.pop();
+      redoStack.push(current);
+      editorContent = undoStack[undoStack.length - 1];
+      editorTextarea.value = editorContent;
+      renderEditorStatus();
+      renderLineNumbers();
+    };
+
+    const redo = () => {
+      if (redoStack.length === 0) return;
+      const next = redoStack.pop();
+      undoStack.push(next);
+      editorContent = next;
+      editorTextarea.value = editorContent;
+      renderEditorStatus();
+      renderLineNumbers();
     };
 
     const closeEditor = async () => {

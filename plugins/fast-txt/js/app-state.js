@@ -65,6 +65,11 @@
     // 书签状态 (line number -> true)
     let bookmarks = {};
 
+    // 撤销/重做历史
+    let undoStack = [];
+    let redoStack = [];
+    const MAX_UNDO = 100;
+
     let files = [];
     let editingFile = null;
     let editorContent = '';

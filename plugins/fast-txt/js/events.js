@@ -88,8 +88,15 @@
     editorCloseBtn.addEventListener('click', closeEditor);
 
     // Editor textarea
+    let _lastEditorContent = '';
     editorTextarea.addEventListener('input', (e) => {
-      editorContent = e.target.value;
+      const newContent = e.target.value;
+      // 内容变化时保存撤销状态
+      if (newContent !== _lastEditorContent) {
+        pushUndoState();
+        _lastEditorContent = newContent;
+      }
+      editorContent = newContent;
       renderEditorStatus();
       renderLineNumbers();
       // Update find matches if find bar is open
