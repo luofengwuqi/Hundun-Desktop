@@ -54,6 +54,7 @@ export default {
     engine: 'Engine',
     platform: 'Platform',
     desc: 'Retro pocket console style desktop efficiency tool',
+    inUse: 'IN USE',
   },
 
   // 插件状态

@@ -54,6 +54,7 @@ export default {
     engine: '引擎',
     platform: '平台',
     desc: '复古掌机风格桌面效率工具',
+    inUse: '使用中',
   },
 
   // 插件状态

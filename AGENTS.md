@@ -1,6 +1,6 @@
 # Hundun Lite - 项目进度文档
 
-> 最后更新: 2026-09-08
+> 最后更新: 2026-09-09
 > 当前阶段: Phase 4 - BrowserWindow 插件架构完成，Calculator/FastTXT 已迁移为独立 HTML 插件
 
 ---

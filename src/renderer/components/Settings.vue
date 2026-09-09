@@ -28,7 +28,7 @@
           v-for="(tab, idx) in tabs" 
           :key="tab.id"
           class="nav-tab"
-          :class="{ selected: selectedTab === idx }"
+          :class="{ selected: currentSide === 'left' && selectedTab === idx }"
           @click="selectTab(idx)"
         >
           <span class="tab-icon">{{ tab.icon }}</span>
@@ -41,17 +41,20 @@
         <!-- Sound Settings -->
         <div v-if="selectedTab === 0" class="tab-content">
           <div class="setting-group">
-            <div class="setting-row">
+            <div class="setting-row detail-item" :class="{ selected: currentSide === 'right' && detailIndex === 0 }">
               <span class="setting-label">{{ t('settings.soundEffects') }}</span>
-              <div 
-                class="toggle-switch small"
-                :class="{ active: settings.soundEnabled }"
-                @click="toggleSoundEnabled"
-              >
-                <div class="toggle-knob"></div>
+              <div class="toggle-with-status">
+                <span v-if="settings.soundEnabled" class="in-use-tag">{{ t('settings.inUse') }}</span>
+                <div 
+                  class="toggle-switch small"
+                  :class="{ active: settings.soundEnabled }"
+                  @click="selectDetail(0); toggleSoundEnabled()"
+                >
+                  <div class="toggle-knob"></div>
+                </div>
               </div>
             </div>
-            <div class="setting-row" :class="{ disabled: !settings.soundEnabled }">
+            <div class="setting-row detail-item" :class="{ disabled: !settings.soundEnabled, selected: currentSide === 'right' && detailIndex === 1 }" @click="selectDetail(1)">
               <span class="setting-label">{{ t('settings.volume') }}</span>
               <div class="volume-control">
                 <span class="volume-icon">🔊</span>
@@ -68,9 +71,10 @@
               </div>
             </div>
             <button 
-              class="test-sound-btn"
+              class="test-sound-btn detail-item"
+              :class="{ selected: currentSide === 'right' && detailIndex === 2 }"
               :disabled="!settings.soundEnabled"
-              @click="testSound"
+              @click="selectDetail(2); testSound()"
             >
               <span class="btn-icon">▶</span>
               <span class="btn-text">{{ t('settings.testSound') }}</span>
@@ -83,26 +87,28 @@
           <div class="setting-group">
             <div class="theme-options">
               <button 
-                class="theme-option"
-                :class="{ active: !isDarkMode }"
-                @click="setTheme('light')"
+                class="theme-option detail-item"
+                :class="{ active: !isDarkMode, selected: currentSide === 'right' && detailIndex === 0 }"
+                @click="selectDetail(0); setTheme('light')"
               >
                 <div class="theme-preview light">
                   <div class="preview-header"></div>
                   <div class="preview-body"></div>
                 </div>
                 <span class="theme-name">{{ t('settings.light') }}</span>
+                <span v-if="!isDarkMode" class="in-use-tag">{{ t('settings.inUse') }}</span>
               </button>
               <button 
-                class="theme-option"
-                :class="{ active: isDarkMode }"
-                @click="setTheme('dark')"
+                class="theme-option detail-item"
+                :class="{ active: isDarkMode, selected: currentSide === 'right' && detailIndex === 1 }"
+                @click="selectDetail(1); setTheme('dark')"
               >
                 <div class="theme-preview dark">
                   <div class="preview-header"></div>
                   <div class="preview-body"></div>
                 </div>
                 <span class="theme-name">{{ t('settings.dark') }}</span>
+                <span v-if="isDarkMode" class="in-use-tag">{{ t('settings.inUse') }}</span>
               </button>
             </div>
           </div>
@@ -113,18 +119,18 @@
           <div class="setting-group">
             <div class="language-options">
               <button 
-                v-for="option in languageOptions"
+                v-for="(option, index) in languageOptions"
                 :key="option.id"
-                class="language-option"
-                :class="{ active: currentLocale === option.id }"
-                @click="setLanguage(option.id)"
+                class="language-option detail-item"
+                :class="{ active: currentLocale === option.id, selected: currentSide === 'right' && detailIndex === index }"
+                @click="selectDetail(index); setLanguage(option.id)"
               >
                 <span class="lang-flag">{{ option.flag }}</span>
                 <div class="lang-info">
                   <span class="lang-name">{{ option.name }}</span>
                   <span class="lang-native">{{ option.id === 'zh' ? '中文' : 'English' }}</span>
                 </div>
-                <span v-if="currentLocale === option.id" class="lang-check">✓</span>
+                <span v-if="currentLocale === option.id" class="in-use-tag">{{ t('settings.inUse') }}</span>
               </button>
             </div>
           </div>
@@ -135,18 +141,18 @@
           <div class="setting-group">
             <div class="plugin-list">
               <div 
-                v-for="plugin in plugins" 
+                v-for="(plugin, index) in plugins" 
                 :key="plugin.id"
-                class="plugin-item"
+                class="plugin-item detail-item"
+                :class="{ selected: currentSide === 'right' && detailIndex === index }"
               >
                 <span class="plugin-icon">{{ plugin.icon }}</span>
                 <div class="plugin-info">
                   <span class="plugin-name">{{ plugin.name }}</span>
                   <span class="plugin-version">v{{ plugin.version }}</span>
                 </div>
-                <span class="plugin-status" :class="plugin.state">
-                  {{ plugin.state === 'running' ? t('plugin.running') : t('plugin.idle') }}
-                </span>
+                <span v-if="plugin.state === 'running'" class="in-use-tag">{{ t('settings.inUse') }}</span>
+                <span v-else class="plugin-status idle">{{ t('plugin.idle') }}</span>
               </div>
             </div>
           </div>
@@ -201,6 +207,9 @@ const i18nStore = useI18nStore()
 const isDarkMode = computed(() => themeStore.isDarkMode)
 const plugins = computed(() => pluginStore.plugins)
 const selectedTab = ref(0)
+const detailIndex = ref(-1)
+const currentSide = ref('left') // 'left' 或 'right'
+const previousSideIndex = ref(0) // 记住从右侧返回时要恢复的左侧栏索引
 const platform = ref('Unknown')
 const currentLocale = computed(() => i18nStore.locale)
 const languageOptions = localeOptions
@@ -223,9 +232,28 @@ const tabs = computed(() => [
   { id: 'about', icon: 'ℹ️', label: t('settings.about') }
 ])
 
+const detailItemCount = computed(() => {
+  switch (selectedTab.value) {
+    case 0: // 声音标签
+      return 3 // 音效开关、音量滑块、测试按钮
+    case 1: // 主题标签
+      return 2 // 浅色主题、深色主题
+    case 2: // 语言标签
+      return 2 // 中文、英文
+    case 3: // 插件标签
+      return plugins.value.length // 插件数量
+    case 4: // 关于标签
+      return 0 // 没有可交互元素
+    default:
+      return 0
+  }
+})
+
 // Methods
 const selectTab = (idx) => {
   selectedTab.value = idx
+  detailIndex.value = -1
+  currentSide.value = 'left'
   playSound('click')
 }
 
@@ -284,23 +312,133 @@ const loadSettings = () => {
   }
 }
 
+const selectDetail = (index) => {
+  detailIndex.value = index
+  currentSide.value = 'right'
+}
+
+// Execute action for selected detail item (Enter key)
+const executeDetailAction = () => {
+  if (detailIndex.value < 0) return
+  
+  switch (selectedTab.value) {
+    case 0: // Sound settings
+      if (detailIndex.value === 0) {
+        // Toggle sound effects
+        toggleSoundEnabled()
+      } else if (detailIndex.value === 2) {
+        // Test sound
+        testSound()
+      }
+      break
+    case 1: // Theme settings
+      if (detailIndex.value === 0) {
+        setTheme('light')
+      } else if (detailIndex.value === 1) {
+        setTheme('dark')
+      }
+      break
+    case 2: // Language settings
+      if (detailIndex.value === 0) {
+        setLanguage('zh')
+      } else if (detailIndex.value === 1) {
+        setLanguage('en')
+      }
+      break
+    case 3: // Plugin settings
+      // Plugin items are display only, no action on Enter
+      break
+  }
+}
+
 // Keyboard navigation
 const handleKeydown = (e) => {
+  // 如果焦点在输入元素中，只处理Escape键
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+    if (e.key === 'Escape') {
+      closeSettings()
+    }
+    return
+  }
+  
   if (e.key === 'Escape') {
     closeSettings()
     return
   }
   
-  if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
-    e.preventDefault()
-    selectedTab.value = Math.max(0, selectedTab.value - 1)
-    playSound('click')
+  // 左侧栏导航
+  if (currentSide.value === 'left') {
+    // 上下箭头键切换标签页
+    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+      e.preventDefault()
+      selectedTab.value = Math.max(0, selectedTab.value - 1)
+      playSound('click')
+    }
+    
+    if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+      e.preventDefault()
+      selectedTab.value = Math.min(tabs.value.length - 1, selectedTab.value + 1)
+      playSound('click')
+    }
+    
+    // 右箭头键或Enter键切换到右侧栏
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D' || e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      if (detailItemCount.value > 0) {
+        currentSide.value = 'right'
+        detailIndex.value = 0
+        playSound('click')
+      }
+    }
+    
+    // 左箭头键无操作（已在最左侧）
   }
   
-  if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
-    e.preventDefault()
-    selectedTab.value = Math.min(tabs.value.length - 1, selectedTab.value + 1)
-    playSound('click')
+  // 右侧栏导航
+  else if (currentSide.value === 'right') {
+    // 上下箭头键移动细节焦点
+    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+      e.preventDefault()
+      if (detailItemCount.value > 0) {
+        detailIndex.value = Math.max(0, detailIndex.value - 1)
+        playSound('click')
+      }
+    }
+    
+    if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+      e.preventDefault()
+      if (detailItemCount.value > 0) {
+        detailIndex.value = Math.min(detailItemCount.value - 1, detailIndex.value + 1)
+        playSound('click')
+      }
+    }
+    
+    // 左箭头键：如果已在第一个项目，切换到左侧栏
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
+      e.preventDefault()
+      if (detailIndex.value === 0) {
+        currentSide.value = 'left'
+        playSound('click')
+      } else {
+        detailIndex.value = Math.max(0, detailIndex.value - 1)
+        playSound('click')
+      }
+    }
+    
+    // 右箭头键：移动到下一个项目
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+      e.preventDefault()
+      if (detailItemCount.value > 0) {
+        detailIndex.value = Math.min(detailItemCount.value - 1, detailIndex.value + 1)
+        playSound('click')
+      }
+    }
+    
+    // Enter键：执行当前选中项
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      executeDetailAction()
+    }
   }
 }
 
@@ -391,10 +529,7 @@ onUnmounted(() => {
   transition: all 0.2s ease;
 }
 
-.settings-close-btn:hover {
-  color: var(--accent-secondary, #ff0080);
-  transform: scale(1.1);
-}
+
 
 /* Content */
 .settings-content {
@@ -425,11 +560,6 @@ onUnmounted(() => {
   cursor: pointer;
   transition: all 0.2s ease;
   text-align: left;
-}
-
-.nav-tab:hover {
-  background: var(--bg-card);
-  color: var(--text-primary);
 }
 
 .nav-tab.selected {
@@ -574,11 +704,6 @@ onUnmounted(() => {
   transition: all 0.2s ease;
 }
 
-.test-sound-btn:hover:not(:disabled) {
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 12px var(--shadow-color);
-}
-
 .test-sound-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -611,10 +736,6 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-}
-
-.theme-option:hover {
-  border-color: var(--accent-primary);
 }
 
 .theme-option.active {
@@ -684,10 +805,6 @@ onUnmounted(() => {
   cursor: pointer;
   transition: all 0.2s ease;
   text-align: left;
-}
-
-.language-option:hover {
-  border-color: var(--accent-primary);
 }
 
 .language-option.active {
@@ -865,10 +982,6 @@ onUnmounted(() => {
   border-color: var(--border-color);
 }
 
-.light-mode .nav-tab:hover {
-  background: var(--bg-card);
-}
-
 .light-mode .nav-tab.selected {
   background: var(--bg-card);
   border-left-color: var(--accent-primary);
@@ -880,5 +993,44 @@ onUnmounted(() => {
 
 .light-mode .theme-preview.dark {
   border-color: #333;
+}
+
+/* Detail item selected state */
+.detail-item.selected {
+  background: var(--bg-card);
+}
+
+/* Remove focus outline */
+button:focus,
+.nav-tab:focus,
+.theme-option:focus,
+.language-option:focus,
+.test-sound-btn:focus,
+.toggle-switch:focus,
+.settings-close-btn:focus {
+  outline: none;
+}
+
+/* Toggle with status */
+.toggle-with-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* In Use Tag */
+.in-use-tag {
+  font-family: 'Noto Sans SC', 'Press Start 2P', cursive;
+  font-size: 9px;
+  color: var(--accent-primary);
+  background: var(--bg-slot);
+  padding: 3px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+/* Language check (deprecated, replaced by in-use-tag) */
+.lang-check {
+  display: none;
 }
 </style>
