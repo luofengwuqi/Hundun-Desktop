@@ -229,6 +229,7 @@
     const updateTrashShredderZones = () => {
       trashZone.style.display = (isTrashMode || isFolderMode) ? 'none' : '';
       shredderZone.style.display = isTrashMode ? '' : 'none';
+      emptyTrashBtn.style.display = isTrashMode ? '' : 'none';
     };
 
     const renderLineNumbers = () => {

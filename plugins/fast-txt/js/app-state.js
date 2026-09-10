@@ -7,6 +7,7 @@
     const fileList = document.getElementById('fileList');
     const trashZone = document.getElementById('trashZone');
     const shredderZone = document.getElementById('shredderZone');
+    const emptyTrashBtn = document.getElementById('emptyTrashBtn');
     const footerButtons = document.getElementById('footerButtons');
     const fileCountEl = document.getElementById('fileCount');
     const trashCountEl = document.getElementById('trashCount');
@@ -140,8 +141,5 @@
         { id: 'trash', icon: '🗑️', action: toggleTrashMode, title: isTrashMode ? FastTXTI18n.t('buttons.backToFiles') : FastTXTI18n.t('buttons.showDeleted') },
         { id: 'folder', icon: '📁', action: openFolder, title: FastTXTI18n.t('buttons.openInExplorer') },
       ];
-      if (isTrashMode) {
-        btns.push({ id: 'shredder', icon: '⚙️', action: showShredConfirm, title: FastTXTI18n.t('buttons.shredAll') });
-      }
       return btns;
     };

@@ -56,7 +56,48 @@
 
     .shredder-label {
       font-family: 'Press Start 2P', monospace;
-      font-size: 6px;
+      font-size: 12px;
       color: var(--accent-secondary, #ff0080);
       letter-spacing: 1px;
+    }
+
+    /* ========== Empty Trash Button ========== */
+    .ftxt-empty-trash-btn {
+      position: absolute;
+      bottom: 130px;
+      right: 16px;
+      width: 80px;
+      height: 60px;
+      border-radius: 10px;
+      border: 2px dashed var(--accent-primary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      z-index: 5;
+    }
+
+    .ftxt-empty-trash-btn:hover {
+      border-color: var(--accent-primary);
+      background: color-mix(in srgb, var(--accent-primary) 15%, transparent);
+      box-shadow: 0 0 15px var(--accent-primary);
+    }
+
+    .ftxt-empty-trash-btn:active {
+      transform: scale(0.95);
+    }
+
+    .empty-trash-icon {
+      font-size: 24px;
+    }
+
+    .empty-trash-label {
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+      font-size: 10px;
+      color: var(--accent-primary);
+      letter-spacing: 1px;
+      text-align: center;
     }
