@@ -1,6 +1,7 @@
 // 音效管理器
 const sounds = {}
 const soundLoaded = {}
+let masterVolume = 1
 
 // 预加载音效文件路径
 const soundFiles = {
@@ -91,10 +92,14 @@ export const setVolume = (name, volume) => {
 
 // 设置全局音量
 export const setGlobalVolume = (volume) => {
+  masterVolume = volume
   Object.values(sounds).forEach(sound => {
-    sound.volume = Math.max(0, Math.min(1, volume))
+    sound.volume = volume
   })
 }
+
+// 获取全局音量
+export const getMasterVolume = () => masterVolume
 
 // 预加载所有音效
 initSounds()

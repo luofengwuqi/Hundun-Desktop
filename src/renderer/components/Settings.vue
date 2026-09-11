@@ -194,7 +194,7 @@ import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
 import { useThemeStore } from '../stores/theme'
 import { usePluginStore } from '../stores/plugin'
 import { useI18nStore } from '../stores/i18n'
-import { playSound } from '../utils/audio'
+import { playSound, setGlobalVolume } from '../utils/audio'
 import { localeOptions } from '../i18n/index.js'
 
 const emit = defineEmits(['close'])
@@ -274,12 +274,19 @@ const setLanguage = (lang) => {
 
 const toggleSoundEnabled = () => {
   settings.soundEnabled = !settings.soundEnabled
-  playSound('click')
+  if (settings.soundEnabled) {
+    setGlobalVolume(settings.volume / 100)
+  } else {
+    setGlobalVolume(0)
+  }
   saveSettings()
 }
 
 const updateVolume = (e) => {
   settings.volume = parseInt(e.target.value)
+  if (settings.soundEnabled) {
+    setGlobalVolume(settings.volume / 100)
+  }
   saveSettings()
 }
 
@@ -306,6 +313,8 @@ const loadSettings = () => {
       const data = JSON.parse(saved)
       settings.soundEnabled = data.soundEnabled !== false
       settings.volume = data.volume ?? 50
+      // 根据设置应用全局音量
+      setGlobalVolume(settings.soundEnabled ? settings.volume / 100 : 0)
     }
   } catch (e) {
     console.error('[Settings] Failed to load settings:', e)
@@ -372,12 +381,14 @@ const handleKeydown = (e) => {
     if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
       e.preventDefault()
       selectedTab.value = Math.max(0, selectedTab.value - 1)
+      detailIndex.value = -1
       playSound('click')
     }
     
     if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
       e.preventDefault()
       selectedTab.value = Math.min(tabs.value.length - 1, selectedTab.value + 1)
+      detailIndex.value = -1
       playSound('click')
     }
     
@@ -413,16 +424,12 @@ const handleKeydown = (e) => {
       }
     }
     
-    // 左箭头键：如果已在第一个项目，切换到左侧栏
+    // 左箭头键：直接回到左侧栏
     if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') {
       e.preventDefault()
-      if (detailIndex.value === 0) {
-        currentSide.value = 'left'
-        playSound('click')
-      } else {
-        detailIndex.value = Math.max(0, detailIndex.value - 1)
-        playSound('click')
-      }
+      currentSide.value = 'left'
+      detailIndex.value = -1
+      playSound('click')
     }
     
     // 右箭头键：移动到下一个项目
@@ -995,9 +1002,21 @@ onUnmounted(() => {
   border-color: #333;
 }
 
+/* Detail item base */
+.detail-item {
+  border: 2px solid transparent;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
 /* Detail item selected state */
 .detail-item.selected {
   background: var(--bg-card);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 12px var(--accent-primary), inset 0 0 8px rgba(0, 255, 136, 0.1);
+  transform: translateY(-2px);
+  padding-left: 12px;
+  padding-right: 12px;
 }
 
 /* Remove focus outline */

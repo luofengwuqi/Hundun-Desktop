@@ -164,10 +164,12 @@ src/
 │   │   ├── index.js          # i18n 核心模块 (翻译函数、语言检测)
 │   │   ├── zh.js             # 中文翻译
 │   │   └── en.js             # 英文翻译
-│   └── stores/
-│       ├── i18n.js           # 语言状态管理 (Pinia store)
-│       ├── plugin.js         # 插件状态管理 (scanAllPlugins IPC)
-│       └── theme.js          # 主题状态管理 (dark/light)
+│   ├── stores/
+│   │   ├── i18n.js           # 语言状态管理 (Pinia store)
+│   │   ├── plugin.js         # 插件状态管理 (scanAllPlugins IPC)
+│   │   └── theme.js          # 主题状态管理 (dark/light)
+│   └── utils/
+│       └── audio.js          # 音效管理器 (masterVolume 全局音量控制)
 ├── shared/
 │   ├── plugin-loader.js      # 插件加载器 (扫描 plugins/ 目录)
 │   └── plugin-sdk.js         # 插件开发 SDK (host API)
@@ -288,7 +290,7 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 1. **固定窗口尺寸**: 800×540，不可调整
 2. **无边框窗口**: 自定义标题栏
 3. **插件架构**: 动态加载，manifest.json规范
-4. **音效系统**: 预加载 + 按需播放
+4. **音效系统**: 预加载 + 按需播放 + masterVolume 全局音量控制
 5. **交互方式**: 键盘(WASD+空格) + 鼠标(点击) 双模式
 
 ### 已决策 (2026-08-21)
@@ -309,6 +311,8 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 16. **语言持久化**: localStorage 存储，自动检测浏览器语言作为默认值
 17. **FastTXT 字体策略**: 仅标题保留像素字体 (Press Start 2P)，内容使用普通字体 (Noto Sans SC / Microsoft YaHei)
 18. **FastTXT i18n**: 独立多语言模块，支持中英文切换，68 个翻译字符串
+19. **音效开关实现**: 通过全局音量控制 (masterVolume)，关闭时设为0，开启时恢复原值
+20. **设置页面键盘导航**: 左箭头键直接返回左侧栏，切换标签页时重置 detailIndex
 
 ### 待定
 1. 插件市场实现方案
@@ -347,6 +351,9 @@ chore: 构建/工具链更新
 - ✅ 浅色模式底部标签区过长
 - ✅ 窗口缩放基准改为中心 (原: 左上角固定)
 - ✅ 动画 setTimeout 漂移 (改为时间戳驱动)
+- ✅ 设置页面键盘导航 detailIndex 未重置
+- ✅ 设置页面左箭头需按两次才能返回左侧栏
+- ✅ 关闭音效后仍有声音播放
 - ✅ 子程序状态未保留 (KeepAlive 缓存)
 
 ### 待修复
