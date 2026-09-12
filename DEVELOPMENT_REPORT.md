@@ -163,10 +163,11 @@ npm run build:win
 ## 📝 后续开发建议
 
 ### 短期 (1-2周)
-1. 完善Electron主进程功能
-2. 实现真正的插件加载机制
-3. 添加更多示例插件
+1. ✅ 完善Electron主进程功能
+2. ✅ 实现真正的插件加载机制
+3. ✅ 添加更多示例插件 (Calculator, FastTXT, Timer Manager, Command Executor)
 4. 优化性能和内存使用
+5. ✅ 窗口置顶功能
 
 ### 中期 (1个月)
 1. 实现插件市场

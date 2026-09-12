@@ -217,6 +217,17 @@ class PluginSDK {
     },
 
     /**
+     * 设置窗口置顶
+     * @param {boolean} flag - 是否置顶
+     */
+    setAlwaysOnTop: async (flag) => {
+      this._checkReady()
+      if (window.hundun && window.hundun.window) {
+        return await window.hundun.window.setAlwaysOnTop(flag)
+      }
+    },
+
+    /**
      * 设置窗口标题
      * @param {string} title - 标题
      */

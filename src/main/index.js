@@ -148,6 +148,17 @@ ipcMain.on('window-close', () => {
   if (mainWindow) mainWindow.close()
 })
 
+ipcMain.on('window-pin', (event, pinned) => {
+  if (mainWindow) {
+    mainWindow.setAlwaysOnTop(pinned)
+    event.sender.send('window-pin-response', pinned)
+  }
+})
+
+ipcMain.handle('plugin:setAlwaysOnTop', async (event, pluginId, flag) => {
+  return pluginManager.setAlwaysOnTop(pluginId, flag)
+})
+
 // 窗口拖动（自定义标题栏用）
 ipcMain.on('window-start-drag', (event, mousePosition) => {
   if (mainWindow) {

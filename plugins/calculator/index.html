@@ -170,6 +170,43 @@
       transform: scale(1.1);
     }
 
+    .calc-pin-btn {
+      position: absolute;
+      top: 8px;
+      right: 48px;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: none;
+      background: transparent;
+      color: var(--accent-primary);
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      -webkit-app-region: no-drag;
+      z-index: 102;
+    }
+
+    .calc-pin-btn:hover {
+      color: var(--accent-secondary, #ff0080);
+      box-shadow: 0 0 12px var(--shadow-color);
+      transform: scale(1.1) rotate(-15deg);
+    }
+
+    .calc-pin-btn.pinned {
+      color: var(--accent-secondary, #ff0080);
+      transform: rotate(-45deg);
+      text-shadow: 0 0 12px var(--accent-secondary, #ff0080);
+      filter: drop-shadow(0 0 6px var(--accent-secondary, #ff0080));
+    }
+
+    .calc-pin-btn.pinned:hover {
+      transform: scale(1.1) rotate(-45deg);
+    }
+
     /* ========== Content ========== */
     .calc-content {
       flex: 1;
@@ -431,6 +468,7 @@
         <span class="calc-title">CALCULATOR</span>
         <span class="calc-chip">POCKET EDITION</span>
       </div>
+      <button class="calc-pin-btn" id="pinBtn" title="窗口置顶">📌</button>
       <button class="calc-close-btn" id="closeBtn" title="返回母程序">✕</button>
     </header>
 
@@ -717,6 +755,18 @@
         window.close();
       }
     };
+
+    // ========== 窗口置顶 ==========
+    const pinBtn = document.getElementById('pinBtn');
+    if (pinBtn) {
+      pinBtn.addEventListener('click', async () => {
+        pinBtn.classList.toggle('pinned');
+        const pinned = pinBtn.classList.contains('pinned');
+        if (window.hundun && window.hundun.window && window.hundun.window.setAlwaysOnTop) {
+          await window.hundun.window.setAlwaysOnTop(pinned);
+        }
+      });
+    }
 
     // ========== 初始化 ==========
     const init = () => {

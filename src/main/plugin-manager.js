@@ -618,6 +618,20 @@ class PluginManager {
   }
 
   /**
+   * 设置插件窗口置顶
+   * @param {string} pluginId - 插件ID
+   * @param {boolean} flag - 是否置顶
+   */
+  setAlwaysOnTop(pluginId, flag) {
+    const pluginWindow = this.windows.get(pluginId)
+    if (pluginWindow && !pluginWindow.isDestroyed()) {
+      pluginWindow.setAlwaysOnTop(flag)
+      return true
+    }
+    return false
+  }
+
+  /**
    * 发送消息到插件
    * @param {string} pluginId - 目标插件ID
    * @param {Object} message - 消息内容

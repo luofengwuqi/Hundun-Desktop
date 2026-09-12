@@ -82,6 +82,10 @@ window.hundun = {
     },
     setTitle: (title) => {
       document.title = title
+    },
+    setAlwaysOnTop: async (flag) => {
+      const pluginId = window.__PLUGIN_ID__
+      return await ipcRenderer.invoke('plugin:setAlwaysOnTop', pluginId, flag)
     }
   },
 

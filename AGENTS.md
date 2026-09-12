@@ -223,6 +223,8 @@ plugins/                       # 插件目录 (每个插件一个子目录)
 - **plugin-manager:launch** — 启动插件，返回 `{success, windowId}`
 - **plugin-manager:returnToParent** — 插件关闭，触发 loading mask 过渡
 - **plugin:minimize/maximize/close** — 窗口控制
+- **plugin:setAlwaysOnTop** — 设置插件窗口置顶
+- **window-pin** — 母程序窗口置顶
 - **plugin:getTheme** — 主题查询 (路由到 themeRequestSender)
 - **plugin:playSound** — 音效播放 (转发到主窗口)
 - **scanAll** — 扫描所有可用插件
@@ -232,18 +234,22 @@ plugins/                       # 插件目录 (每个插件一个子目录)
 - **startPlugin()**: 创建窗口 + 加载 entry + 显示 loading mask
 - **launchPluginWithTransition()**: 关闭当前插件 → loading mask → 启动新插件
 - **getAllScannedPlugins()**: 扫描 plugins/ 目录获取全部插件信息
+- **setAlwaysOnTop()**: 设置插件窗口置顶状态
 
 #### 3. 插件预加载脚本 (plugin-preload.js v2.0)
 - **兼容性**: 直接挂载 `window.hundun = {...}` (兼容 `contextIsolation: false`)
 - **不再使用**: `contextBridge.exposeInMainWorld` (已移除)
 - **API**: storage / messaging / window / host / permissions / utils
+- **window.setAlwaysOnTop()**: 设置窗口置顶
 
 #### 4. 主窗口预加载脚本 (preload.js)
 - **音效路由**: `ipcRenderer.on('play-sound')` → 触发音频播放
 - **主题监听**: `ipcRenderer.on('theme:toggle')` 同步主题
+- **窗口置顶**: `windowPin()` API 暴露给渲染进程
 
 #### 5. 插件开发 SDK (plugin-sdk.js)
 - **host API**: returnToParent / getTheme / onThemeChange / playSound / notify
+- **window API**: minimize / maximize / close / setAlwaysOnTop / setTitle / getSize / onResize
 - **storage API**: get / set / remove / clear
 - **使用方式**: `<script src="path/to/plugin-sdk.js">`
 
@@ -287,7 +293,7 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 ## 🔧 技术决策
 
 ### 已确定
-1. **固定窗口尺寸**: 800×540，不可调整
+1. **固定窗口尺寸**: 800×540，母程序不可调整
 2. **无边框窗口**: 自定义标题栏
 3. **插件架构**: 动态加载，manifest.json规范
 4. **音效系统**: 预加载 + 按需播放 + masterVolume 全局音量控制

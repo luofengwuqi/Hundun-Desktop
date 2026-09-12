@@ -3,6 +3,7 @@
     const viewMain = document.getElementById('view-main');
     const viewEditor = document.getElementById('view-editor');
     const closeBtn = document.getElementById('closeBtn');
+    const pinBtn = document.getElementById('pinBtn');
     const searchInput = document.getElementById('searchInput');
     const fileList = document.getElementById('fileList');
     const trashZone = document.getElementById('trashZone');
@@ -54,6 +55,7 @@
     let isTrashDragOver = false;
     let isShredderDragOver = false;
     let dragFileId = null;
+    let isPinned = false;
 
     let selectedRow = 0;
     let selectedCol = 0;
@@ -142,4 +144,22 @@
         { id: 'folder', icon: '📁', action: openFolder, title: FastTXTI18n.t('buttons.openInExplorer') },
       ];
       return btns;
+    };
+
+    // ========== 图钉按钮设置 ==========
+    const setupPinButton = () => {
+      const editorPinBtn = document.getElementById('editorPinBtn');
+      
+      const togglePin = async () => {
+        isPinned = !isPinned;
+        if (pinBtn) pinBtn.classList.toggle('pinned', isPinned);
+        if (editorPinBtn) editorPinBtn.classList.toggle('pinned', isPinned);
+        
+        if (window.hundun && window.hundun.window && window.hundun.window.setAlwaysOnTop) {
+          await window.hundun.window.setAlwaysOnTop(isPinned);
+        }
+      };
+      
+      if (pinBtn) pinBtn.addEventListener('click', togglePin);
+      if (editorPinBtn) editorPinBtn.addEventListener('click', togglePin);
     };

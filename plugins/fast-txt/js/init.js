@@ -26,6 +26,9 @@
         themeToggleEditor.addEventListener('click', toggleTheme);
       }
 
+      // 设置图钉按钮
+      setupPinButton();
+
       updateUI();
 
       // 同步母程序主题（如果可用，且本地无设置则使用母程序主题）

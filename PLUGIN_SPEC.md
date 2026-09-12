@@ -309,6 +309,10 @@ await sdk.window.maximize()
 // 关闭窗口 (返回母程序)
 await sdk.window.close()
 
+// 设置窗口置顶
+await sdk.window.setAlwaysOnTop(true)  // 置顶
+await sdk.window.setAlwaysOnTop(false) // 取消置顶
+
 // 设置标题
 sdk.window.setTitle('My Plugin v2.0')
 

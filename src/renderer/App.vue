@@ -24,10 +24,15 @@
           <span class="toggle-label">{{ t('settings.light') }}</span>
           <div class="status-dot"></div>
         </div>
-        <!-- 右上角退出按钮 -->
-        <button class="header-close-btn" @click="quitApp" :title="t('app.exit')">
-          ✕
-        </button>
+        <!-- 右上角按钮组 -->
+        <div class="header-buttons">
+          <button class="header-pin-btn" @click="togglePin" :class="{ pinned: isPinned }" :title="isPinned ? '取消置顶' : '窗口置顶'">
+            📌
+          </button>
+          <button class="header-close-btn" @click="quitApp" :title="t('app.exit')">
+            ✕
+          </button>
+        </div>
       </header>
 
       <!-- 主内容 -->
@@ -212,6 +217,21 @@ const quitApp = () => {
       }
     }
   }, 1000)
+}
+
+// ========== 窗口置顶 ==========
+const isPinned = ref(false)
+const togglePin = () => {
+  isPinned.value = !isPinned.value
+  playSound('click')
+  try {
+    const { ipcRenderer } = require('electron')
+    ipcRenderer.send('window-pin', isPinned.value)
+  } catch (e) {
+    if (window.electronAPI && window.electronAPI.windowPin) {
+      window.electronAPI.windowPin(isPinned.value)
+    }
+  }
 }
 
 // ========== 卡带点击 ==========

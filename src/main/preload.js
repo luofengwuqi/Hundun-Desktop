@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   windowMinimize: () => ipcRenderer.send('window-minimize'),
   windowMaximize: () => ipcRenderer.send('window-maximize'),
   windowClose: () => ipcRenderer.send('window-close'),
+  windowPin: (pinned) => ipcRenderer.send('window-pin', pinned),
   windowResize: (width, height) => ipcRenderer.send('window-resize', { width, height }),
   
   // ========== 应用信息 ==========

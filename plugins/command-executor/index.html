@@ -11,43 +11,119 @@
       box-sizing: border-box;
     }
 
+    :root {
+      --bg-primary: #0a0a0a;
+      --bg-secondary: #141414;
+      --bg-card: #1a1a1a;
+      --accent-primary: #ff0080;
+      --accent-secondary: #00ff88;
+      --accent-tertiary: #00d4ff;
+      --text-primary: #e0e0e0;
+      --text-secondary: #888;
+      --text-muted: #555;
+      --border-color: #333;
+      --shadow-color: rgba(255, 0, 128, 0.3);
+    }
+
     body {
-      font-family: 'Noto Sans SC', sans-serif;
-      background: #1a1a1a;
-      color: #e0e0e0;
-      padding: 20px;
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      padding: 0;
+      overflow: hidden;
     }
 
-    .header {
+    /* ========== Header ========== */
+    .executor-header {
+      height: 48px;
+      background: var(--bg-secondary);
+      border-bottom: 2px solid var(--border-color);
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      margin-bottom: 20px;
-      padding-bottom: 10px;
-      border-bottom: 2px solid #333;
+      justify-content: space-between;
+      padding: 0 16px;
+      -webkit-app-region: drag;
+      flex-shrink: 0;
+      position: relative;
     }
 
-    .title {
-      font-family: 'Press Start 2P', cursive;
+    .executor-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      -webkit-app-region: no-drag;
+    }
+
+    .executor-logo .logo-icon {
+      font-size: 16px;
+    }
+
+    .executor-logo .logo-text {
+      font-family: 'Press Start 2P', monospace;
       font-size: 12px;
-      color: #ff0080;
+      color: var(--accent-primary);
+      letter-spacing: 2px;
+      text-shadow: 0 0 10px var(--accent-primary);
     }
 
-    .back-btn {
-      font-family: 'Press Start 2P', cursive;
-      font-size: 8px;
-      padding: 8px 16px;
-      background: #333;
-      color: #e0e0e0;
-      border: none;
+    .executor-logo .logo-chip {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 6px;
+      color: var(--text-muted);
+      border: 1px solid var(--border-color);
       border-radius: 4px;
+      padding: 2px 4px;
+      letter-spacing: 1px;
+    }
+
+    .executor-header-buttons {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      -webkit-app-region: no-drag;
+    }
+
+    .executor-pin-btn,
+    .executor-close-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: none;
+      background: transparent;
+      color: var(--accent-primary);
+      font-size: 14px;
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      -webkit-app-region: no-drag;
+      z-index: 102;
     }
 
-    .back-btn:hover {
-      background: #444;
+    .executor-pin-btn:hover,
+    .executor-close-btn:hover {
+      color: var(--accent-secondary);
+      box-shadow: 0 0 12px var(--shadow-color);
+      transform: scale(1.1);
     }
 
+    .executor-pin-btn:hover {
+      transform: scale(1.1) rotate(-15deg);
+    }
+
+    .executor-pin-btn.pinned {
+      color: var(--accent-secondary);
+      transform: rotate(-45deg);
+      text-shadow: 0 0 12px var(--accent-secondary);
+      filter: drop-shadow(0 0 6px var(--accent-secondary));
+    }
+
+    .executor-pin-btn.pinned:hover {
+      transform: scale(1.1) rotate(-45deg);
+    }
+
+    /* ========== Terminal ========== */
     .terminal {
       background: #0a0a0a;
       border-radius: 8px;
@@ -56,7 +132,8 @@
       font-size: 14px;
       height: 400px;
       overflow-y: auto;
-      border: 1px solid #333;
+      border: 1px solid var(--border-color);
+      margin: 20px;
     }
 
     .terminal-line {
@@ -65,85 +142,96 @@
     }
 
     .terminal-line.input {
-      color: #00ff88;
+      color: var(--accent-secondary);
     }
 
     .terminal-line.output {
-      color: #888;
+      color: var(--text-secondary);
     }
 
     .terminal-line.error {
-      color: #ff0080;
+      color: var(--accent-primary);
     }
 
     .input-area {
-      margin-top: 15px;
+      margin: 0 20px;
       display: flex;
       gap: 10px;
     }
 
     .command-input {
       flex: 1;
-      background: #2d2d2d;
-      border: 1px solid #444;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
       border-radius: 4px;
       padding: 10px 15px;
-      color: #e0e0e0;
+      color: var(--text-primary);
       font-family: 'Courier New', monospace;
       font-size: 14px;
     }
 
     .command-input:focus {
       outline: none;
-      border-color: #ff0080;
+      border-color: var(--accent-primary);
     }
 
     .execute-btn {
-      background: #ff0080;
+      background: var(--accent-primary);
       color: #000;
       border: none;
       border-radius: 4px;
       padding: 10px 20px;
-      font-family: 'Press Start 2P', cursive;
+      font-family: 'Press Start 2P', monospace;
       font-size: 8px;
       cursor: pointer;
+      transition: all 0.2s ease;
     }
 
     .execute-btn:hover {
-      background: #ff3399;
+      box-shadow: 0 0 12px var(--shadow-color);
+      transform: scale(1.05);
     }
 
     .history {
-      margin-top: 20px;
+      margin: 20px;
     }
 
     .history-title {
-      font-family: 'Press Start 2P', cursive;
+      font-family: 'Press Start 2P', monospace;
       font-size: 8px;
-      color: #666;
+      color: var(--text-muted);
       margin-bottom: 10px;
     }
 
     .history-item {
-      background: #2d2d2d;
+      background: var(--bg-card);
       border-radius: 4px;
       padding: 8px 12px;
       margin-bottom: 5px;
       font-family: 'Courier New', monospace;
       font-size: 12px;
-      color: #888;
+      color: var(--text-secondary);
       cursor: pointer;
+      transition: all 0.2s ease;
     }
 
     .history-item:hover {
-      background: #3d3d3d;
+      background: var(--bg-secondary);
+      border-color: var(--accent-primary);
     }
   </style>
 </head>
 <body>
-  <div class="header">
-    <div class="title">⚡ 命令执行器</div>
-    <button class="back-btn" onclick="window.close()">返回</button>
+  <div class="executor-header">
+    <div class="executor-logo">
+      <span class="logo-icon">⌨</span>
+      <span class="logo-text">EXEC</span>
+      <span class="logo-chip">TERMINAL</span>
+    </div>
+    <div class="executor-header-buttons">
+      <button class="executor-pin-btn" id="pinBtn" title="窗口置顶">📌</button>
+      <button class="executor-close-btn" id="closeBtn" title="返回母程序">✕</button>
+    </div>
   </div>
 
   <div class="terminal" id="terminal">
@@ -176,6 +264,26 @@
     const terminal = document.getElementById('terminal');
     const commandInput = document.getElementById('commandInput');
     let commandHistory = [];
+
+    // ========== 关闭按钮 ==========
+    document.getElementById('closeBtn').addEventListener('click', async () => {
+      if (window.hundun && window.hundun.host && window.hundun.host.returnToParent) {
+        await window.hundun.host.returnToParent();
+      } else if (window.hundun && window.hundun.window && window.hundun.window.close) {
+        await window.hundun.window.close();
+      } else {
+        window.close();
+      }
+    });
+
+    // ========== 图钉按钮 ==========
+    document.getElementById('pinBtn').addEventListener('click', async function() {
+      this.classList.toggle('pinned');
+      const pinned = this.classList.contains('pinned');
+      if (window.hundun && window.hundun.window && window.hundun.window.setAlwaysOnTop) {
+        await window.hundun.window.setAlwaysOnTop(pinned);
+      }
+    });
 
     function handleKeyPress(event) {
       if (event.key === 'Enter') {

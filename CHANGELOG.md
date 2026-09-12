@@ -1,6 +1,28 @@
 # Hundun Lite - 更新日志
 
-> 最后更新: 2026-09-10
+> 最后更新: 2026-09-12
+
+---
+
+## 2026-09-12
+
+### 窗口置顶功能
+- [x] 母程序添加图钉按钮 (关闭按钮左侧)
+- [x] Calculator 插件添加图钉按钮
+- [x] FastTXT 插件添加图钉按钮 (主视图 + 编辑器视图)
+- [x] Timer Manager 插件添加完整标题栏 + 图钉按钮
+- [x] Command Executor 插件添加完整标题栏 + 图钉按钮
+- [x] IPC 通信层: 新增 `window-pin` 和 `plugin:setAlwaysOnTop` 通道
+- [x] Preload API: 主窗口和插件窗口均暴露 `setAlwaysOnTop` 方法
+- [x] Plugin Manager: 新增 `setAlwaysOnTop` 方法
+- [x] 图钉按钮样式: 选中态逆时针旋转45度 + 发光效果
+- [x] 过渡动画: 统一0.3s平滑过渡
+
+### 架构修改
+- [x] 母程序 App.vue: 图钉按钮和关闭按钮包装在 `.header-buttons` 容器
+- [x] Timer Manager: 重构为完整标题栏布局 (与 Calculator/FastTXT 一致)
+- [x] Command Executor: 重构为完整标题栏布局
+- [x] CSS 变量系统: Timer Manager 和 Command Executor 添加完整 CSS 变量
 
 ---
 
