@@ -65,17 +65,7 @@
       }
       saveFiles();
       playSound('OK');
-      // 找到刚创建的文件并打开编辑
-      const newFile = files.find(f => f.name === name);
-      if (newFile) {
-        editingFile = newFile;
-        editorContent = '';
-        currentView = 'editor';
-        updateUI();
-        setTimeout(() => editorTextarea.focus(), 0);
-      } else {
-        updateUI();
-      }
+      updateUI();
     };
 
     const createFolder = async () => {
