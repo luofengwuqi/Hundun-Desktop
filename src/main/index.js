@@ -148,9 +148,13 @@ ipcMain.on('window-close', () => {
   if (mainWindow) mainWindow.close()
 })
 
+// 追踪母程序窗口置顶状态（show() 后需要重新应用）
+let mainPinned = false
+
 ipcMain.on('window-pin', (event, pinned) => {
   if (mainWindow) {
-    mainWindow.setAlwaysOnTop(pinned)
+    mainPinned = pinned
+    mainWindow.setAlwaysOnTop(pinned, 'screen-saver')
     event.sender.send('window-pin-response', pinned)
   }
 })
@@ -242,6 +246,10 @@ ipcMain.on('window-resize', (event, { width, height }) => {
       // 动画结束，锁定尺寸（中心点已保持不变，无需再居中）
       mainWindow.setMinimumSize(targetW, targetH)
       mainWindow.setMaximumSize(targetW, targetH)
+      // 重新应用置顶状态（setBounds 会重置 always-on-top）
+      if (mainPinned) {
+        mainWindow.setAlwaysOnTop(true, 'screen-saver')
+      }
     }
   }
 

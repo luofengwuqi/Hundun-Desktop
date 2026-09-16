@@ -42,6 +42,12 @@ class PluginManager {
     // 当前运行的插件ID
     this.activePluginId = null
     
+    // 追踪每个插件窗口的置顶状态（show() 会重置 always-on-top，需要独立追踪）
+    this.pluginPinStates = new Map() // pluginId -> boolean
+    
+    // 追踪主窗口的置顶状态（launchPluginWithTransition 隐藏主窗口前保存，returnToParent 恢复）
+    this._mainWindowPinned = false
+    
     // 插件窗口默认配置
     this.defaultWindowConfig = {
       width: 400,
@@ -290,6 +296,10 @@ class PluginManager {
     if (plugin.state === PluginState.RUNNING && this.windows.has(pluginId)) {
       const existingWindow = this.windows.get(pluginId)
       existingWindow.show()
+      // 重新应用置顶状态（show() 会重置 always-on-top）
+      if (this.pluginPinStates.get(pluginId)) {
+        existingWindow.setAlwaysOnTop(true, 'screen-saver')
+      }
       existingWindow.focus()
       return existingWindow
     }
@@ -453,7 +463,9 @@ class PluginManager {
     
     // 隐藏母程序，显示插件
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      console.log(`[PluginManager] Hiding main window`)
+      // 保存主窗口置顶状态（hide 不会重置 always-on-top，但 show 会）
+      this._mainWindowPinned = this.mainWindow.isAlwaysOnTop()
+      console.log(`[PluginManager] Hiding main window, pin state saved: ${this._mainWindowPinned}`)
       this.mainWindow.hide()
     }
     console.log(`[PluginManager] Showing plugin window: ${pluginId}`)
@@ -476,6 +488,10 @@ class PluginManager {
       // 直接显示母程序
       if (this.mainWindow && !this.mainWindow.isDestroyed()) {
         this.mainWindow.show()
+        // 重新应用置顶状态（show() 会重置 always-on-top）
+        if (this._mainWindowPinned) {
+          this.mainWindow.setAlwaysOnTop(true, 'screen-saver')
+        }
       }
       return
     }
@@ -490,6 +506,10 @@ class PluginManager {
     pluginWindow.hide()
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
       this.mainWindow.show()
+      // 重新应用置顶状态（show() 会重置 always-on-top）
+      if (this._mainWindowPinned) {
+        this.mainWindow.setAlwaysOnTop(true, 'screen-saver')
+      }
       this.mainWindow.focus()
       
       // 通知母程序播放退出动画
@@ -531,6 +551,10 @@ class PluginManager {
     
     if (plugin && plugin.state === PluginState.SUSPENDED && pluginWindow) {
       pluginWindow.show()
+      // 重新应用置顶状态（show() 会重置 always-on-top）
+      if (this.pluginPinStates.get(pluginId)) {
+        pluginWindow.setAlwaysOnTop(true, 'screen-saver')
+      }
       pluginWindow.focus()
       plugin.state = PluginState.RUNNING
       this._emit('plugin-resumed', { pluginId })
@@ -567,6 +591,9 @@ class PluginManager {
       if (this.activePluginId === pluginId) {
         this.activePluginId = null
       }
+      
+      // 清理追踪的置顶状态
+      this.pluginPinStates.delete(pluginId)
       
       this._emit('plugin-closed', { pluginId })
       console.log(`[PluginManager] Plugin closed: ${pluginId}`)
@@ -625,7 +652,9 @@ class PluginManager {
   setAlwaysOnTop(pluginId, flag) {
     const pluginWindow = this.windows.get(pluginId)
     if (pluginWindow && !pluginWindow.isDestroyed()) {
-      pluginWindow.setAlwaysOnTop(flag)
+      pluginWindow.setAlwaysOnTop(flag, 'screen-saver')
+      // 追踪置顶状态（show() 会重置 always-on-top，需要独立记录）
+      this.pluginPinStates.set(pluginId, flag)
       return true
     }
     return false
