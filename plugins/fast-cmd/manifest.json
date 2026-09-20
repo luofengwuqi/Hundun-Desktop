@@ -1,0 +1,15 @@
+{
+  "id": "fast-cmd",
+  "name": "FastCmd",
+  "description": "Script manager & executor for .bat .ps1 .cmd",
+  "icon": "⚡",
+  "color": "#ff9900",
+  "version": "1.0.0",
+  "author": "Hundun Lite",
+  "entry": "main.html",
+  "windowSize": {
+    "width": 800,
+    "height": 540
+  },
+  "permissions": []
+}

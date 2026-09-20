@@ -1,7 +1,7 @@
 # Hundun Lite - 项目进度文档
 
-> 最后更新: 2026-09-09
-> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，Calculator/FastTXT 已迁移为独立 HTML 插件
+> 最后更新: 2026-09-20
+> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，所有子程序已同步到母程序首页
 
 ---
 
@@ -371,10 +371,10 @@ chore: 构建/工具链更新
 ## 🎯 下一步行动
 
 ### 下一步
-1. 开发定时任务管理器/命令执行器等新插件
+1. 完善定时任务管理器/命令执行器插件功能
 2. 修复生产构建 (externalizeDepsPlugin 本地模块)
 3. 清理旧 Vue 组件文件 (CalculatorApp.vue, FastTXTApp.vue, TestApp.vue)
 
 ---
 
-**项目状态**: 🟢 Phase 4 进行中 - BrowserWindow 插件架构完成，Calculator/FastTXT 已迁移为独立 HTML 插件，设置页面已开发
+**项目状态**: 🟢 Phase 4 进行中 - BrowserWindow 插件架构完成，所有子程序已同步到母程序首页

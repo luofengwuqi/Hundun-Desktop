@@ -39,6 +39,42 @@ export const usePluginStore = defineStore('plugin', () => {
       color: '#00d4ff',
       windowSize: { width: 800, height: 540 },
       state: 'unloaded'
+    },
+    {
+      id: 'timer-manager',
+      name: 'Timer',
+      description: 'Manage your timers and reminders',
+      icon: '⏰',
+      version: '1.0.0',
+      author: 'Hundun Lite',
+      enabled: true,
+      color: '#ff0080',
+      windowSize: { width: 400, height: 400 },
+      state: 'unloaded'
+    },
+    {
+      id: 'command-executor',
+      name: 'CMD',
+      description: 'Execute custom bash commands',
+      icon: '⚡',
+      version: '1.0.0',
+      author: 'Hundun Lite',
+      enabled: true,
+      color: '#00d4ff',
+      windowSize: { width: 400, height: 400 },
+      state: 'unloaded'
+    },
+    {
+      id: 'fast-cmd',
+      name: 'FastCmd',
+      description: 'Script manager & executor',
+      icon: '⚡',
+      version: '1.0.0',
+      author: 'Hundun Lite',
+      enabled: true,
+      color: '#ff9900',
+      windowSize: { width: 800, height: 540 },
+      state: 'unloaded'
     }
   ]
 

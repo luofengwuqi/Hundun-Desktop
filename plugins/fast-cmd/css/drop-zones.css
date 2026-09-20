@@ -1,0 +1,103 @@
+    /* ========== Trash Zone ========== */
+    .fcmd-trash-zone {
+      position: absolute;
+      bottom: 60px;
+      right: 16px;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      border: 2px dashed var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      z-index: 5;
+    }
+
+    .fcmd-trash-zone.drag-over {
+      border-color: var(--accent-secondary, #ff0080);
+      background: color-mix(in srgb, var(--accent-secondary, #ff0080) 15%, transparent);
+      transform: scale(1.15);
+      box-shadow: 0 0 20px var(--accent-secondary, #ff0080);
+    }
+
+    .trash-icon-large {
+      font-size: 28px;
+    }
+
+    /* ========== Shredder Zone ========== */
+    .fcmd-shredder-zone {
+      position: absolute;
+      bottom: 60px;
+      right: 16px;
+      width: 80px;
+      height: 60px;
+      border-radius: 10px;
+      border: 2px dashed var(--accent-secondary, #ff0080);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: all 0.3s ease;
+      z-index: 5;
+    }
+
+    .fcmd-shredder-zone.drag-over {
+      border-color: #ff0000;
+      background: color-mix(in srgb, #ff0000 20%, transparent);
+      transform: scale(1.1);
+      box-shadow: 0 0 20px #ff0000;
+    }
+
+    .shredder-icon {
+      font-size: 24px;
+    }
+
+    .shredder-label {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 12px;
+      color: var(--accent-secondary, #ff0080);
+      letter-spacing: 1px;
+    }
+
+    /* ========== Empty Trash Button ========== */
+    .fcmd-empty-trash-btn {
+      position: absolute;
+      bottom: 130px;
+      right: 16px;
+      width: 80px;
+      height: 60px;
+      border-radius: 10px;
+      border: 2px dashed var(--accent-primary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      z-index: 5;
+    }
+
+    .fcmd-empty-trash-btn:hover {
+      border-color: var(--accent-primary);
+      background: color-mix(in srgb, var(--accent-primary) 15%, transparent);
+      box-shadow: 0 0 15px var(--accent-primary);
+    }
+
+    .fcmd-empty-trash-btn:active {
+      transform: scale(0.95);
+    }
+
+    .empty-trash-icon {
+      font-size: 24px;
+    }
+
+    .empty-trash-label {
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+      font-size: 10px;
+      color: var(--accent-primary);
+      letter-spacing: 1px;
+      text-align: center;
+    }

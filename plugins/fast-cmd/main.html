@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FastCmd</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/deco-screws.css">
+  <link rel="stylesheet" href="css/header.css">
+  <link rel="stylesheet" href="css/content.css">
+  <link rel="stylesheet" href="css/file-list.css">
+  <link rel="stylesheet" href="css/drop-zones.css">
+  <link rel="stylesheet" href="css/footer.css">
+  <link rel="stylesheet" href="css/overlays.css">
+  <link rel="stylesheet" href="css/toast.css">
+</head>
+<body>
+  <div class="fastcmd-app" id="app">
+
+    <!-- ===== Main View ===== -->
+    <div id="view-main">
+      <!-- Header -->
+      <header class="fcmd-header">
+        <div class="toggle-container">
+          <span class="toggle-label">深色</span>
+          <div class="toggle-switch" id="themeToggle">
+            <div class="toggle-knob"></div>
+          </div>
+          <span class="toggle-label">浅色</span>
+        </div>
+        <div class="fcmd-logo">
+          <span class="logo-icon">⚡</span>
+          <span class="logo-text">FastCmd</span>
+          <span class="logo-chip">v1.0</span>
+        </div>
+        <button class="fcmd-pin-btn" id="pinBtn" title="窗口置顶">📌</button>
+        <button class="fcmd-close-btn" id="closeBtn" title="Back">✕</button>
+      </header>
+
+      <!-- Main Content -->
+      <main class="fcmd-content">
+        <!-- Search Box -->
+        <div class="fcmd-search">
+          <span class="search-icon">🔍</span>
+          <input class="search-input" id="searchInput" placeholder="搜索脚本..." />
+        </div>
+
+        <!-- Folder Breadcrumb -->
+        <div class="fcmd-breadcrumb" id="folderBreadcrumb" style="display:none;">
+          <button class="breadcrumb-back" id="breadcrumbBack">← 返回</button>
+          <span class="breadcrumb-path" id="breadcrumbPath"></span>
+        </div>
+
+        <!-- File List -->
+        <div class="fcmd-file-list" id="fileList"></div>
+
+        <!-- Trash Drop Zone -->
+        <div class="fcmd-trash-zone" id="trashZone">
+          <span class="trash-icon-large">🗑️</span>
+        </div>
+
+        <!-- Empty Trash Button -->
+        <div class="fcmd-empty-trash-btn" id="emptyTrashBtn" style="display:none;" onclick="showShredConfirm()">
+          <span class="empty-trash-icon">🗑️</span>
+          <span class="empty-trash-label">清空垃圾桶</span>
+        </div>
+
+        <!-- Shredder Drop Zone -->
+        <div class="fcmd-shredder-zone" id="shredderZone" style="display:none;">
+          <span class="shredder-icon">⚙️</span>
+          <span class="shredder-label">SHREDDER</span>
+        </div>
+      </main>
+
+      <!-- Footer -->
+      <footer class="fcmd-footer">
+        <div class="footer-buttons" id="footerButtons"></div>
+        <div class="footer-info" id="footerInfo">
+          <span class="file-count" id="fileCount"></span>
+          <span class="trash-count" id="trashCount" style="display:none;"></span>
+        </div>
+      </footer>
+    </div>
+
+    <!-- ===== Modal Overlay ===== -->
+    <div class="fcmd-modal-overlay" id="modalOverlay" style="display:none;">
+      <div class="fcmd-modal" id="modalBox">
+        <div class="modal-icon" id="modalIcon"></div>
+        <div class="modal-title" id="modalTitle"></div>
+        <div class="modal-message" id="modalMessage"></div>
+        <div class="modal-buttons" id="modalButtons"></div>
+      </div>
+    </div>
+
+    <!-- ===== Create Menu Overlay ===== -->
+    <div class="fcmd-modal-overlay" id="createMenuOverlay" style="display:none;">
+      <div class="fcmd-modal create-menu">
+        <div class="modal-icon">+</div>
+        <div class="modal-title">CREATE NEW</div>
+        <div class="create-options" id="createOptions">
+          <button class="create-option" data-idx="0">
+            <span class="create-icon">⚙️</span>
+            <span class="create-label">.bat File</span>
+          </button>
+          <button class="create-option" data-idx="1">
+            <span class="create-icon">🔧</span>
+            <span class="create-label">.ps1 File</span>
+          </button>
+          <button class="create-option" data-idx="2">
+            <span class="create-icon">📁</span>
+            <span class="create-label">Folder</span>
+          </button>
+        </div>
+        <div class="modal-buttons">
+          <button class="modal-btn secondary" id="createMenuCancel">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Toast Container ===== -->
+    <div id="toastContainer"></div>
+  </div>
+  <script src="js/sdk.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/i18n-html.js"></script>
+  <script src="js/app-state.js"></script>
+  <script src="js/filesystem.js"></script>
+  <script src="js/executor.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/file-actions.js"></script>
+  <script src="js/reorder.js"></script>
+  <script src="js/modes.js"></script>
+  <script src="js/create.js"></script>
+  <script src="js/modal.js"></script>
+  <script src="js/toast.js"></script>
+  <script src="js/keyboard.js"></script>
+  <script src="js/events.js"></script>
+  <script src="js/theme-sync.js"></script>
+  <script src="js/init.js"></script>
+</body>
+</html>

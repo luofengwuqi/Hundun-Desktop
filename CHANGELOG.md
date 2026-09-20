@@ -1,6 +1,17 @@
 # Hundun Lite - 更新日志
 
-> 最后更新: 2026-09-12
+> 最后更新: 2026-09-20
+
+---
+
+## 2026-09-20
+
+### 母程序首页插件同步
+- [x] 更新 plugin.js DEFAULT_PLUGINS 数组，添加所有已有子程序
+- [x] 新增 timer-manager (Timer) 定时任务管理器
+- [x] 新增 command-executor (CMD) 命令执行器
+- [x] 新增 fast-cmd (FastCmd) 脚本管理器
+- [x] 母程序首页现在显示全部5个子程序卡带
 
 ---
 

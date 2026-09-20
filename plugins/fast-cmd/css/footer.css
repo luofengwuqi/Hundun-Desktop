@@ -1,0 +1,70 @@
+    /* ========== Footer ========== */
+    .fcmd-footer {
+      height: 50px;
+      background: var(--bg-secondary);
+      border-top: 2px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      flex-shrink: 0;
+    }
+
+    .footer-buttons {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .footer-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 2px solid var(--border-color);
+      background: var(--bg-card);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+
+    .footer-btn.active {
+      border-color: var(--accent-primary);
+      background: color-mix(in srgb, var(--accent-primary) 20%, var(--bg-card));
+      box-shadow: 0 0 12px var(--shadow-color);
+    }
+
+    .footer-btn.btn-focused {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 16px var(--accent-primary);
+      transform: scale(1.15);
+    }
+
+    .footer-btn.shredder-btn {
+      border-color: var(--accent-secondary, #ff0080);
+    }
+
+    .footer-btn.shredder-btn:hover {
+      border-color: var(--accent-secondary, #ff0080);
+      box-shadow: 0 0 12px var(--accent-secondary, #ff0080);
+    }
+
+    .btn-icon {
+      font-size: 18px;
+      font-weight: bold;
+      transition: color 0.2s ease;
+    }
+
+    .footer-info {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .file-count, .trash-count {
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+      font-size: 14px;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+    }
