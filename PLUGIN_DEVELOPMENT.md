@@ -267,8 +267,10 @@ window.onerror = function(msg, url, line) {
 
 参考 `plugins/` 目录下的示例插件：
 
+- `calculator` - 计算器
+- `fast-txt` - 文本管理器
 - `timer-manager` - 定时任务管理器
-- `command-executor` - 命令执行器
+- `fast-cmd` - 脚本管理器
 
 ## 常见问题
 

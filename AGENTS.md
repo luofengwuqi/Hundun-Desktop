@@ -191,8 +191,8 @@ plugins/                       # 插件目录 (每个插件一个子目录)
 │       ├── i18n.js           # 多语言核心模块
 │       ├── i18n-html.js      # 静态 HTML 翻译应用
 │       └── ...
-├── command-executor/          # 命令执行器 (占位)
-└── timer-manager/             # 定时任务管理器 (占位)
+├── timer-manager/             # 定时任务管理器 (占位)
+└── fast-cmd/                  # 脚本管理器
 ```
 
 ### 架构总览 (2026-08-28)

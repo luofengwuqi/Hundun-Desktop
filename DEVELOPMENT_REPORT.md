@@ -24,8 +24,10 @@
 #### 3. 插件系统
 - **插件加载器**: `src/shared/plugin-loader.js`
 - **示例插件**:
+  - 计算器 (`plugins/calculator/`)
+  - 文本管理器 (`plugins/fast-txt/`)
   - 定时任务管理器 (`plugins/timer-manager/`)
-  - 命令执行器 (`plugins/command-executor/`)
+  - 脚本管理器 (`plugins/fast-cmd/`)
 - **插件规范**: 完整的manifest.json文档
 
 #### 4. 音效系统
@@ -88,8 +90,10 @@ E:\code2\huntunLite/
 │   └── shared/                   # 共享代码
 │       └── plugin-loader.js     # 插件加载器
 ├── plugins/                      # 插件目录
+│   ├── calculator/              # 计算器
+│   ├── fast-txt/                # 文本管理器
 │   ├── timer-manager/           # 定时任务管理器
-│   └── command-executor/        # 命令执行器
+│   └── fast-cmd/                # 脚本管理器
 ├── package.json                  # 项目配置
 ├── README.md                     # 项目文档
 ├── QUICKSTART.md                 # 快速开始
@@ -165,7 +169,7 @@ npm run build:win
 ### 短期 (1-2周)
 1. ✅ 完善Electron主进程功能
 2. ✅ 实现真正的插件加载机制
-3. ✅ 添加更多示例插件 (Calculator, FastTXT, Timer Manager, Command Executor)
+3. ✅ 添加更多示例插件 (Calculator, FastTXT, Timer Manager, FastCMD)
 4. 优化性能和内存使用
 5. ✅ 窗口置顶功能
 

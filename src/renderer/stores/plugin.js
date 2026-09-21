@@ -53,18 +53,6 @@ export const usePluginStore = defineStore('plugin', () => {
       state: 'unloaded'
     },
     {
-      id: 'command-executor',
-      name: 'CMD',
-      description: 'Execute custom bash commands',
-      icon: '⚡',
-      version: '1.0.0',
-      author: 'Hundun Lite',
-      enabled: true,
-      color: '#00d4ff',
-      windowSize: { width: 400, height: 400 },
-      state: 'unloaded'
-    },
-    {
       id: 'fast-cmd',
       name: 'FastCmd',
       description: 'Script manager & executor',

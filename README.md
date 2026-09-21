@@ -94,9 +94,10 @@ huntunLite/
 │   │   └── plugins/              # 子程序插件
 │   └── shared/                   # 共享代码
 ├── plugins/                      # 子程序目录
+│   ├── calculator/               # 计算器
+│   ├── fast-txt/                 # 文本管理器
 │   ├── timer-manager/            # 定时任务管理器
-│   ├── command-executor/         # 命令执行器
-│   └── note-taker/               # 极客记事本
+│   └── fast-cmd/                 # 脚本管理器
 └── package.json
 ```
 
@@ -141,9 +142,9 @@ plugin-name/
 
 ### 阶段二: 基础子程序
 - [x] 定时任务管理器 (含完整标题栏)
-- [x] 命令执行器 (含完整标题栏)
 - [x] 极客记事本 (FastTXT)
 - [x] 计算器 (Calculator)
+- [x] 脚本管理器 (FastCMD)
 
 ### 阶段三: 高级功能
 - [ ] 插件市场

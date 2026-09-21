@@ -84,7 +84,7 @@ npm run build:win
 
 ### 插件示例
 
-查看 `plugins/timer-manager/` 和 `plugins/command-executor/` 了解插件结构。
+查看 `plugins/calculator/`、`plugins/fast-txt/`、`plugins/timer-manager/` 和 `plugins/fast-cmd/` 了解插件结构。
 
 ## 6. 自定义主题
 
