@@ -31,6 +31,12 @@
 
       updateUI();
 
+      // 启动自动保存定时器 (每5秒)
+      startAutoSaveTimer();
+
+      // 添加 beforeunload 事件监听，窗口关闭前保存文档
+      window.addEventListener('beforeunload', handleBeforeUnload);
+
       // 同步母程序主题（如果可用，且本地无设置则使用母程序主题）
       if (window.hundun && window.hundun.host) {
         const savedTheme = localStorage.getItem('fasttxt-theme');
