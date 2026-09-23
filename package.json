@@ -2,7 +2,7 @@
   "name": "huntun-lite",
   "version": "1.0.0",
   "description": "Hundun Lite - 复古掌机风格的桌面效率工具",
-  "main": "src/main/index.js",
+  "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
@@ -32,16 +32,23 @@
       "output": "dist"
     },
     "files": [
-      "dist/**/*",
-      "src/renderer/**/*"
+      "out/**/*",
+      "plugins/**/*",
+      "sounds/**/*",
+      "!node_modules"
     ],
+    "extraResources": [],
+    "asar": true,
     "win": {
       "target": "nsis",
       "icon": "src/renderer/assets/icon.ico"
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Hundun Lite"
     }
   },
   "keywords": [

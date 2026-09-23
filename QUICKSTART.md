@@ -28,7 +28,7 @@ xdg-open huntun-lite-prototype.html
 ```bash
 # 克隆项目
 git clone <repository-url>
-cd huntunLite
+cd chaos-lite
 
 # 安装依赖
 npm install
@@ -41,13 +41,16 @@ npm run dev
 
 ```
 huntunLite/
-├── huntun-lite-prototype.html    # 前端视觉原型
 ├── sounds/                       # 音效资源
 ├── src/                          # 源代码
 │   ├── main/                     # Electron 主进程
+│   │   ├── index.js             # 主窗口管理 + IPC
+│   │   ├── plugin-manager.js    # 插件管理器
+│   │   └── ...
 │   ├── renderer/                 # Vue3 渲染进程
 │   └── shared/                   # 共享代码
 ├── plugins/                      # 插件目录
+├── electron.vite.config.js       # 构建配置
 ├── package.json
 └── README.md
 ```

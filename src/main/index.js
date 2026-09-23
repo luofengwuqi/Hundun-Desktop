@@ -4,8 +4,10 @@ const fs = require('fs')
 const { PluginManager } = require('./plugin-manager')
 
 // ========== 根治 GPU 缓存权限问题 ==========
-// 所有应用数据统一放在项目目录下，不依赖系统目录
-const appRoot = path.join(__dirname, '../..')  // 项目根目录 E:\code2\huntunLite
+// 所有应用数据统一放在可执行文件旁边，不依赖系统目录
+const appRoot = app.isPackaged
+  ? path.dirname(process.execPath)  // 打包后: exe 所在目录
+  : path.join(__dirname, '../..')   // 开发时: 项目根目录
 const userDataDir = path.join(appRoot, 'user-data')
 const gpuCacheDir = path.join(userDataDir, 'gpu-cache')
 
@@ -55,7 +57,7 @@ function createWindow () {
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, app.isPackaged ? '../preload/preload.js' : 'preload.js'),
       autoplayPolicy: 'no-user-gesture-required'
     },
     icon: path.join(__dirname, '../renderer/assets/icon.png'),
@@ -578,26 +580,9 @@ function registerFastTXTIPC(pm) {
   })
 }
 
-// 辅助：获取 FastTXT 数据目录（插件目录下的 file/ 子目录）
+// 辅助：获取 FastTXT 数据目录（存储在 userData 下，不写 asar）
 function getFastTXTBasePath(pluginId) {
-  let pluginPath = null
-  // 优先从插件管理器获取插件实际路径
-  if (fasttxtPluginManager) {
-    const plugin = fasttxtPluginManager.plugins.get(pluginId)
-    if (plugin && plugin.path) {
-      pluginPath = plugin.path
-    }
-  }
-  // fallback：通过插件扫描器获取
-  if (!pluginPath && fasttxtPluginManager && fasttxtPluginManager.loader) {
-    pluginPath = path.join(fasttxtPluginManager.loader.pluginsDir, pluginId || 'fast-txt')
-  }
-  // 最终 fallback
-  if (!pluginPath) {
-    pluginPath = path.join(__dirname, '../../plugins', pluginId || 'fast-txt')
-  }
-  // 数据目录 = 插件目录/file/
-  const dataPath = path.join(pluginPath, 'file')
+  const dataPath = path.join(app.getPath('userData'), 'plugins', pluginId || 'fast-txt', 'file')
   if (!fs.existsSync(dataPath)) {
     fs.mkdirSync(dataPath, { recursive: true })
   }

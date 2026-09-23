@@ -1,6 +1,22 @@
 # Hundun Lite - 更新日志
 
-> 最后更新: 2026-09-22
+> 最后更新: 2026-09-23
+
+---
+
+## 2026-09-23
+
+### 构建架构修复 — 生产构建可用
+- [x] 修复 `externalizeDepsPlugin` 不打包本地模块导致 `Cannot find module './plugin-manager'` 的问题
+- [x] 新增 `copyMainModules()` Vite 插件: 构建后自动复制未被 rollup 打包的主进程文件到 `out/main/`
+- [x] 简化 `package.json` build 脚本: 移除手动 copy 步骤, 由 Vite 插件自动完成
+- [x] 修复 `src/main/index.js` 路径逻辑: 使用 `app.isPackaged` 区分开发/打包模式
+  - GPU 缓存路径: 开发时 `项目根目录/user-data`, 打包后 `exe所在目录/user-data`
+  - Preload 路径: 开发时 `out/main/preload.js`, 打包后 `out/preload/preload.js`
+- [x] 修复 FastTXT 数据目录: 从插件目录(打包后只读)迁移到 `userData/plugins/` (可写)
+- [x] `src/main/plugin-loader.js` 动态 require 兼容: 自动检测 `plugin-loader.js` 所在位置
+- [x] `package.json` main 字段修正: `src/main/index.js` → `out/main/index.js`
+- [x] `package.json` electron-builder 配置优化: asar 启用、NSIS 快捷方式、正确的 files 列表
 
 ---
 

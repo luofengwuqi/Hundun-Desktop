@@ -62,8 +62,7 @@
 ## 📁 项目结构
 
 ```
-E:\code2\huntunLite/
-├── huntun-lite-prototype.html    # 前端视觉原型 (27.35 KB)
+chaos-lite/
 ├── sounds/                       # 音效资源 (9个文件)
 │   ├── bengbeng.mp3             # 卡带入仓音效
 │   ├── change.mp3               # 切换音效
@@ -76,8 +75,12 @@ E:\code2\huntunLite/
 │   └── setting.mp3              # 设置音效
 ├── src/                          # 源代码
 │   ├── main/                     # Electron主进程
-│   │   ├── index.js             # 主窗口管理
-│   │   └── preload.js           # 安全API暴露
+│   │   ├── index.js             # 主窗口管理 + IPC
+│   │   ├── plugin-manager.js    # 插件管理器 (BrowserWindow)
+│   │   ├── database.js          # JSON 数据存储
+│   │   ├── plugin-preload.js    # 插件窗口预加载
+│   │   ├── preload.js           # 主窗口预加载
+│   │   └── transition.html      # 跨窗口加载蒙版
 │   ├── renderer/                 # Vue3渲染进程
 │   │   ├── App.vue              # 主组件
 │   │   ├── main.js              # 入口文件
@@ -88,12 +91,14 @@ E:\code2\huntunLite/
 │   │   ├── router/              # 路由配置
 │   │   └── utils/               # 工具函数
 │   └── shared/                   # 共享代码
-│       └── plugin-loader.js     # 插件加载器
+│       ├── plugin-loader.js     # 插件加载器
+│       └── plugin-sdk.js        # 插件开发 SDK
 ├── plugins/                      # 插件目录
 │   ├── calculator/              # 计算器
 │   ├── fast-txt/                # 文本管理器
 │   ├── timer-manager/           # 定时任务管理器
 │   └── fast-cmd/                # 脚本管理器
+├── electron.vite.config.js       # 构建配置 (含 copyMainModules 插件)
 ├── package.json                  # 项目配置
 ├── README.md                     # 项目文档
 ├── QUICKSTART.md                 # 快速开始
@@ -107,7 +112,7 @@ E:\code2\huntunLite/
 
 ### 2. 启动开发
 ```bash
-cd E:\code2\huntunLite
+cd chaos-lite
 npm install
 npm run dev
 ```
@@ -172,6 +177,7 @@ npm run build:win
 3. ✅ 添加更多示例插件 (Calculator, FastTXT, Timer Manager, FastCMD)
 4. 优化性能和内存使用
 5. ✅ 窗口置顶功能
+6. ✅ 修复生产构建 (copyMainModules 插件)
 
 ### 中期 (1个月)
 1. 实现插件市场
@@ -193,11 +199,13 @@ Hundun Lite项目已完成第一阶段开发，创建了一个具有以下特色
 ✅ **完整的交互原型**: 卡带动画 + 主题切换 + 音效反馈
 ✅ **可扩展的架构**: 插件系统 + 组件化设计
 ✅ **完善的文档体系**: 快速开始 + 插件开发指南
+✅ **生产构建可用**: 修复 externalizeDepsPlugin 本地模块打包问题
 
 项目已准备好进入下一阶段开发，可以基于此原型构建完整的Electron桌面应用。
 
 ---
 
 **开发完成时间**: 2026年8月6日
+**最后更新**: 2026年9月23日
 **项目状态**: Alpha版本
 **下一步**: 安装依赖并启动开发服务器

@@ -14,7 +14,9 @@ const { BrowserWindow, ipcMain } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const { getDatabase } = require('./database')
-const PluginLoader = require('../shared/plugin-loader')
+const PluginLoader = require(fs.existsSync(path.join(__dirname, 'plugin-loader.js'))
+  ? './plugin-loader'
+  : '../shared/plugin-loader')
 
 // 插件状态枚举
 const PluginState = {

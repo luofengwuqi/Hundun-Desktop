@@ -1,7 +1,7 @@
 # Hundun Lite - 项目进度文档
 
-> 最后更新: 2026-09-20
-> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，所有子程序已同步到母程序首页
+> 最后更新: 2026-09-23
+> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复
 
 ---
 
@@ -140,14 +140,14 @@ case 'Enter':
 
 ---
 
-## 🏗️ 插件系统架构 (2026-08-28 更新)
+## 🏗️ 插件系统架构 (2026-09-23 更新)
 
 ### 文件结构
 ```
 src/
 ├── main/
 │   ├── index.js              # 主进程入口 (IPC handlers + 窗口管理)
-│   ├── database.js           # 数据存储管理器
+│   ├── database.js           # 数据存储管理器 (JSON 文件)
 │   ├── plugin-manager.js     # 插件管理器 (BrowserWindow 创建)
 │   ├── plugin-preload.js     # 插件窗口预加载脚本 (window.hundun)
 │   ├── preload.js            # 主窗口预加载脚本 (onPlaySound)
@@ -170,7 +170,7 @@ src/
 │   │   └── theme.js          # 主题状态管理 (dark/light)
 │   └── utils/
 │       └── audio.js          # 音效管理器 (masterVolume 全局音量控制)
-├── shared/
+├ shared/
 │   ├── plugin-loader.js      # 插件加载器 (扫描 plugins/ 目录)
 │   └── plugin-sdk.js         # 插件开发 SDK (host API)
 plugins/                       # 插件目录 (每个插件一个子目录)
@@ -193,6 +193,36 @@ plugins/                       # 插件目录 (每个插件一个子目录)
 │       └── ...
 ├── timer-manager/             # 定时任务管理器 (占位)
 └── fast-cmd/                  # 脚本管理器
+```
+
+### 构建管线 (2026-09-23 修复)
+```
+electron-vite build
+  ├── main:    src/main/index.js → out/main/index.js (rollup 打包)
+  ├── preload: src/main/preload.js → out/preload/preload.js
+  └── renderer: src/renderer/ → out/renderer/
+         ↓
+  copyMainModules() Vite 插件 (closeBundle 钩子)
+  ├── plugin-manager.js  → out/main/plugin-manager.js
+  ├── database.js        → out/main/database.js
+  ├── plugin-preload.js  → out/main/plugin-preload.js
+  └── plugin-loader.js   → out/main/plugin-loader.js
+```
+
+> **为什么需要 copyMainModules?**
+> `externalizeDepsPlugin` 将 `node_modules` 依赖外部化, 但 rollup 也不打包 `plugin-manager.js` 等本地模块
+> (因为 `plugin-manager.js` 内含动态 `require` 路径, rollup 无法静态分析)。
+> 因此这些文件需要从 `src/` 复制到 `out/main/`, 由 `index.js` 在运行时 `require`。
+
+### 开发/打包模式路径差异
+```
+                开发模式 (dev)              打包模式 ( packaged )
+─────────────────────────────────────────────────────────────────
+appRoot        项目根目录 (../..)          exe 所在目录
+userData       项目根/user-data/           exe目录/user-data/
+preload        out/main/preload.js         out/preload/preload.js
+plugin-loader  src/shared/plugin-loader.js (开发) 或 out/main/plugin-loader.js (打包后)
+FastTXT 数据   userData/plugins/fast-txt/  (统一, 不写 asar)
 ```
 
 ### 架构总览 (2026-08-28)
@@ -286,7 +316,6 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 - [ ] 云同步
 - [ ] 国际化支持
 - [ ] 自动更新
-- [ ] 修复生产构建 (externalizeDepsPlugin 本地模块问题)
 
 ---
 
@@ -320,10 +349,14 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 19. **音效开关实现**: 通过全局音量控制 (masterVolume)，关闭时设为0，开启时恢复原值
 20. **设置页面键盘导航**: 左箭头键直接返回左侧栏，切换标签页时重置 detailIndex
 
+### 已决策 (2026-09-23)
+21. **构建管线修复**: `copyMainModules()` Vite 插件自动复制未被 rollup 打包的主进程模块
+22. **数据目录迁移**: FastTXT 数据从插件目录 (asar 内只读) 迁移到 `userData/plugins/` (可写)
+23. **开发/打包路径分离**: `app.isPackaged` 判断运行环境，动态选择 `appRoot`/`preload`/`plugin-loader` 路径
+
 ### 待定
 1. 插件市场实现方案
 2. 插件签名和安全验证
-3. 生产构建修复 (externalizeDepsPlugin 本地模块问题)
 
 ---
 
@@ -361,6 +394,7 @@ chore: 构建/工具链更新
 - ✅ 设置页面左箭头需按两次才能返回左侧栏
 - ✅ 关闭音效后仍有声音播放
 - ✅ 子程序状态未保留 (KeepAlive 缓存)
+- ✅ 生产构建 `Cannot find module './plugin-manager'` (copyMainModules 插件修复)
 
 ### 待修复
 - [ ] Electron中音效可能无法播放 (自动播放策略)
@@ -372,9 +406,8 @@ chore: 构建/工具链更新
 
 ### 下一步
 1. 完善定时任务管理器/命令执行器插件功能
-2. 修复生产构建 (externalizeDepsPlugin 本地模块)
-3. 清理旧 Vue 组件文件 (CalculatorApp.vue, FastTXTApp.vue, TestApp.vue)
+2. 清理旧 Vue 组件文件 (CalculatorApp.vue, FastTXTApp.vue, TestApp.vue)
 
 ---
 
-**项目状态**: 🟢 Phase 4 进行中 - BrowserWindow 插件架构完成，所有子程序已同步到母程序首页
+**项目状态**: 🟢 Phase 4 完成 - BrowserWindow 插件架构完成，生产构建已修复

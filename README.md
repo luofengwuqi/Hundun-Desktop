@@ -75,7 +75,6 @@ Hundun Lite是一个高度可扩展的桌面效率应用，采用"母程序+子�
 
 ```
 huntunLite/
-├── huntun-lite-prototype.html    # 前端视觉原型
 ├── sounds/                       # 音效资源
 │   ├── bengbeng.mp3
 │   ├── change.mp3
@@ -86,19 +85,31 @@ huntunLite/
 │   ├── loading.mp3
 │   ├── OK.mp3
 │   └── setting.mp3
-├── src/                          # 源代码 (后续)
+├── src/                          # 源代码
 │   ├── main/                     # Electron 主进程
+│   │   ├── index.js             # 主窗口管理 + IPC
+│   │   ├── plugin-manager.js    # 插件管理器 (BrowserWindow)
+│   │   ├── database.js          # JSON 数据存储
+│   │   ├── plugin-preload.js    # 插件窗口预加载
+│   │   ├── preload.js           # 主窗口预加载
+│   │   └── transition.html      # 跨窗口加载蒙版
 │   ├── renderer/                 # Vue3 渲染进程
-│   │   ├── components/           # 组件
-│   │   ├── assets/               # 资源
-│   │   └── plugins/              # 子程序插件
+│   │   ├── App.vue              # 主界面
+│   │   ├── components/          # Vue 组件
+│   │   ├── stores/              # Pinia 状态
+│   │   ├── i18n/                # 多语言
+│   │   └── utils/               # 工具函数
 │   └── shared/                   # 共享代码
+│       ├── plugin-loader.js     # 插件加载器
+│       └── plugin-sdk.js        # 插件开发 SDK
 ├── plugins/                      # 子程序目录
-│   ├── calculator/               # 计算器
-│   ├── fast-txt/                 # 文本管理器
-│   ├── timer-manager/            # 定时任务管理器
-│   └── fast-cmd/                 # 脚本管理器
-└── package.json
+│   ├── calculator/              # 计算器
+│   ├── fast-txt/                # 文本管理器
+│   ├── timer-manager/           # 定时任务管理器
+│   └── fast-cmd/                # 脚本管理器
+├── electron.vite.config.js       # 构建配置 (含 copyMainModules 插件)
+├── package.json
+└── README.md
 ```
 
 ## 🔌 插件架构
@@ -132,15 +143,16 @@ plugin-name/
 
 ## 🚀 后续开发计划
 
-### 阶段一: 母程序核心
+### 阶段一: 母程序核心 ✅
 - [x] 前端视觉原型
 - [x] Electron 主进程搭建
 - [x] Vue3 渲染进程初始化
 - [x] 主题系统实现
 - [x] 插件加载器
 - [x] 窗口置顶功能
+- [x] 生产构建修复 (copyMainModules)
 
-### 阶段二: 基础子程序
+### 阶段二: 基础子程序 ✅
 - [x] 定时任务管理器 (含完整标题栏)
 - [x] 极客记事本 (FastTXT)
 - [x] 计算器 (Calculator)
@@ -187,4 +199,4 @@ MIT License
 
 **开发者**: Hundun Lite Team
 **版本**: 1.0.0-alpha
-**最后更新**: 2026-08-06
+**最后更新**: 2026-09-23
