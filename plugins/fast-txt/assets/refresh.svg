@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+  <!-- 现代风刷新: 双箭头循环 (背景完全透明, 颜色跟随 currentColor) -->
+  <polyline points="21 4 21 10 15 10"/>
+  <polyline points="3 20 3 14 9 14"/>
+  <path d="M4.2 9a8.5 8.5 0 0 1 14-3.2L21 10"/>
+  <path d="M19.8 15a8.5 8.5 0 0 1-14 3.2L3 14"/>
+</svg>

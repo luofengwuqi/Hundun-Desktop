@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16" fill="currentColor" shape-rendering="crispEdges">
+  <!-- 像素风刷新: 16x16 网格双箭头循环 (背景透明, 复古掌机风格) -->
+  <!-- 上箭头头部 (右上) -->
+  <rect x="11" y="2" width="2" height="1"/>
+  <rect x="13" y="3" width="1" height="2"/>
+  <rect x="11" y="4" width="2" height="1"/>
+  <rect x="12" y="3" width="1" height="1"/>
+  <!-- 上弧线 -->
+  <rect x="4" y="3" width="6" height="1"/>
+  <rect x="3" y="4" width="1" height="2"/>
+  <rect x="2" y="6" width="1" height="3"/>
+  <!-- 左上线条延伸 -->
+  <rect x="3" y="9" width="1" height="1"/>
+  <!-- 下箭头头部 (左下) -->
+  <rect x="3" y="10" width="2" height="1"/>
+  <rect x="2" y="11" width="1" height="2"/>
+  <rect x="3" y="13" width="2" height="1"/>
+  <rect x="3" y="12" width="1" height="1"/>
+  <!-- 下弧线 -->
+  <rect x="6" y="12" width="6" height="1"/>
+  <rect x="12" y="11" width="1" height="1"/>
+  <rect x="13" y="8" width="1" height="3"/>
+  <!-- 右下线条延伸 -->
+  <rect x="12" y="6" width="1" height="1"/>
+  <!-- 上横杠加强 -->
+  <rect x="5" y="2" width="5" height="1"/>
+  <!-- 下横杠加强 -->
+  <rect x="6" y="13" width="5" height="1"/>
+</svg>
+

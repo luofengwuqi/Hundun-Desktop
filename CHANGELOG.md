@@ -1,6 +1,20 @@
 # Hundun Lite - 更新日志
 
-> 最后更新: 2026-09-23
+> 最后更新: 2026-09-24
+
+---
+
+## 2026-09-24
+
+### FastTXT 底部栏"刷新"按钮
+- [x] 底部按钮栏新增 🔄 刷新按钮 (顺序: +新建 / 🗑️回收站 / 📁文件夹 / 🔄刷新)
+- [x] 点击后调用 `loadFilesFromDisk()` 重新读取磁盘真实文件 (根目录、文件夹、回收站、排序) 并同步到程序
+- [x] 边界处理: 刷新后当前文件夹若已被外部删除，自动退出文件夹模式回到根目录
+- [x] 刷新动作函数 `refreshFilesFromDisk()` 实现于 `js/filesystem.js`
+- [x] i18n: `buttons.refresh` 中文"刷新" / 英文"Refresh"
+- [x] 图标从 emoji 🔄 替换为内嵌 SVG (背景透明, `stroke: currentColor` 自适应深浅主题)
+- [x] 新增 `assets/refresh.svg` (现代风) 与 `assets/refresh-pixel.svg` (像素风) 备用图标源文件
+- [x] `css/footer.css` 新增 `.btn-icon .btn-svg` 样式 (18×18, pointer-events: none)
 
 ---
 

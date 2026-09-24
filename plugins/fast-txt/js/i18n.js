@@ -114,6 +114,7 @@ const FastTXTI18n = (() => {
       showDeleted: '查看已删除',
       openInExplorer: '在文件管理器中打开',
       shredAll: '粉碎全部',
+      refresh: '刷新',
     },
 
     // 碎纸机区域
@@ -238,6 +239,7 @@ const FastTXTI18n = (() => {
       showDeleted: 'Show deleted',
       openInExplorer: 'Open in Explorer',
       shredAll: 'Shred all',
+      refresh: 'Refresh',
     },
 
     // Shredder zone

@@ -54,6 +54,17 @@
       font-size: 18px;
       font-weight: bold;
       transition: color 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* SVG 图标 (刷新按钮): 透明背景, 颜色继承 currentColor, 自适应深浅主题 */
+    .btn-icon .btn-svg {
+      width: 18px;
+      height: 18px;
+      display: block;
+      pointer-events: none;
     }
 
     .footer-info {
