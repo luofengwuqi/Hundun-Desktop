@@ -132,6 +132,25 @@ const _soundFiles = {
   bengbeng: 'sounds/bengbeng.mp3', loading: 'sounds/loading.mp3',
   home: 'sounds/home.mp3', setting: 'sounds/setting.mp3'
 }
+
+// 读取母程序设置页保存的音效设置 (localStorage)
+// 主窗口 contextIsolation: false，preload 与页面共用同一上下文，可直接读取
+// key 与 src/renderer/utils/sound-settings.js 保持一致
+const _SOUND_SETTINGS_KEY = 'huntun-lite-settings'
+const _getSoundVolume = () => {
+  try {
+    const saved = localStorage.getItem(_SOUND_SETTINGS_KEY)
+    if (!saved) return 0.5 // 默认 50%，与设置页默认一致
+    const data = JSON.parse(saved)
+    if (data.soundEnabled === false) return 0
+    const volume = Number(data.volume)
+    if (!Number.isFinite(volume)) return 0.5
+    return Math.max(0, Math.min(100, volume)) / 100
+  } catch (e) {
+    return 0.5
+  }
+}
+
 ipcRenderer.on('play-sound', (event, soundName) => {
   try {
     const src = _soundFiles[soundName]
@@ -141,7 +160,7 @@ ipcRenderer.on('play-sound', (event, soundName) => {
     }
     const audio = _audioCache[soundName]
     audio.currentTime = 0
-    audio.volume = 0.5
+    audio.volume = _getSoundVolume()
     audio.play().catch(() => {})
   } catch (e) {}
 })

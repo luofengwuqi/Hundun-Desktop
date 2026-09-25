@@ -195,6 +195,7 @@ import { useThemeStore } from '../stores/theme'
 import { usePluginStore } from '../stores/plugin'
 import { useI18nStore } from '../stores/i18n'
 import { playSound, setGlobalVolume } from '../utils/audio'
+import { loadSoundSettings, saveSoundSettings } from '../utils/sound-settings'
 import { localeOptions } from '../i18n/index.js'
 
 const emit = defineEmits(['close'])
@@ -300,25 +301,16 @@ const closeSettings = () => {
 }
 
 const saveSettings = () => {
-  localStorage.setItem('huntun-lite-settings', JSON.stringify({
-    soundEnabled: settings.soundEnabled,
-    volume: settings.volume
-  }))
+  saveSoundSettings(settings)
 }
 
 const loadSettings = () => {
-  try {
-    const saved = localStorage.getItem('huntun-lite-settings')
-    if (saved) {
-      const data = JSON.parse(saved)
-      settings.soundEnabled = data.soundEnabled !== false
-      settings.volume = data.volume ?? 50
-      // 根据设置应用全局音量
-      setGlobalVolume(settings.soundEnabled ? settings.volume / 100 : 0)
-    }
-  } catch (e) {
-    console.error('[Settings] Failed to load settings:', e)
-  }
+  // 与启动时 audio.js 使用同一份设置 (utils/sound-settings.js)
+  const saved = loadSoundSettings()
+  settings.soundEnabled = saved.soundEnabled
+  settings.volume = saved.volume
+  // 根据设置应用全局音量
+  setGlobalVolume(settings.soundEnabled ? settings.volume / 100 : 0)
 }
 
 const selectDetail = (index) => {

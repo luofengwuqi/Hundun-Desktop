@@ -1,7 +1,7 @@
 # Hundun Lite - 项目进度文档
 
-> 最后更新: 2026-09-24
-> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复
+> 最后更新: 2026-09-25
+> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；弃用 Vue 组件已清理，音效音量启动 Bug 已修复
 
 ---
 
@@ -155,8 +155,6 @@ src/
 ├── renderer/
 │   ├── App.vue               # 主界面 (IPC 启动插件，无硬编码 Vue 组件)
 │   ├── components/
-│   │   ├── CalculatorApp.vue # 原 Vue 组件 (已弃用，迁移到 plugins/calculator/)
-│   │   ├── FastTXTApp.vue    # 原 Vue 组件 (已弃用，迁移到 plugins/fast-txt/)
 │   │   ├── LoadingMask.vue   # 加载蒙版组件
 │   │   ├── Modal.vue         # 弹窗组件
 │   │   └── Settings.vue      # 设置页面 (声音/主题/语言/插件/关于)
@@ -169,7 +167,8 @@ src/
 │   │   ├── plugin.js         # 插件状态管理 (scanAllPlugins IPC)
 │   │   └── theme.js          # 主题状态管理 (dark/light)
 │   └── utils/
-│       └── audio.js          # 音效管理器 (masterVolume 全局音量控制)
+│       ├── audio.js          # 音效管理器 (masterVolume 全局音量控制, 启动时 applySavedVolume())
+│       └── sound-settings.js # 音效设置读写 (localStorage key/默认值/校验, 供 audio.js 与 Settings.vue 共用)
 ├ shared/
 │   ├── plugin-loader.js      # 插件加载器 (扫描 plugins/ 目录)
 │   └── plugin-sdk.js         # 插件开发 SDK (host API)
@@ -354,6 +353,10 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 22. **数据目录迁移**: FastTXT 数据从插件目录 (asar 内只读) 迁移到 `userData/plugins/` (可写)
 23. **开发/打包路径分离**: `app.isPackaged` 判断运行环境，动态选择 `appRoot`/`preload`/`plugin-loader` 路径
 
+### 已决策 (2026-09-25)
+24. **音效设置单一数据源**: `src/renderer/utils/sound-settings.js` 统一 localStorage key (`huntun-lite-settings`)、默认值 (`{soundEnabled:true, volume:50}`) 与数值校验；`audio.js` 在模块加载时读取一次并应用，`Settings.vue` 复用同一读写函数
+25. **插件音效音量对齐**: 主窗口 preload 转发的 `play-sound` 改为读取同一份音效设置 (替代固定 0.5)，静音开关/自定义音量对插件音效同样生效
+
 ### 待定
 1. 插件市场实现方案
 2. 插件签名和安全验证
@@ -395,6 +398,9 @@ chore: 构建/工具链更新
 - ✅ 关闭音效后仍有声音播放
 - ✅ 子程序状态未保留 (KeepAlive 缓存)
 - ✅ 生产构建 `Cannot find module './plugin-manager'` (copyMainModules 插件修复)
+- ✅ 刚进入程序时音效满格音量 (audio.js 启动时 applySavedVolume() 读取保存的设置；无存档默认 50%)
+- ✅ 插件音效转发路径固定 0.5 音量、忽略静音开关 (preload.js 改读同一份设置)
+- ✅ 音效时有时无/刚启动无声 (playSound 改以 readyState 为准 + 多就绪事件监听 + error 恢复，不再死等 canplaythrough)
 
 ### 待修复
 - [ ] Electron中音效可能无法播放 (自动播放策略)
@@ -406,7 +412,7 @@ chore: 构建/工具链更新
 
 ### 下一步
 1. 完善定时任务管理器/命令执行器插件功能
-2. 清理旧 Vue 组件文件 (CalculatorApp.vue, FastTXTApp.vue, TestApp.vue)
+2. ~~清理旧 Vue 组件文件 (CalculatorApp.vue, FastTXTApp.vue, TestApp.vue)~~ ✅ 2026-09-25 已完成
 
 ---
 

@@ -1,6 +1,37 @@
 # Hundun Lite - 更新日志
 
-> 最后更新: 2026-09-24
+> 最后更新: 2026-09-25
+
+---
+
+## 2026-09-25
+
+### 母程序音效音量启动 Bug 修复
+- [x] **Bug**: 刚进入程序时音效为满格音量 (100%)，只有打开设置页面后才读取已保存的音量
+- [x] **根因**: `utils/audio.js` 初始化 `masterVolume = 1`，且从不读取 localStorage；`Settings.vue` 的 `loadSettings()` 仅在设置页挂载时才调用 `setGlobalVolume()`
+- [x] 新增 `utils/sound-settings.js`: 音效设置的统一读写模块 (key `huntun-lite-settings`、默认值 `{soundEnabled:true, volume:50}`、数值校验/越界 clamp)
+- [x] `audio.js` 模块加载时执行 `applySavedVolume()`: 启动即读取一次保存的音效开关+音量并应用到所有预加载音效 (顺序: `initSounds()` → `applySavedVolume()`)
+- [x] 无历史设置时默认 50% (与设置页滑块默认值一致，不再满格)
+- [x] `Settings.vue` 改用 `sound-settings.js` 读写 (单一数据源，移除重复的 key/默认值逻辑)
+- [x] `preload.js` 插件音效转发路径修复: 原固定 `volume = 0.5` 忽略用户设置 → 改为读取同一份设置 (支持静音开关与自定义音量)
+
+### 弃用文件清理
+- [x] 删除 `src/renderer/components/CalculatorApp.vue` (已迁移至 `plugins/calculator/`)
+- [x] 删除 `src/renderer/components/FastTXTApp.vue` (已迁移至 `plugins/fast-txt/`)
+- [x] 删除 `src/renderer/components/TestApp.vue`
+- [x] 确认全仓库无引用后删除，`npm run build` 构建通过
+
+### 音效"时有时无 / 刚启动无声"修复
+- [x] **Bug**: 部分音效时有时无，刚启动时前几下点击无声，且中招的音效重启前永久无声
+- [x] **根因**: `playSound()` 只依赖 `soundLoaded[name]` 标记决定是否直接播放；该标记被 `error` 事件置为 `false` 后 (加载中断/HMR 重载)，若文件实际已加载完 (readyState≥2)，`canplaythrough` 事件不会再触发 → 旧逻辑死等一个永远不会来的事件 → 该音效永久无声
+- [x] **修复** (`utils/audio.js`):
+  - 改以 `audio.readyState >= 2` (有可播数据) 为直接播放依据，不再单凭标记
+  - 未就绪时排队等待，同时监听 `canplay` / `canplaythrough` / `loadeddata` 三种就绪事件，任一触发即播放
+  - 排队增加 `error` 兜底监听，加载失败自动清理监听器 (不再泄漏)
+  - `audio.error` 存在时自动 `load()` 重载恢复
+  - 同一音效排队去重，快速连点不再叠加监听器
+- [x] 验证 (独立 Electron 实例)：9 个音效强制标记为"未加载"后逐个播放 → 9/9 立即出声；正常/排队/连点场景全部通过
+- [x] 新增调试句柄 `window.__huntunAudio` (sounds / soundLoaded / getMasterVolume / playSound / setGlobalVolume)
 
 ---
 
