@@ -1,6 +1,17 @@
 # Hundun Lite - 更新日志
 
-> 最后更新: 2026-09-25
+> 最后更新: 2026-09-26
+
+---
+
+## 2026-09-26
+
+### FastTXT 底部栏图标配色优化
+- [x] 底部 **➕新建** 与 **🔄刷新** 按钮图标改为纯白 `#fff` (深色模式)
+- [x] **浅色模式保持朱红** `--text-primary` (#C3272B): 按钮背景为近白 (#FFFEFB)，强制白色会看不见
+- [x] 刷新为 SVG `stroke="currentColor"`，只需改 `color` 即自动变色，无需改 SVG 本体
+- [x] 仅命中 `.footer-btn.add-btn` / `.footer-btn.refresh-btn`，🗑️回收站、📁文件夹按钮不受影响
+- [x] 改动文件: `plugins/fast-txt/css/footer.css`
 
 ---
 

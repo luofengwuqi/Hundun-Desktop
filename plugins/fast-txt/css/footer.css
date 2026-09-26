@@ -67,6 +67,18 @@
       pointer-events: none;
     }
 
+    /* 加号 / 刷新按钮图标: 深色模式纯白 (SVG 走 currentColor 自动跟随) */
+    .footer-btn.add-btn .btn-icon,
+    .footer-btn.refresh-btn .btn-icon {
+      color: #ffffff;
+    }
+
+    /* 浅色模式: 背景近白, 保持朱红避免看不见 */
+    .light-mode .footer-btn.add-btn .btn-icon,
+    .light-mode .footer-btn.refresh-btn .btn-icon {
+      color: var(--text-primary);
+    }
+
     .footer-info {
       display: flex;
       align-items: center;
