@@ -32,8 +32,17 @@ export default {
 
   // 添加应用
   addApp: {
-    title: 'ADD APP',
-    msg: 'Get more cartridge apps from the store<br>(Coming soon...)',
+    title: 'ADD PLUGIN',
+    msg: 'Pick an action on the right:<br>install a local .zip plugin, or browse the community.',
+    installZip: 'INSTALL (.ZIP)',
+    community: 'COMMUNITY',
+    successTitle: 'INSTALL SUCCESS',
+    successMsg: '<strong>{name}</strong> v{version} installed<br>Synced to the shelf and plugin list.',
+    failTitle: 'INSTALL FAILED',
+    communityFailTitle: 'BROWSER NOT OPENED',
+    communityFailMsg: 'Please visit manually: https://gitee.com/luofengwuqi',
+    pickCancel: 'Selection cancelled',
+    pickCancelMsg: 'No file selected, installation cancelled.',
   },
 
   // 设置页面

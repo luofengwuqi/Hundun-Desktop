@@ -14,6 +14,7 @@ const { BrowserWindow, ipcMain } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const { getDatabase } = require('./database')
+const { resolvePluginsDirs } = require('./paths')
 const PluginLoader = require(fs.existsSync(path.join(__dirname, 'plugin-loader.js'))
   ? './plugin-loader'
   : '../shared/plugin-loader')
@@ -33,7 +34,9 @@ class PluginManager {
     this.plugins = new Map()     // pluginId -> PluginInstance
     this.windows = new Map()     // pluginId -> BrowserWindow
     this.database = getDatabase()
-    this.loader = new PluginLoader(path.join(__dirname, '../../plugins'))
+    // 扫描内置插件目录 + 用户安装插件目录（本地安装的 .zip 插件落盘于后者）
+    this.pluginDirs = resolvePluginsDirs()
+    this.loader = new PluginLoader(this.pluginDirs)
     
     // 事件监听器
     this.listeners = new Map()

@@ -32,8 +32,17 @@ export default {
 
   // 添加应用
   addApp: {
-    title: '添加应用',
-    msg: '从商店获取更多卡带应用<br>(即将推出...)',
+    title: '添加插件',
+    msg: '选择右侧操作：<br>安装本地 .zip 插件包，或逛逛插件社区。',
+    installZip: '本地安装 (.zip)',
+    community: '逛逛社区',
+    successTitle: '安装成功',
+    successMsg: '<strong>{name}</strong> v{version} 已安装<br>已同步到卡带货架与插件列表。',
+    failTitle: '安装失败',
+    communityFailTitle: '无法打开浏览器',
+    communityFailMsg: '请手动访问: https://gitee.com/luofengwuqi',
+    pickCancel: '已取消选择',
+    pickCancelMsg: '未选择任何文件，插件安装已取消。',
   },
 
   // 设置页面

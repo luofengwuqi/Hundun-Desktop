@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, protocol, shell } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const { PluginManager } = require('./plugin-manager')
+const { pickZipFile, installFromZip } = require('./plugin-installer')
 
 // ========== 根治 GPU 缓存权限问题 ==========
 // 所有应用数据统一放在可执行文件旁边，不依赖系统目录
@@ -588,6 +589,40 @@ function getFastTXTBasePath(pluginId) {
   }
   return dataPath
 }
+
+// ========== 插件本地安装 IPC ==========
+// ADD 按钮 → 本地安装(.zip): 打开文件资源管理器选择插件包
+ipcMain.handle('plugin-install:pick', async () => {
+  try {
+    return await pickZipFile(mainWindow)
+  } catch (error) {
+    console.error('[PluginInstaller] pick failed:', error)
+    return null
+  }
+})
+
+// 校验并安装选中的插件包，成功后渲染进程重新扫描同步
+ipcMain.handle('plugin-install:install', async (event, zipPath) => {
+  try {
+    return await installFromZip(zipPath)
+  } catch (error) {
+    console.error('[PluginInstaller] install failed:', error)
+    return { success: false, error: error.message || String(error) }
+  }
+})
+
+// 打开外部链接 (逛逛社区 → 系统默认浏览器)
+ipcMain.handle('app:openExternal', async (event, url) => {
+  try {
+    const target = String(url || '')
+    if (!/^https?:\/\//i.test(target)) return false
+    await shell.openExternal(target)
+    return true
+  } catch (error) {
+    console.error('[Main] openExternal failed:', error)
+    return false
+  }
+})
 
 // ========== 主题系统 IPC ==========
 // 追踪主题请求来源

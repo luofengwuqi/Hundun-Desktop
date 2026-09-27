@@ -193,9 +193,30 @@ const slotRef = ref(null)
 // ========== 工具函数 ==========
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
-// ========== 初始化 ==========
-const initShelfPlugins = () => {
-  shelfPlugins.value = [...allPlugins.value]
+// HTML 转义（插件名/错误信息会经 v-html 渲染，防止外部内容注入）
+const escapeHtml = (str) => String(str ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;')
+
+// ========== 初始化 / 同步卡带货架 ==========
+// 依据插件 store 重建货架（排除插槽中正在使用的卡带），
+// 用于初始化以及本地安装新插件后的同步刷新
+const syncShelfWithStore = () => {
+  const slotId = slotPlugin.value ? slotPlugin.value.id : null
+  shelfPlugins.value = allPlugins.value.filter(p => p.id !== slotId)
+
+  const len = shelfPlugins.value.length
+  if (len === 0) {
+    selectedIndex.value = -1
+  } else if (selectedIndex.value >= len) {
+    selectedIndex.value = len - 1
+  } else if (selectedIndex.value < 0) {
+    selectedIndex.value = 0
+  }
+  updateRowSelection()
 }
 
 // ========== 主题切换 ==========
@@ -448,13 +469,101 @@ const handleSlotClick = () => {
   }
 }
 
+// ========== 添加插件 (ADD 按钮) ==========
+// 弹窗样式与"弹出并切换卡带"一致：左右两侧布局，
+// 左侧标题区不可被选中，右侧按钮支持上下键/鼠标选中后执行
+const COMMUNITY_URL = 'https://gitee.com/luofengwuqi' // 饺饨lab官网未完成，先跳转仓库
+
 const handleAddApp = () => {
   showModal(
-    '➕',
+    '📦',
     t('addApp.title'),
     t('addApp.msg'),
-    [{ text: t('cartridge.ok'), class: 'primary', action: closeModal }]
+    [
+      { text: t('addApp.installZip'), class: 'primary', action: handleInstallZip },
+      { text: t('addApp.community'), class: 'secondary', action: handleCommunity }
+    ],
+    'large'
   )
+}
+
+// 静默关闭弹窗（用于流程中切换到下一个弹窗，避免叠加 exit 音效）
+const closeModalSilent = () => {
+  modalVisible.value = false
+}
+
+const showResultModal = (icon, title, message) => {
+  showModal(icon, title, message, [
+    { text: t('cartridge.ok'), class: 'primary', action: closeModal }
+  ])
+}
+
+// 本地安装 (.zip)：文件资源管理器选包 → 主进程审核插件架构 → 同步母程序各页面
+const handleInstallZip = async () => {
+  try {
+    playSound('click')
+
+    const { ipcRenderer } = require('electron')
+    const zipPath = await ipcRenderer.invoke('plugin-install:pick')
+
+    // 用户取消选择：保持 ADD 菜单打开，可继续操作
+    if (!zipPath) return
+
+    closeModalSilent()
+
+    const result = await ipcRenderer.invoke('plugin-install:install', zipPath)
+
+    if (result && result.success) {
+      // 同步：重新扫描磁盘插件 → 卡带货架 / 设置页插件列表 / 信息栏
+      await pluginStore.refreshFromDisk()
+      syncShelfWithStore()
+      playSound('OK')
+
+      const p = result.plugin || {}
+      showResultModal(
+        '✅',
+        t('addApp.successTitle'),
+        t('addApp.successMsg', {
+          name: escapeHtml(p.name || p.id || ''),
+          version: escapeHtml(p.version || '')
+        })
+      )
+    } else {
+      playSound('error')
+      showResultModal(
+        '❌',
+        t('addApp.failTitle'),
+        escapeHtml(result && result.error ? result.error : t('error.unknownError'))
+      )
+    }
+  } catch (error) {
+    console.error('[App] Local plugin install failed:', error)
+    closeModalSilent()
+    playSound('error')
+    showResultModal('❌', t('addApp.failTitle'), escapeHtml(error.message || t('error.unknownError')))
+  }
+}
+
+// 逛逛社区：调用系统默认浏览器打开
+const handleCommunity = async () => {
+  try {
+    const { ipcRenderer } = require('electron')
+    const opened = await ipcRenderer.invoke('app:openExternal', COMMUNITY_URL)
+
+    if (opened) {
+      playSound('OK')
+      closeModal()
+    } else {
+      closeModalSilent()
+      playSound('error')
+      showResultModal('🌐', t('addApp.communityFailTitle'), t('addApp.communityFailMsg'))
+    }
+  } catch (error) {
+    console.error('[App] Open community failed:', error)
+    closeModalSilent()
+    playSound('error')
+    showResultModal('🌐', t('addApp.communityFailTitle'), t('addApp.communityFailMsg'))
+  }
 }
 
 const handleSettings = () => {
@@ -676,8 +785,8 @@ onMounted(async () => {
   // 先初始化插件 store（确保默认插件已加载）
   await pluginStore.init()
   
-  // 然后复制到卡带货架
-  initShelfPlugins()
+  // 然后同步到卡带货架
+  syncShelfWithStore()
   
   document.addEventListener('keydown', handleKeydown)
   

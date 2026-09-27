@@ -1,6 +1,50 @@
 # Hundun Lite - 更新日志
 
-> 最后更新: 2026-09-26
+> 最后更新: 2026-09-27
+
+---
+
+## 2026-09-27
+
+### 母程序 ADD 按钮 — 添加插件菜单
+- [x] ADD 按钮点击后弹出菜单，样式复用"弹出并切换卡带"弹窗（左右两侧布局，`Modal.vue` large 尺寸）
+- [x] 左侧为标题区，**不可被选中**，显示"添加插件 / ADD PLUGIN"
+- [x] 右侧两个按钮支持上下键 / 鼠标悬停选中，Enter 或再次点击执行
+- [x] 第一项 **本地安装 (.zip)**：打开系统文件资源管理器（`dialog.showOpenDialog`，过滤 `*.zip`）
+- [x] 第二项 **逛逛社区**：`shell.openExternal` 打开系统默认浏览器（官网未完成，先跳转 `https://gitee.com/luofengwuqi`）
+
+### 本地插件安装器 `src/main/plugin-installer.js`
+- [x] 零第三方依赖的 ZIP 解析（Node 内置 zlib）：中央目录 + 本地文件头 + store/deflate + CRC32 校验
+  - 生产包 `files` 不含 `node_modules`，运行时 require 不到第三方包，故不引入 adm-zip/yauzl
+- [x] 插件架构审核（对齐 `PLUGIN_SPEC.md` 第三章）:
+  - `manifest.json` 必需字段 `id` / `name` / `version`
+  - `id` 规则：小写字母、数字、连字符，开头为字母或数字，最长 64 字符
+  - `version` 必须为语义化版本 `x.y.z`
+  - `entry` 默认 `index.html`，必须真实存在且为 `.html` / `.js`
+  - 可选字段类型校验：`description`/`icon`/`author`/`color`(hex)/`permissions`(数组)/`windowSize`(200~4000)/`minAppVersion`
+- [x] 兼容两种打包方式：压缩包根含 `manifest.json`，或唯一一层子目录内含 `manifest.json`
+- [x] 安全防护：zip slip 路径穿越、绝对路径/盘符路径、加密包、ZIP64、解压炸弹（条目数 / 单文件 / 总体积上限）、CRC 不匹配
+- [x] 编码兼容：UTF-8 BOM / UTF-16 LE·BE / GBK 的 `manifest.json` 均可解析（记事本另存为常见结果）
+- [x] 落盘目录：开发态 `项目根/plugins`，打包态 `exe目录/plugins`（asar 只读，不写内置目录）
+- [x] 冲突策略：内置插件 ID 不可覆盖；经本安装器装过的 ID 允许覆盖升级（记录于 `userData/installed-plugins.json`）
+
+### 多插件目录扫描
+- [x] `paths.js` 新增 `resolveAppRoot()` / `resolvePluginsDirs()` / `resolveInstallPluginsDir()`
+- [x] `plugin-loader.js` 支持传入目录数组，按优先级扫描并按 `id` 去重；单个 manifest 损坏不再中断整体扫描
+- [x] `plugin-manager.js` 改用 `resolvePluginsDirs()`（内置 + 用户安装目录）
+- [x] `electron.vite.config.js` copyMainModules 增补 `plugin-installer.js`、`paths.js`
+
+### 安装后同步母程序各页面
+- [x] `stores/plugin.js` 抽出 `scanDiskPlugins()`，新增 `refreshFromDisk()`（保留 enabled / customSettings 本地配置）
+- [x] `App.vue` 新增 `syncShelfWithStore()`：按 store 重建卡带货架（排除插槽占用项），初始化与安装后复用
+- [x] 安装成功 → 刷新 store → 卡带货架出现新卡带；设置页"插件"列表同步显示；信息栏/选中导航自动夹取索引
+- [x] 结果反馈弹窗：成功显示插件名 + 版本；失败显示审核错误原因（经 HTML 转义后渲染）
+- [x] i18n：`addApp.*` 中英文案（标题/按钮/成功/失败/取消）
+
+### 验证
+- [x] `npm run build` 通过，out/main 复制产物与 src 时间戳一致
+- [x] 安装器冒烟测试 15/15 通过：合法包、覆盖升级、内置 ID 冲突、缺 manifest、非法 id/版本、缺入口、zip slip、非 zip、扫描发现
+- [x] 真实 `Compress-Archive` deflate 包 + BOM manifest 安装成功并可被扫描器发现
 
 ---
 

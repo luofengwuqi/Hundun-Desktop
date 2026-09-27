@@ -1,7 +1,7 @@
 # Hundun Lite - 项目进度文档
 
-> 最后更新: 2026-09-26
-> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；弃用 Vue 组件已清理，音效音量启动 Bug 已修复
+> 最后更新: 2026-09-27
+> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)
 
 ---
 
@@ -149,8 +149,10 @@ src/
 │   ├── index.js              # 主进程入口 (IPC handlers + 窗口管理)
 │   ├── database.js           # 数据存储管理器 (JSON 文件)
 │   ├── plugin-manager.js     # 插件管理器 (BrowserWindow 创建)
+│   ├── plugin-installer.js   # 本地插件安装器 (.zip 审核 + 解压 + 落盘)
 │   ├── plugin-preload.js     # 插件窗口预加载脚本 (window.hundun)
 │   ├── preload.js            # 主窗口预加载脚本 (onPlaySound)
+│   ├── paths.js              # 路径解析 (appRoot / 插件目录 / 安装目录)
 │   └── transition.html       # 跨窗口加载蒙版
 ├── renderer/
 │   ├── App.vue               # 主界面 (IPC 启动插件，无硬编码 Vue 组件)
@@ -260,6 +262,7 @@ FastTXT 数据   userData/plugins/fast-txt/  (统一, 不写 asar)
 
 #### 2. 插件管理器 (plugin-manager.js v2.0)
 - **职责**: BrowserWindow 创建、生命周期管理
+- **插件目录**: `resolvePluginsDirs()` = 内置插件目录 + 用户安装目录（开发态两者同为 `项目根/plugins`）
 - **startPlugin()**: 创建窗口 + 加载 entry + 显示 loading mask
 - **launchPluginWithTransition()**: 关闭当前插件 → loading mask → 启动新插件
 - **getAllScannedPlugins()**: 扫描 plugins/ 目录获取全部插件信息
@@ -281,6 +284,15 @@ FastTXT 数据   userData/plugins/fast-txt/  (统一, 不写 asar)
 - **window API**: minimize / maximize / close / setAlwaysOnTop / setTitle / getSize / onResize
 - **storage API**: get / set / remove / clear
 - **使用方式**: `<script src="path/to/plugin-sdk.js">`
+
+#### 6. 本地插件安装器 (plugin-installer.js)
+- **IPC**: `plugin-install:pick`（打开文件资源管理器选 .zip）→ `plugin-install:install`（审核 + 安装）
+- **审核**: manifest 必需字段、id/version 规则、entry 存在性与类型、可选字段类型（见 PLUGIN_SPEC 第三章）
+- **解压**: 自研 ZIP 解析（zlib.inflateRawSync），含 CRC32 校验与 zip slip / 解压炸弹防护
+- **落盘**: 开发态 `项目根/plugins/<id>`，打包态 `exe目录/plugins/<id>`
+- **冲突**: 内置插件 ID 不可覆盖；已安装记录 `userData/installed-plugins.json` 允许覆盖升级
+- **安装后**: 渲染进程 `pluginStore.refreshFromDisk()` + `syncShelfWithStore()` 同步各页面
+- **社区入口**: `app:openExternal`（仅允许 http/https）→ 系统默认浏览器
 
 ### 插件 Manifest 规范
 ```json
@@ -357,6 +369,12 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 24. **音效设置单一数据源**: `src/renderer/utils/sound-settings.js` 统一 localStorage key (`huntun-lite-settings`)、默认值 (`{soundEnabled:true, volume:50}`) 与数值校验；`audio.js` 在模块加载时读取一次并应用，`Settings.vue` 复用同一读写函数
 25. **插件音效音量对齐**: 主窗口 preload 转发的 `play-sound` 改为读取同一份音效设置 (替代固定 0.5)，静音开关/自定义音量对插件音效同样生效
 
+### 已决策 (2026-09-27)
+26. **本地插件安装**: 主进程自研 ZIP 解析（零第三方依赖，生产包不含 node_modules），审核通过后落盘到可写插件目录；内置插件目录保持只读
+27. **插件多目录扫描**: `resolvePluginsDirs()` 返回 [内置, 用户安装] 目录数组，`PluginLoader` 按 id 去重合并，内置优先
+28. **安装冲突策略**: 内置插件 ID 拒绝覆盖；经安装器装过的 ID 允许覆盖升级（`userData/installed-plugins.json` 记录）
+29. **manifest 编码兼容**: 读取时自动处理 UTF-8 BOM / UTF-16 LE·BE / GBK，避免记事本另存为导致安装失败
+
 ### 待定
 1. 插件市场实现方案
 2. 插件签名和安全验证
@@ -412,7 +430,8 @@ chore: 构建/工具链更新
 
 ### 下一步
 1. 完善定时任务管理器/命令执行器插件功能
-2. ~~清理旧 Vue 组件文件 (CalculatorApp.vue, FastTXTApp.vue, TestApp.vue)~~ ✅ 2026-09-25 已完成
+2. 插件社区/插件市场对接（ADD 菜单"逛逛社区"目前跳转 Gitee 仓库，待官网完成后切换）
+3. ~~清理旧 Vue 组件文件 (CalculatorApp.vue, FastTXTApp.vue, TestApp.vue)~~ ✅ 2026-09-25 已完成
 
 ---
 

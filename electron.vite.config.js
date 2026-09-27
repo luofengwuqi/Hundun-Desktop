@@ -11,6 +11,8 @@ function copyMainModules() {
         ['src/main/plugin-manager.js', 'out/main/plugin-manager.js'],
         ['src/main/database.js', 'out/main/database.js'],
         ['src/main/plugin-preload.js', 'out/main/plugin-preload.js'],
+        ['src/main/plugin-installer.js', 'out/main/plugin-installer.js'],
+        ['src/main/paths.js', 'out/main/paths.js'],
         ['src/shared/plugin-loader.js', 'out/main/plugin-loader.js']
       ]
       for (const [src, dest] of copies) {

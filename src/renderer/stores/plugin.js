@@ -86,6 +86,45 @@ export const usePluginStore = defineStore('plugin', () => {
   // ========== 方法 ==========
 
   /**
+   * 扫描磁盘插件并与默认插件合并
+   * @returns {Array|null} 合并后的插件列表，扫描失败返回 null
+   */
+  async function scanDiskPlugins() {
+    try {
+      if (!(window.electronAPI && window.electronAPI.scanAllPlugins)) return null
+
+      const result = await window.electronAPI.scanAllPlugins()
+      if (!result || !result.success || !Array.isArray(result.plugins)) return null
+
+      const diskPlugins = result.plugins.map(pluginInfo => ({
+        id: pluginInfo.id,
+        name: pluginInfo.name || pluginInfo.id,
+        description: pluginInfo.description || '',
+        icon: pluginInfo.icon || '📦',
+        version: pluginInfo.version || '1.0.0',
+        author: pluginInfo.author || 'Unknown',
+        enabled: true,
+        color: pluginInfo.color || '#00ff88',
+        windowSize: pluginInfo.windowSize || { width: 400, height: 400 },
+        state: 'unloaded',
+        manifest: pluginInfo.manifest || pluginInfo
+      }))
+
+      // 合并：磁盘插件优先，但保留默认插件（如 fast-txt 等不在磁盘的）
+      const merged = [...diskPlugins]
+      for (const dp of DEFAULT_PLUGINS) {
+        if (!merged.find(p => p.id === dp.id)) {
+          merged.push(dp)
+        }
+      }
+      return merged
+    } catch (error) {
+      console.warn('[PluginStore] Failed to scan disk plugins:', error)
+      return null
+    }
+  }
+
+  /**
    * 初始化插件列表
    * 策略：先加载默认卡带，再尝试从磁盘扫描合并
    */
@@ -98,41 +137,28 @@ export const usePluginStore = defineStore('plugin', () => {
     console.log('[PluginStore] Loaded default plugins:', plugins.value.length)
 
     // 第二步：异步尝试从主进程扫描磁盘插件（不阻塞 UI）
-    try {
-      if (window.electronAPI && window.electronAPI.scanAllPlugins) {
-        const result = await window.electronAPI.scanAllPlugins()
-        if (result && result.success && Array.isArray(result.plugins)) {
-          const diskPlugins = result.plugins.map(pluginInfo => ({
-            id: pluginInfo.id,
-            name: pluginInfo.name || pluginInfo.id,
-            description: pluginInfo.description || '',
-            icon: pluginInfo.icon || '📦',
-            version: pluginInfo.version || '1.0.0',
-            author: pluginInfo.author || 'Unknown',
-            enabled: true,
-            color: pluginInfo.color || '#00ff88',
-            windowSize: pluginInfo.windowSize || { width: 400, height: 400 },
-            state: 'unloaded',
-            manifest: pluginInfo.manifest || pluginInfo
-          }))
-
-          // 合并：磁盘插件优先，但保留默认插件（如 fast-txt 等不在磁盘的）
-          const merged = [...diskPlugins]
-          for (const dp of DEFAULT_PLUGINS) {
-            if (!merged.find(p => p.id === dp.id)) {
-              merged.push(dp)
-            }
-          }
-          plugins.value = merged
-          console.log('[PluginStore] Merged with disk plugins:', plugins.value.length)
-        }
-      }
-    } catch (error) {
-      console.warn('[PluginStore] Failed to scan disk plugins, using defaults:', error)
+    const merged = await scanDiskPlugins()
+    if (merged) {
+      plugins.value = merged
+      console.log('[PluginStore] Merged with disk plugins:', plugins.value.length)
     }
 
     // 第三步：应用用户本地配置
     loadFromStorage()
+  }
+
+  /**
+   * 重新扫描磁盘插件并同步到全局状态
+   * 用于本地安装 .zip 插件后，让母程序各页面（卡带货架 / 设置页插件列表）立即生效
+   * @returns {boolean} 是否刷新成功
+   */
+  async function refreshFromDisk() {
+    const merged = await scanDiskPlugins()
+    if (!merged) return false
+    plugins.value = merged
+    loadFromStorage() // 恢复 enabled / customSettings 等本地配置
+    console.log('[PluginStore] Refreshed from disk:', plugins.value.length)
+    return true
   }
 
   /**
@@ -316,6 +342,7 @@ export const usePluginStore = defineStore('plugin', () => {
     
     // 方法
     init,
+    refreshFromDisk,
     addPlugin,
     removePlugin,
     togglePlugin,

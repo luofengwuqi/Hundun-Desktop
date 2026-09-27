@@ -38,6 +38,62 @@ function resolvePluginsDir () {
 }
 
 /**
+ * 解析应用根目录（可写）
+ *   - 开发态: 项目根目录
+ *   - 打包态: exe 所在目录
+ * 与 src/main/index.js 中的 appRoot 逻辑保持一致。
+ * @returns {string}
+ */
+function resolveAppRoot () {
+  return app.isPackaged
+    ? path.dirname(process.execPath)
+    : path.join(__dirname, '..', '..')
+}
+
+/**
+ * 解析所有需要扫描的插件目录（内置 + 用户安装）
+ *
+ * 顺序即优先级：内置插件在前（只读，随程序分发），用户安装目录在后（可写）。
+ * 开发态下两者指向同一个目录，自动去重。
+ * @returns {string[]} 绝对路径数组
+ */
+function resolvePluginsDirs () {
+  const builtinDirs = app.isPackaged
+    ? [
+        path.join(app.getAppPath(), 'plugins'),       // app.asar/plugins (只读)
+        path.join(process.resourcesPath, 'plugins')   // resources/plugins (备用)
+      ]
+    : [
+        path.join(__dirname, '..', '..', 'plugins')   // 项目根/plugins
+      ]
+
+  const installDir = resolveInstallPluginsDir()
+
+  const dirs = []
+  for (const dir of [...builtinDirs, installDir]) {
+    if (!dirs.includes(dir)) dirs.push(dir)
+  }
+  return dirs
+}
+
+/**
+ * 用户安装插件的落盘目录（可写）
+ * 开发态: 项目根/plugins；打包态: exe 目录/plugins
+ * 目录不存在时自动创建（写入失败由调用方处理）。
+ * @returns {string}
+ */
+function resolveInstallPluginsDir () {
+  const dir = path.join(resolveAppRoot(), 'plugins')
+  try {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+  } catch (error) {
+    // 目录创建失败（如安装在只读位置）时仍返回路径，由安装流程给出友好错误
+    console.warn('[Paths] Failed to create install plugins dir:', dir, error.message)
+  }
+  return dir
+}
+
+/**
  * 单个插件目录
  * @param {string} pluginId
  * @returns {string}
@@ -68,7 +124,10 @@ const MAIN_PRELOAD = path.join(__dirname, 'preload.js')
 const PLUGIN_PRELOAD = path.join(__dirname, 'plugin-preload.js')
 
 module.exports = {
+  resolveAppRoot,
   resolvePluginsDir,
+  resolvePluginsDirs,
+  resolveInstallPluginsDir,
   resolvePluginDir,
   resolvePluginDataDir,
   MAIN_PRELOAD,

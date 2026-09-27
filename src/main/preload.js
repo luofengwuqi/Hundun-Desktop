@@ -36,6 +36,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   launchPlugin: (pluginId, options) => ipcRenderer.invoke('plugin-manager:launch', pluginId, options),
   returnToParent: () => ipcRenderer.invoke('plugin-manager:returnToParent'),
   
+  // 本地插件安装 (.zip)
+  pickPluginZip: () => ipcRenderer.invoke('plugin-install:pick'),
+  installPluginFromZip: (zipPath) => ipcRenderer.invoke('plugin-install:install', zipPath),
+  
+  // 打开外部链接 (系统默认浏览器)
+  openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),
+  
   // 主题系统
   requestTheme: () => ipcRenderer.send('theme:get-request'),
   onThemeResponse: (callback) => {
