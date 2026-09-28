@@ -1,6 +1,23 @@
 # Hundun Lite - 更新日志
 
-> 最后更新: 2026-09-27
+> 最后更新: 2026-09-28
+
+---
+
+## 2026-09-28
+
+### 母程序弹窗字体 — 英文改用普通字体
+- [x] `Modal.vue` 弹窗标题 `.modal-title` 与按钮 `.modal-btn` 字体由像素字体 `Press Start 2P` 改为普通字体 `'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif` (与 `body` 一致)
+- [x] 中英文均生效：英文不再是像素风，中文由像素栈的 `cursive` 回退改为与正文一致的 Noto Sans SC
+- [x] `.modal-message` 原本就继承 `body` 普通字体，无需改动
+- [x] 影响范围：母程序全部弹窗（确认/取消、拔出卡带、启动失败、安装成功/失败、ADD 菜单、社区提示等，均复用同一 `Modal.vue`）
+- [x] `npm run build` 构建通过
+
+### ADD 菜单弹窗精简
+- [x] 移除标题下方的说明小字 (`addApp.msg`，中英文均已删除，`Modal.vue` 消息区加 `v-if` 避免空占位)
+- [x] 标题「添加插件 / ADD PLUGIN」字号 20px → 30px 并加粗
+- [x] `Modal.vue` 新增可选 prop `titleSize` (`normal`/`large`)，`App.vue` 的 `showModal()` 增加第 6 个参数；其他弹窗标题保持 20px 不变
+- [x] `npm run build` 构建通过
 
 ---
 

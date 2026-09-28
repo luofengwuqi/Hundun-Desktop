@@ -33,7 +33,6 @@ export default {
   // 添加应用
   addApp: {
     title: '添加插件',
-    msg: '选择右侧操作：<br>安装本地 .zip 插件包，或逛逛插件社区。',
     installZip: '本地安装 (.zip)',
     community: '逛逛社区',
     successTitle: '安装成功',

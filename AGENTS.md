@@ -1,6 +1,6 @@
 # Hundun Lite - 项目进度文档
 
-> 最后更新: 2026-09-27
+> 最后更新: 2026-09-28
 > 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)
 
 ---
@@ -374,6 +374,10 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 27. **插件多目录扫描**: `resolvePluginsDirs()` 返回 [内置, 用户安装] 目录数组，`PluginLoader` 按 id 去重合并，内置优先
 28. **安装冲突策略**: 内置插件 ID 拒绝覆盖；经安装器装过的 ID 允许覆盖升级（`userData/installed-plugins.json` 记录）
 29. **manifest 编码兼容**: 读取时自动处理 UTF-8 BOM / UTF-16 LE·BE / GBK，避免记事本另存为导致安装失败
+
+### 已决策 (2026-09-28)
+30. **弹窗字体**: `Modal.vue` 标题/按钮改用 body 普通字体 (`'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif`)，英文不再使用像素字体；像素字体 Press Start 2P 仅保留给主界面元素 (信息栏/卡带编号/页脚/加载蒙版)
+31. **弹窗标题字号**: `Modal.vue` 新增 `titleSize` prop (`normal` 20px / `large` 30px)，`showModal()` 第 6 个参数控制；ADD 菜单使用 `large` 且不再显示标题下方说明小字 (`addApp.msg` 已删除)
 
 ### 待定
 1. 插件市场实现方案

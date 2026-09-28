@@ -5,8 +5,8 @@
       <div class="modal-left">
         <div class="modal-icon">{{ icon }}</div>
         <div class="modal-info">
-          <div class="modal-title">{{ title }}</div>
-          <div class="modal-message" v-html="message"></div>
+          <div class="modal-title" :class="{ 'modal-title-large': titleSize === 'large' }">{{ title }}</div>
+          <div class="modal-message" v-if="message" v-html="message"></div>
         </div>
       </div>
       <!-- 右侧：操作按钮 -->
@@ -47,6 +47,12 @@ const props = defineProps({
     default: () => [{ text: '确定', class: 'primary', action: null }]
   },
   size: {
+    type: String,
+    default: 'normal',
+    validator: (value) => ['normal', 'large'].includes(value)
+  },
+  // 标题字号: normal(20px) / large(30px)
+  titleSize: {
     type: String,
     default: 'normal',
     validator: (value) => ['normal', 'large'].includes(value)
@@ -200,9 +206,17 @@ onUnmounted(() => {
 }
 
 .modal-title {
-  font-family: 'Press Start 2P', cursive;
+  /* 弹窗文字统一使用普通字体 (与 body 一致)，不再使用像素字体 */
+  font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 20px;
   color: var(--accent-primary);
+}
+
+/* 大标题 (如 ADD 菜单) */
+.modal-title.modal-title-large {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.3;
 }
 
 .modal-message {
@@ -223,7 +237,8 @@ onUnmounted(() => {
 }
 
 .modal-btn {
-  font-family: 'Press Start 2P', cursive;
+  /* 弹窗按钮文字统一使用普通字体 (与 body 一致)，不再使用像素字体 */
+  font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 18px;
   padding: 10px 18px;
   border: 3px solid transparent;

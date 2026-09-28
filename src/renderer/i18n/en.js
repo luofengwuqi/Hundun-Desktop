@@ -33,7 +33,6 @@ export default {
   // 添加应用
   addApp: {
     title: 'ADD PLUGIN',
-    msg: 'Pick an action on the right:<br>install a local .zip plugin, or browse the community.',
     installZip: 'INSTALL (.ZIP)',
     community: 'COMMUNITY',
     successTitle: 'INSTALL SUCCESS',

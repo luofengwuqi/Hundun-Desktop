@@ -129,6 +129,7 @@
       :message="modalMessage"
       :buttons="modalButtons"
       :size="modalSize"
+      :title-size="modalTitleSize"
       @close="handleModalClose"
     />
 
@@ -182,6 +183,7 @@ const modalTitle = ref('')
 const modalMessage = ref('')
 const modalButtons = ref([])
 const modalSize = ref('normal')
+const modalTitleSize = ref('normal')
 
 // 设置页面状态
 const settingsVisible = ref(false)
@@ -478,12 +480,13 @@ const handleAddApp = () => {
   showModal(
     '📦',
     t('addApp.title'),
-    t('addApp.msg'),
+    '', // 移除标题下方的说明小字
     [
       { text: t('addApp.installZip'), class: 'primary', action: handleInstallZip },
       { text: t('addApp.community'), class: 'secondary', action: handleCommunity }
     ],
-    'large'
+    'large',
+    'large' // 标题字号加大
   )
 }
 
@@ -637,12 +640,13 @@ const handleWheel = (e) => {
 }
 
 // ========== 弹窗系统 ==========
-const showModal = (icon, title, message, buttons, size = 'normal') => {
+const showModal = (icon, title, message, buttons, size = 'normal', titleSize = 'normal') => {
   modalIcon.value = icon
   modalTitle.value = title
   modalMessage.value = message
   modalButtons.value = buttons
   modalSize.value = size
+  modalTitleSize.value = titleSize
   modalVisible.value = true
 }
 
