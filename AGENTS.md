@@ -1,7 +1,7 @@
 # Hundun Lite - 项目进度文档
 
-> 最后更新: 2026-09-28
-> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)
+> 最后更新: 2026-09-29
+> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 存储文档与实际代码对齐
 
 ---
 
@@ -179,8 +179,10 @@ plugins/                       # 插件目录 (每个插件一个子目录)
 │   ├── manifest.json
 │   └── index.html
 ├── fast-txt/                  # 文本管理器插件 (多文件架构)
-│   ├── manifest.json
-│   ├── main.html             # 入口页面
+│   ├── manifest.json          # entry: "main.html", 800×540, permissions: []
+│   ├── main.html             # 入口页面 (css/ 11 个 + js/ 17 个按序加载)
+│   ├── STORAGE.md            # 存储文档 (数据目录 / 隐藏文件 / 回收站规则 / IPC)
+│   ├── assets/               # 备用图标源文件 (refresh.svg, refresh-pixel.svg)
 │   ├── css/                  # 样式文件夹 (11个)
 │   │   ├── base.css          # 全局样式 (普通字体)
 │   │   ├── header.css        # 头部 (标题用像素字体)
@@ -188,10 +190,12 @@ plugins/                       # 插件目录 (每个插件一个子目录)
 │   │   ├── editor.css        # 编辑器 (普通字体)
 │   │   ├── drop-zones.css    # 垃圾桶/碎纸机/清空按钮区域
 │   │   └── ...               # 其他样式 (普通字体)
-│   └── js/                   # 脚本文件夹 (17个)
-│       ├── i18n.js           # 多语言核心模块
+│   └── js/                   # 脚本文件夹 (17个, 全局脚本无模块)
+│       ├── i18n.js           # 多语言核心模块 (zh/en 各 68 条)
 │       ├── i18n-html.js      # 静态 HTML 翻译应用
 │       └── ...
+│   # ⚠️ 用户文件不在插件目录 → user-data/plugins/fast-txt/file/
+│   #    旧的 plugins/fast-txt/file/ 迁移残留已于 2026-09-29 删除 (详见 STORAGE.md)
 ├── timer-manager/             # 定时任务管理器 (占位)
 └── fast-cmd/                  # 脚本管理器
 ```

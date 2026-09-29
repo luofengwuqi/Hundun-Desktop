@@ -1,6 +1,29 @@
 # Hundun Lite - 更新日志
 
-> 最后更新: 2026-09-28
+> 最后更新: 2026-09-29
+
+---
+
+## 2026-09-29
+
+### FastTXT 存储文档与实际代码对齐 `plugins/fast-txt/STORAGE.md`
+- [x] **修正数据目录**：文档原写 `plugins/fast-txt/file/`（插件目录），实际为 `userData/plugins/fast-txt/file/`
+  - 开发: `项目根\user-data\plugins\fast-txt\file\`；打包: `<exe目录>\user-data\plugins\fast-txt\file\`
+  - 路径来自 `index.js` 的 `getFastTXTBasePath()`（配合 `app.setPath('userData', appRoot/user-data)`），2026-09-23 迁移后插件目录下的 `file/` 已不再被读取
+- [x] **修正路径获取方式**：删除"通过 `pluginManager.plugins.get(pluginId).path` 动态获取"的过时描述；改为"插件端只传相对路径，主进程统一拼接"，并贴出真实代码
+- [x] **修正文件清单**：`js/` 15 个 → 17 个（补全 17 个文件职责与 `main.html` 加载顺序）；补 `assets/`（2 个 SVG）、`STORAGE.md` 自身
+- [x] **补隐藏文件**：新增 `.bookmarks.json` 条目（`{文件路径: [行号]}`，无路径用 `__default__`），并给出 `.order.json` 的 `{ids:[...]}` 结构
+- [x] **重写过时的 Setup 章节**：改为当前打包实际情况（数据随 `user-data/` 落在 exe 同级，不受 asar 只读限制）+ 旧数据迁移方法
+- [x] **补全遗漏内容**：`window.hundun.fs` 10 个方法与 `fasttxt:*` IPC 通道表（`writeFile` 原子写 / `writeFileSync` 非原子）、保存时机表（关闭 / 5 秒自动 / Ctrl+S / beforeunload 双保险）、三处删除入口、两套防重名规则（`pickFreeName` 的 `file→file1→file11` vs `getUniqueName` 的 `new_file→new_file1`）
+- [x] **标注实际限制**：文件夹仅支持一层（`enterFolder` 只存文件夹名 + 读盘只递归一层）；拖拽导入同名直接覆盖（不防重名）；默认文件内容硬编码英文（`i18n.js` 的 `defaults.*` 未被调用）
+- [x] 新增 localStorage 偏好表（`fasttxt-theme` / `fasttxt-locale`，回退母程序 `huntun-lite-locale`）
+
+### 同步修复
+- [x] `src/main/plugin-preload.js`：`fs.getBasePath()` 的 JSDoc 示例路径 `E:\code2\huntunLite\plugins\fast-txt` 已过时 → 改为 `user-data\plugins\<pluginId>\file`（开发/打包两种形态），并修正缩进
+- [x] 删除迁移前旧数据目录 `plugins/fast-txt/file/`（该路径本就在 `.gitignore` 中，非用户真实数据）；真实数据 `user-data/plugins/fast-txt/file/` 已确认完好（`.order.json` / `.trash/` / 用户文件）
+- [x] 删除 `plugins/fast-txt/index.html`（97KB 旧版单文件备份）：`manifest.json` entry 已是 `main.html`，全仓库无引用（仅 `plugin-manager` 在 entry 缺失时的通用兜底字符串），随包分发造成冗余
+  - 恢复方式: `git checkout -- plugins/fast-txt/index.html`
+- [x] `AGENTS.md`：同步 fast-txt 结构树（补 `STORAGE.md` / `assets/` / 入口与文件数 / 数据目录位置提示），更新"最后更新"与当前阶段
 
 ---
 
