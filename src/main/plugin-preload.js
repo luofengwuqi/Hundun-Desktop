@@ -125,9 +125,11 @@ window.hundun = {
 
   // ========== 文件系统 API (FastTXT 等插件使用) ==========
   fs: {
-      /**
-     * 获取插件数据目录的基础路径
-     * @returns {Promise<string>} 如 E:\code2\huntunLite\plugins\fast-txt
+    /**
+     * 获取插件数据目录的基础路径（userData 下的可写目录，不写 asar）
+     * 开发: <项目根>\user-data\plugins\<pluginId>\file
+     * 打包: <exe目录>\user-data\plugins\<pluginId>\file
+     * @returns {Promise<string>} 数据根目录绝对路径
      */
     getBasePath: async () => {
       const pluginId = window.__PLUGIN_ID__
