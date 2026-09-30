@@ -1,7 +1,7 @@
 # FastTXT 存储说明
 
-> 最后更新: 2026-09-29
-> 对齐代码: `manifest.json` entry = `main.html`；`css/` 11 个文件；`js/` 17 个文件
+> 最后更新: 2026-09-30
+> 对齐代码: `manifest.json` entry = `main.html`；`css/` 12 个文件；`js/` 18 个文件 (+ `js/vendor/` 离线第三方)
 > 主进程: `src/main/index.js` → `registerFastTXTIPC()` / `getFastTXTBasePath()`
 > 插件侧 API: `src/main/plugin-preload.js` → `window.hundun.fs`
 
@@ -71,7 +71,7 @@ plugins/fast-txt/
 ├── assets/
 │   ├── refresh.svg       # 刷新按钮图标源文件（现代风，备用）
 │   └── refresh-pixel.svg # 刷新按钮图标源文件（像素风，备用）
-├── css/                  # 11 个文件
+├── css/                  # 12 个文件
 │   ├── base.css          # 全局样式 / CSS 变量 / 深浅主题
 │   ├── deco-screws.css   # 装饰螺丝
 │   ├── header.css        # 头部（标题用像素字体 Press Start 2P）
@@ -82,31 +82,36 @@ plugins/fast-txt/
 │   ├── editor.css        # 编辑器（普通字体）
 │   ├── overlays.css      # 弹窗 / 新建菜单
 │   ├── find-bar.css      # 查找替换栏
-│   └── status.css        # 编辑器状态栏
-└── js/                   # 17 个文件（main.html 中按下列顺序加载）
-│   ├── sdk.js            # playSound (绝对路径直放) / returnToParent
-│   ├── i18n.js           # 多语言核心（zh/en 各 68 条翻译）
-│   ├── i18n-html.js      # 静态 HTML 文本套用翻译
-│   ├── app-state.js      # DOM 引用 + 全局状态 + 常量 + 计算函数
-│   ├── filesystem.js     # 读盘/写排序/书签持久化/刷新/收尾
-│   ├── render.js         # 文件列表、页脚、行号、状态栏渲染
-│   ├── file-actions.js   # 打开/重命名/删除/恢复/剪切/复制/撤销/导入
-│   ├── reorder.js        # 拖拽排序
-│   ├── modes.js          # 垃圾桶 / 文件夹 / 碎纸机 / 打开资源管理器
-│   ├── create.js         # 新建文件/文件夹 + 新建重名检测
-│   ├── find-replace.js   # 查找替换
-│   ├── autosave.js       # 5 秒自动保存 + 关闭前保存
-│   ├── modal.js          # 通用弹窗
-│   ├── keyboard.js       # 主视图/编辑器/弹窗键盘导航
-│   ├── events.js         # 事件绑定 + Ctrl+滚轮字号缩放
-│   ├── theme-sync.js     # 主题切换 + beforeunload 同步写盘
-│   └── init.js           # 启动入口（init，加载列表最后一项）
+│   ├── status.css        # 编辑器状态栏
+│   └── md-preview.css    # Markdown 浏览模式（预览排版 + 右下角浏览/编辑滑块）
+└── js/                   # 18 个文件（main.html 中按下列顺序加载）
+    ├── sdk.js            # playSound (绝对路径直放) / returnToParent
+    ├── i18n.js           # 多语言核心（zh/en 各 70 条翻译）
+    ├── i18n-html.js      # 静态 HTML 文本套用翻译
+    ├── app-state.js      # DOM 引用 + 全局状态 + 常量 + 计算函数
+    ├── filesystem.js     # 读盘/写排序/书签持久化/刷新/收尾
+    ├── render.js         # 文件列表、页脚、行号、状态栏渲染
+    ├── file-actions.js   # 打开/重命名/删除/恢复/剪切/复制/撤销/导入
+    ├── reorder.js        # 拖拽排序
+    ├── modes.js          # 垃圾桶 / 文件夹 / 碎纸机 / 打开资源管理器
+    ├── create.js         # 新建文件/文件夹 + 新建重名检测
+    ├── find-replace.js   # 查找替换
+    ├── autosave.js       # 5 秒自动保存 + 关闭前保存
+    ├── modal.js          # 通用弹窗
+    ├── keyboard.js       # 主视图/编辑器/弹窗键盘导航
+    ├── events.js         # 事件绑定 + Ctrl+滚轮字号缩放
+    ├── theme-sync.js     # 主题切换 + beforeunload 同步写盘
+    ├── vendor/
+    │   └── markdown-it.min.js  # markdown-it 14.1.0 UMD (123KB, 离线 vendor)
+    ├── md-preview.js     # Markdown 浏览/编辑模式（分块渲染/活动块源码编辑/滑块）
+    └── init.js           # 启动入口（init，加载列表最后一项）
 ```
 
 ### JS 加载顺序（`main.html` 末尾）
 
 `sdk → i18n → i18n-html → app-state → filesystem → render → file-actions → reorder →
-modes → create → find-replace → autosave → modal → keyboard → events → theme-sync → init`
+modes → create → find-replace → autosave → modal → keyboard → events → theme-sync →
+vendor/markdown-it → md-preview → init`
 
 所有 JS 均为无模块的全局脚本（共享 `app-state.js` 里的全局变量），改动加载顺序会直接导致
 `ReferenceError`，新增文件必须显式加进 `main.html`。

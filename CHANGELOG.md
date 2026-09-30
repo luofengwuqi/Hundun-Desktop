@@ -1,6 +1,43 @@
 # Hundun Lite - 更新日志
 
-> 最后更新: 2026-09-29
+> 最后更新: 2026-09-30
+
+---
+
+## 2026-09-30
+
+### FastTXT Markdown 实时渲染 — 浏览/编辑模式 (Typora 式)
+- [x] **方案选型**: 调研原生 HTML/CSS/JS 渲染方案 (marked / markdown-it / showdown / remark) 后选定 **markdown-it**
+  - 100% CommonMark、默认 `html:false` 原始 HTML 转义 (插件窗口 nodeIntegration: true, 必须防注入)、单文件 UMD 离线可用
+  - vendor 本地化: `plugins/fast-txt/js/vendor/markdown-it.min.js` (123KB, 经 `npm pack markdown-it@14.1.0` 提取), 运行时零 CDN 依赖
+- [x] **浏览模式 (默认, Typora 式实时渲染)**: `editorContent` 仍是唯一事实源
+  - `md-preview.js` 用 markdown-it token 的 `map` 把文档切成连续行区间 (块), 归一化保证全行覆盖
+  - 光标所在块内嵌持久 textarea 显示源码, 其余块渲染为 HTML; 输入 → 回写 `editorContent` → 80ms 防抖重解析 → 按光标行重新定位活动块
+  - 输入 `# 标题` 后光标离开块 (点击别处/回车分块) 即渲染为标题; 块切分/合并时光标映射保持
+  - 输入法组合期跳过重渲染 (`compositionstart/end`), 组合结束立即渲染; 重渲染保留焦点与选区
+  - 块 DOM 按 source 复用 (同内容不重建, 图片不闪烁); 渲染 HTML 缓存 (上限 300)
+  - 点击渲染块 → 坐标估算 (行高/等宽字符宽) 定位源码光标并激活; 点击 a 链接 → `app:openExternal` 系统浏览器打开 (仅 http/https)
+  - 预览区 Ctrl+滚轮缩放源码字号 (与主编辑器 8~32px 联动)
+- [x] **编辑模式 (普通文件格式)**: 原有纯源码视图 (行号/书签/查找替换/拖拽全量可用), 与之前行为完全一致
+- [x] **右下角滑块**: `.md-mode-switch` 两档 (浏览/编辑), 仅 `.md` 文件显示, 点击切换, i18n 中英文 (`mdMode.*`)
+  - 浏览→编辑: 活动块光标映射回主 textarea 对应行列
+  - 编辑→浏览: 主 textarea 光标行映射为活动块, 编辑不中断
+- [x] **快捷键协作**: 浏览模式下 Ctrl+F/H/X/D 自动先切编辑模式再执行 (光标已映射); 纯浏览 (无活动块) 时 Ctrl+X/D 只切模式不执行破坏性操作; Ctrl+S/Z/Y 两模式通用
+- [x] **周边接入**: 打开 md 默认浏览 (书签跳转改为滚动到对应渲染块)、关闭编辑器完全复位、undo/redo 后立即同步渲染、5 秒自动保存/beforeunload 不变 (走 `editorContent`)
+- [x] **新增文件**: `css/md-preview.css` (12 个样式) / `js/md-preview.js` (18 个脚本) / `js/vendor/markdown-it.min.js` / `scripts/test-md-preview.js` + `scripts/test-md-preload.js`
+- [x] **接入点**: `main.html` (markup + 脚本序 vendor→md-preview→init)、`file-actions.js` (openFile/undo/redo/closeEditor)、`keyboard.js` (编辑模式快捷键分支)、`i18n.js` / `i18n-html.js`
+
+### 同步修复: 撤销/重做差一 Bug (既有)
+- [x] **Bug**: `undo()` 先 `pop()` 再读新栈顶 → 一次撤销跳过两个历史状态 (从 S_n 直接回 S_{n-2}); `redo()` 对称错乱
+- [x] **修复** (`file-actions.js`): 改为标准语义 — undo: 当前进重做栈 → pop 历史状态直接恢复; redo: 当前压回撤销栈 → pop 重做状态; 边界条件改为 `length === 0` (首个状态也可撤销)
+- [x] 影响主编辑器与浏览模式两处 (共用同一撤销栈), CHANGELOG 此前未记录该问题
+
+### 验证
+- [x] 分块算法 Node 单测: 10+ 场景 (标题/列表/引用/代码块/表格/hr/setext/深层嵌套/前导空行/空文档/HTML 注入转义/引用式链接) 全覆盖无空隙
+- [x] `scripts/test-md-preview.js` Electron 冒烟测试 (preload 注入 mock `window.hundun.fs` 驱动真实 `main.html`): **48/48 通过**
+  - 覆盖: 初始化默认文件 → 打开 md 默认浏览+渲染 → 点块编辑 → 实时渲染 → 模式滑块往返 (光标映射) → 编辑改内容切回渲染 → undo/redo → 关闭落盘 → txt 无滑块
+  - 运行: `npx electron scripts/test-md-preview.js` (退出码 0 = 全过)
+- [x] `npm run build` 构建通过
 
 ---
 

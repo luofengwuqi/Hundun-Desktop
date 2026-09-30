@@ -1,7 +1,7 @@
 # Hundun Lite - 项目进度文档
 
-> 最后更新: 2026-09-29
-> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 存储文档与实际代码对齐
+> 最后更新: 2026-09-30
+> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 新增 Markdown 实时渲染浏览模式 (markdown-it, Typora 式)
 
 ---
 
@@ -180,19 +180,23 @@ plugins/                       # 插件目录 (每个插件一个子目录)
 │   └── index.html
 ├── fast-txt/                  # 文本管理器插件 (多文件架构)
 │   ├── manifest.json          # entry: "main.html", 800×540, permissions: []
-│   ├── main.html             # 入口页面 (css/ 11 个 + js/ 17 个按序加载)
+│   ├── main.html             # 入口页面 (css/ 12 个 + js/ 18 个按序加载, js/vendor 独立)
 │   ├── STORAGE.md            # 存储文档 (数据目录 / 隐藏文件 / 回收站规则 / IPC)
 │   ├── assets/               # 备用图标源文件 (refresh.svg, refresh-pixel.svg)
-│   ├── css/                  # 样式文件夹 (11个)
+│   ├── css/                  # 样式文件夹 (12个)
 │   │   ├── base.css          # 全局样式 (普通字体)
 │   │   ├── header.css        # 头部 (标题用像素字体)
 │   │   ├── footer.css        # 页脚 (普通字体)
 │   │   ├── editor.css        # 编辑器 (普通字体)
+│   │   ├── md-preview.css    # Markdown 浏览模式 (预览排版 + 浏览/编辑滑块)
 │   │   ├── drop-zones.css    # 垃圾桶/碎纸机/清空按钮区域
 │   │   └── ...               # 其他样式 (普通字体)
-│   └── js/                   # 脚本文件夹 (17个, 全局脚本无模块)
-│       ├── i18n.js           # 多语言核心模块 (zh/en 各 68 条)
+│   └── js/                   # 脚本文件夹 (18个, 全局脚本无模块)
+│       ├── i18n.js           # 多语言核心模块 (zh/en 各 70 条)
 │       ├── i18n-html.js      # 静态 HTML 翻译应用
+│       ├── md-preview.js     # Markdown 浏览模式 (分块渲染/活动块编辑/模式滑块)
+│       ├── vendor/
+│       │   └── markdown-it.min.js  # markdown-it 14.1.0 (离线 vendor, 123KB)
 │       └── ...
 │   # ⚠️ 用户文件不在插件目录 → user-data/plugins/fast-txt/file/
 │   #    旧的 plugins/fast-txt/file/ 迁移残留已于 2026-09-29 删除 (详见 STORAGE.md)
@@ -382,6 +386,9 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 ### 已决策 (2026-09-28)
 30. **弹窗字体**: `Modal.vue` 标题/按钮改用 body 普通字体 (`'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif`)，英文不再使用像素字体；像素字体 Press Start 2P 仅保留给主界面元素 (信息栏/卡带编号/页脚/加载蒙版)
 31. **弹窗标题字号**: `Modal.vue` 新增 `titleSize` prop (`normal` 20px / `large` 30px)，`showModal()` 第 6 个参数控制；ADD 菜单使用 `large` 且不再显示标题下方说明小字 (`addApp.msg` 已删除)
+
+### 已决策 (2026-09-30)
+32. **FastTXT Markdown 渲染**: 选定 markdown-it (默认 `html:false` 防注入, 插件窗口 nodeIntegration:true 必须转义原始 HTML) 并 vendor 到 `js/vendor/` 离线使用；浏览模式采用 **按 token map 分块 + 活动块内嵌源码 textarea** 的 Typora 式方案 (行区间归一化保证光标任意落点可定位)；`editorContent` 仍为唯一事实源, 浏览/编辑仅是同一内容的两种视图；撤销栈改标准语义 (修差一 bug, 见 CHANGELOG 2026-09-30)
 
 ### 待定
 1. 插件市场实现方案
