@@ -1,0 +1,235 @@
+    /* ========== Markdown 浏览模式 (Typora 式实时渲染) ========== */
+    /* 编辑器容器改为定位上下文: 预览区 + 右下角浏览/编辑滑块挂载点 */
+    .ftxt-editor {
+      position: relative;
+    }
+
+    /* ---------- 预览滚动容器 ---------- */
+    .md-preview {
+      flex: 1;
+      min-width: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 10px 16px 46px; /* 底部预留滑块位置 */
+      position: relative;
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+      font-size: 15px;
+      line-height: 1.75;
+      color: var(--text-primary);
+      user-select: text;
+      cursor: text;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-color) transparent;
+    }
+
+    .md-preview::-webkit-scrollbar { width: 6px; }
+    .md-preview::-webkit-scrollbar-track { background: transparent; }
+    .md-preview::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+    .md-preview::-webkit-scrollbar-thumb:hover { background: var(--accent-primary); }
+
+    /* ---------- 块 (每个顶层 markdown 结构一个) ---------- */
+    .md-block {
+      padding: 2px 8px;
+      border-radius: 4px;
+      border-left: 2px solid transparent;
+      transition: background-color 0.12s ease;
+    }
+
+    .md-block:empty { min-height: 1.6em; }
+
+    .md-block:hover {
+      background: rgba(128, 128, 128, 0.07);
+    }
+
+    /* 正在编辑的块: 强调边条 + 底色 */
+    .md-block.is-active {
+      border-left-color: var(--accent-primary);
+      background: rgba(128, 128, 128, 0.05);
+      cursor: text;
+    }
+
+    /* ---------- 块内源码编辑区 (持久 textarea) ---------- */
+    .md-src {
+      display: block;
+      width: 100%;
+      border: none;
+      outline: none;
+      resize: none;
+      overflow: hidden;
+      margin: 0;
+      padding: 0 2px;
+      background: transparent;
+      color: var(--text-primary);
+      font-family: 'Courier New', monospace;
+      font-size: 15px;   /* JS 按 editorFontSize 覆盖 */
+      line-height: 27px; /* JS 按 editorFontSize*1.8 覆盖 */
+      caret-color: var(--accent-primary);
+      user-select: text;
+      box-sizing: border-box;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* ---------- Markdown 排版 ---------- */
+    .md-preview h1,
+    .md-preview h2,
+    .md-preview h3,
+    .md-preview h4,
+    .md-preview h5,
+    .md-preview h6 {
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+      font-weight: 700;
+      line-height: 1.35;
+      margin: 0.65em 0 0.35em;
+    }
+
+    .md-preview h1 {
+      font-size: 1.7em;
+      color: var(--accent-primary);
+      padding-bottom: 0.2em;
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .md-preview h2 {
+      font-size: 1.4em;
+      color: var(--accent-tertiary);
+    }
+
+    .md-preview h3 { font-size: 1.2em; }
+    .md-preview h4 { font-size: 1.1em; }
+    .md-preview h5,
+    .md-preview h6 { font-size: 1em; color: var(--text-secondary); }
+
+    .md-preview > .md-block:first-child h1:first-child { margin-top: 0.2em; }
+
+    .md-preview p {
+      margin: 0.5em 0;
+    }
+
+    .md-preview ul,
+    .md-preview ol {
+      margin: 0.45em 0;
+      padding-left: 1.7em;
+    }
+
+    .md-preview li { margin: 0.2em 0; }
+    .md-preview li::marker { color: var(--accent-primary); }
+
+    .md-preview blockquote {
+      margin: 0.6em 0;
+      padding: 0.35em 0.9em;
+      border-left: 3px solid var(--accent-primary);
+      background: var(--bg-secondary);
+      border-radius: 0 4px 4px 0;
+      color: var(--text-secondary);
+    }
+
+    .md-preview blockquote p { margin: 0.3em 0; }
+
+    .md-preview code {
+      font-family: 'Courier New', monospace;
+      font-size: 0.92em;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 3px;
+      padding: 0.05em 0.35em;
+      color: var(--accent-secondary);
+    }
+
+    .md-preview pre {
+      margin: 0.6em 0;
+      padding: 10px 12px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    .md-preview pre code {
+      display: block;
+      background: none;
+      border: none;
+      padding: 0;
+      color: var(--text-primary);
+      font-size: 0.88em;
+    }
+
+    .md-preview table {
+      border-collapse: collapse;
+      margin: 0.6em 0;
+      width: 100%;
+    }
+
+    .md-preview th,
+    .md-preview td {
+      border: 1px solid var(--border-color);
+      padding: 4px 10px;
+      text-align: left;
+    }
+
+    .md-preview th {
+      background: var(--bg-secondary);
+      color: var(--accent-primary);
+      font-weight: 700;
+    }
+
+    .md-preview hr {
+      border: none;
+      border-top: 2px dashed var(--border-color);
+      margin: 1em 0;
+    }
+
+    .md-preview a {
+      color: var(--accent-tertiary);
+      text-decoration: underline;
+      cursor: pointer;
+    }
+
+    .md-preview img {
+      max-width: 100%;
+      border-radius: 4px;
+      border: 1px solid var(--border-color);
+      vertical-align: middle;
+    }
+
+    .md-preview strong { font-weight: 700; }
+
+    /* ---------- 右下角 浏览/编辑 滑块 ---------- */
+    .md-mode-switch {
+      position: absolute;
+      right: 10px;
+      bottom: 8px;
+      display: flex;
+      border: 2px solid var(--border-color);
+      border-radius: 14px;
+      background: var(--bg-secondary);
+      overflow: hidden;
+      z-index: 8;
+      box-shadow: 0 2px 6px var(--shadow-color);
+    }
+
+    .md-mode-seg {
+      border: none;
+      outline: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+      font-size: 11px;
+      line-height: 1;
+      padding: 6px 14px;
+      cursor: pointer;
+      letter-spacing: 2px;
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .md-mode-seg.active {
+      background: var(--accent-primary);
+      color: var(--bg-primary);
+      font-weight: 700;
+    }
+
+    /* 编辑模式下: 滑块悬浮在 textarea 上, 给右下角留出视觉呼吸感 */
+    #view-editor .editor-textarea {
+      padding-bottom: 12px;
+    }

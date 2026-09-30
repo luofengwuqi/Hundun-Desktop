@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="css/overlays.css">
   <link rel="stylesheet" href="css/find-bar.css">
   <link rel="stylesheet" href="css/status.css">
+  <link rel="stylesheet" href="css/md-preview.css">
 </head>
 <body>
   <div class="fasttxt-app" id="app">
@@ -123,6 +124,13 @@
         </div>
         <div class="editor-line-numbers" id="lineNumbers"></div>
         <textarea class="editor-textarea" id="editorTextarea" spellcheck="false" placeholder="Start typing..."></textarea>
+        <!-- Markdown 浏览模式: 实时渲染预览区 (仅 .md 文件显示) -->
+        <div class="md-preview" id="mdPreview" style="display:none;"></div>
+        <!-- Markdown 浏览/编辑 滑块 (右下角, 默认浏览) -->
+        <div class="md-mode-switch" id="mdModeSwitch" style="display:none;">
+          <button type="button" class="md-mode-seg active" data-mode="browse" id="mdModeBrowse">浏览</button>
+          <button type="button" class="md-mode-seg" data-mode="edit" id="mdModeEdit">编辑</button>
+        </div>
       </main>
 
       <footer class="ftxt-footer editor-footer">
@@ -190,6 +198,8 @@
   <script src="js/keyboard.js"></script>
   <script src="js/events.js"></script>
   <script src="js/theme-sync.js"></script>
+  <script src="js/vendor/markdown-it.min.js"></script>
+  <script src="js/md-preview.js"></script>
   <script src="js/init.js"></script>
 </body>
 </html>

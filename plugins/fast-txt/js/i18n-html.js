@@ -91,6 +91,13 @@
   const shortcutHint = document.querySelector('.shortcut-hint')
   if (shortcutHint) shortcutHint.textContent = t('status.shortcuts')
 
+  // Markdown 浏览/编辑滑块
+  const mdModeBrowse = document.getElementById('mdModeBrowse')
+  if (mdModeBrowse) mdModeBrowse.textContent = t('mdMode.browse')
+
+  const mdModeEdit = document.getElementById('mdModeEdit')
+  if (mdModeEdit) mdModeEdit.textContent = t('mdMode.edit')
+
   // ========== 创建菜单 ==========
   const createMenuTitle = document.querySelector('#createMenuOverlay .modal-title')
   if (createMenuTitle) createMenuTitle.textContent = t('create.title')

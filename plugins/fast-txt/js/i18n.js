@@ -73,6 +73,12 @@ const FastTXTI18n = (() => {
       shortcuts: 'Ctrl+S 保存 | Ctrl+F 查找 | Ctrl+H 替换',
     },
 
+    // Markdown 浏览/编辑模式
+    mdMode: {
+      browse: '浏览',
+      edit: '编辑',
+    },
+
     // 创建菜单
     create: {
       title: '新建',
@@ -196,6 +202,12 @@ const FastTXTI18n = (() => {
       markdown: 'Markdown',
       saved: '✓ Saved',
       shortcuts: 'Ctrl+S Save | Ctrl+F Find | Ctrl+H Replace',
+    },
+
+    // Markdown browse/edit mode
+    mdMode: {
+      browse: 'Browse',
+      edit: 'Edit',
     },
 
     // Create menu

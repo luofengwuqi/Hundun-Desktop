@@ -97,6 +97,17 @@
       if (currentView === 'editor') {
         // Ctrl/Cmd shortcuts
         if (e.ctrlKey || e.metaKey) {
+          const k = key.toLowerCase();
+          // 浏览模式下需要源码光标的操作 (查找/替换/剪切/复制行) → 先切回编辑模式,
+          // enterMdEdit 会把活动块光标映射回主 textarea, 操作落在正确位置
+          if (k === 'f' || k === 'h' || k === 'x' || k === 'd') {
+            if (typeof isMdBrowse === 'function' && isMdBrowse()) {
+              const hadActive = typeof mdHasActiveBlock === 'function' && mdHasActiveBlock();
+              setMdMode('edit');
+              // 纯浏览 (无活动块) 时不盲目执行破坏性操作, 仅完成模式切换
+              if (!hadActive && (k === 'x' || k === 'd')) return;
+            }
+          }
           if (key === 's' || key === 'S') {
             e.preventDefault();
             e.stopImmediatePropagation();
