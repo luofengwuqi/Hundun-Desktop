@@ -191,6 +191,8 @@
       findBar.style.display = 'none';
       findMatches = [];
       findCurrentIdx = -1;
+      // Markdown 文件 → 初始化浏览模式 (默认实时渲染); 其他 → 标准视图
+      if (typeof initMdForCurrentFile === 'function') initMdForCurrentFile();
       updateUI();
       // 立即将内容写入 textarea（避免异步时序导致空内容覆盖磁盘数据）
       editorTextarea.value = editorContent;
@@ -205,6 +207,11 @@
       
       // 先 focus，再滚动到书签 (focus 会滚到光标末尾，所以必须在 focus 之后重新滚)
       setTimeout(() => {
+        if (typeof isMdBrowse === 'function' && isMdBrowse()) {
+          // 浏览模式: 主 textarea 隐藏, 书签跳到对应渲染块
+          if (bookmarkLines.length > 0) scrollMdToLine(bookmarkLines[0]);
+          return;
+        }
         editorTextarea.focus();
         if (bookmarkLines.length > 0) {
           const firstBookmarkLine = bookmarkLines[0];
@@ -448,6 +455,10 @@
     };
 
     // ========== 撤销/重做 ==========
+    // 不变式: undoStack 存放"历史状态" (当前内容之前的每一版), 当前内容单独保存。
+    // 变化发生前 pushUndoState() 把"变化前的内容"压栈。
+    // 修正 (2026-09-30): 原实现 pop 后再读新栈顶会一次跳过两个状态 (差一 bug),
+    // 现改为 "当前内容进重做栈 → pop 历史状态直接恢复"。
     const pushUndoState = () => {
       // 保存当前状态到撤销栈
       if (undoStack.length === 0 || undoStack[undoStack.length - 1] !== editorContent) {
@@ -459,23 +470,23 @@
     };
 
     const undo = () => {
-      if (undoStack.length <= 1) return;
-      const current = undoStack.pop();
-      redoStack.push(current);
-      editorContent = undoStack[undoStack.length - 1];
+      if (undoStack.length === 0) return;
+      redoStack.push(editorContent);   // 当前状态交给重做栈
+      editorContent = undoStack.pop(); // 恢复上一历史状态
       editorTextarea.value = editorContent;
       renderEditorStatus();
       renderLineNumbers();
+      if (typeof refreshMdAfterExternalChange === 'function') refreshMdAfterExternalChange();
     };
 
     const redo = () => {
       if (redoStack.length === 0) return;
-      const next = redoStack.pop();
-      undoStack.push(next);
-      editorContent = next;
+      undoStack.push(editorContent);   // 当前状态压回撤销栈
+      editorContent = redoStack.pop(); // 恢复重做状态
       editorTextarea.value = editorContent;
       renderEditorStatus();
       renderLineNumbers();
+      if (typeof refreshMdAfterExternalChange === 'function') refreshMdAfterExternalChange();
     };
 
     const closeEditor = async () => {
@@ -497,6 +508,7 @@
       playSound('exit');
       currentView = 'main';
       editingFile = null;
+      if (typeof resetMdEditor === 'function') resetMdEditor();
       updateUI();
     };
 
