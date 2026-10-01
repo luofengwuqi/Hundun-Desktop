@@ -10,7 +10,11 @@
     //   编辑模式 = 原有纯源码 textarea 视图 (行号/书签/查找替换全部可用)。
 
     const mdParser = (typeof markdownit !== 'undefined')
-      ? markdownit({ html: false, linkify: true }) // html:false → 原始 HTML 转义, 防注入
+      // html:false → 原始 HTML 转义, 防注入
+      // breaks:true → GitHub 风格软换行, 段落内单个换行直接渲染为 <br>
+      //   (不再要求行尾两个空格或反斜杠; 行尾双空格硬换行仍然有效)
+      //   仅作用于内联渲染, 不改变块级解析 → 分块/活动块定位不受影响
+      ? markdownit({ html: false, linkify: true, breaks: true })
       : null;
 
     const mdPreviewEl = document.getElementById('mdPreview');

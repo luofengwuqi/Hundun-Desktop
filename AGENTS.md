@@ -1,7 +1,7 @@
 # Hundun Lite - 项目进度文档
 
-> 最后更新: 2026-09-30
-> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 新增 Markdown 实时渲染浏览模式 (markdown-it, Typora 式)
+> 最后更新: 2026-10-01
+> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 新增 Markdown 实时渲染浏览模式 (markdown-it, Typora 式, 单换行直接渲染为换行)
 
 ---
 
@@ -389,6 +389,9 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 
 ### 已决策 (2026-09-30)
 32. **FastTXT Markdown 渲染**: 选定 markdown-it (默认 `html:false` 防注入, 插件窗口 nodeIntegration:true 必须转义原始 HTML) 并 vendor 到 `js/vendor/` 离线使用；浏览模式采用 **按 token map 分块 + 活动块内嵌源码 textarea** 的 Typora 式方案 (行区间归一化保证光标任意落点可定位)；`editorContent` 仍为唯一事实源, 浏览/编辑仅是同一内容的两种视图；撤销栈改标准语义 (修差一 bug, 见 CHANGELOG 2026-09-30)
+
+### 已决策 (2026-10-01)
+33. **FastTXT Markdown 换行策略**: markdown-it 开启 `breaks: true` (GitHub 风格软换行) — 浏览模式段落内**单个换行直接渲染为 `<br>`**, 不再要求行尾两个空格；仅作用于内联渲染层, 块级 token map 不变, 分块/活动块定位零影响；行尾双空格硬换行与空行分段行为兼容保留
 
 ### 待定
 1. 插件市场实现方案
