@@ -144,6 +144,20 @@
       const reuseActiveEl = (oldActiveEl && targetActive
         && +oldActiveEl.dataset.start === Math.max(0, Math.min(targetActive.start, lines.length - 1)));
 
+      // ⚠️ 滚动位置 + 锚点必须在移动 DOM 之前捕获:
+      //   下面构建 frag 时, 复用的旧块元素会被 appendChild 搬进游离 fragment,
+      //   预览容器被搬空 → Chromium 立即把 scrollTop 钳为 0;
+      //   若像旧代码那样"构建完再读 scrollTop", 读到的已经是 0 → 点击后整屏跳回文档顶部。
+      const st = mdPreviewEl.scrollTop;
+      const contTop = mdPreviewEl.getBoundingClientRect().top;
+      // 以目标活动块(用户点击/光标所在的块)为锚: 重建后把它的顶边拉回原视觉位置
+      let anchorTop = null;
+      if (activeIdx >= 0) {
+        const anchorStart = Math.max(0, Math.min(blocks[activeIdx].start, lines.length - 1));
+        const anchorEl = mdPreviewEl.querySelector('.md-block[data-start="' + anchorStart + '"]');
+        if (anchorEl) anchorTop = anchorEl.getBoundingClientRect().top - contTop;
+      }
+
       const frag = document.createDocumentFragment();
       blocks.forEach((b, idx) => {
         const start = Math.max(0, Math.min(b.start, lines.length - 1));
@@ -172,7 +186,6 @@
         frag.appendChild(el);
       });
 
-      const st = mdPreviewEl.scrollTop;
       mdPreviewEl.textContent = '';
       mdPreviewEl.appendChild(frag);
       mdPreviewEl.scrollTop = st;
@@ -180,6 +193,12 @@
       if (activeIdx >= 0) {
         const el = mdPreviewEl.children[activeIdx]; // appendChild 已把子节点从 frag 移入预览容器
         mdActive = { start: +el.dataset.start, end: +el.dataset.end };
+        // 锚点校正: 活动块由"渲染态↔源码态"互换会改变上方块高度, 补偿位移保证点哪里显示哪里
+        if (anchorTop !== null) {
+          const newTop = el.getBoundingClientRect().top - mdPreviewEl.getBoundingClientRect().top;
+          const delta = newTop - anchorTop;
+          if (delta) mdPreviewEl.scrollTop = st + delta;
+        }
         // DOM 移动可能夺走焦点 → 恢复 (选区不受影响)
         if (hadFocus && document.activeElement !== mdTa) mdTa.focus({ preventScroll: true });
       } else {

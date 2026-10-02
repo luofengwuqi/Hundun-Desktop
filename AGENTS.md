@@ -1,7 +1,7 @@
 # Hundun Lite - 项目进度文档
 
-> 最后更新: 2026-10-01
-> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 新增 Markdown 实时渲染浏览模式 (markdown-it, Typora 式, 单换行直接渲染为换行)
+> 最后更新: 2026-10-02
+> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 新增 Markdown 实时渲染浏览模式 (markdown-it, Typora 式, 单换行直接渲染为换行)；修复浏览模式点击/聚焦后视口跳回文档顶部
 
 ---
 
@@ -393,6 +393,9 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 ### 已决策 (2026-10-01)
 33. **FastTXT Markdown 换行策略**: markdown-it 开启 `breaks: true` (GitHub 风格软换行) — 浏览模式段落内**单个换行直接渲染为 `<br>`**, 不再要求行尾两个空格；仅作用于内联渲染层, 块级 token map 不变, 分块/活动块定位零影响；行尾双空格硬换行与空行分段行为兼容保留
 
+### 已决策 (2026-10-02)
+34. **md 浏览模式滚动保持**: `renderMdPreview()` 一律在**移动 DOM 之前**捕获 `scrollTop`（构建 fragment 会把旧块搬出容器，容器搬空时 Chromium 立即把 scrollTop 钳为 0）；并以目标活动块重建前的顶边为锚点做位移补偿，保证点击块的视觉位置零位移；回归测试 `scripts/test-md-scroll.js`
+
 ### 待定
 1. 插件市场实现方案
 2. 插件签名和安全验证
@@ -437,6 +440,7 @@ chore: 构建/工具链更新
 - ✅ 刚进入程序时音效满格音量 (audio.js 启动时 applySavedVolume() 读取保存的设置；无存档默认 50%)
 - ✅ 插件音效转发路径固定 0.5 音量、忽略静音开关 (preload.js 改读同一份设置)
 - ✅ 音效时有时无/刚启动无声 (playSound 改以 readyState 为准 + 多就绪事件监听 + error 恢复，不再死等 canplaythrough)
+- ✅ FastTXT md 浏览模式点击/聚焦后视口跳回文档顶部 (`renderMdPreview()` 在搬空容器后才读 scrollTop，读到的已是 0；改为搬移 DOM 前捕获 + 目标块锚点补偿，见 CHANGELOG 2026-10-02)
 
 ### 待修复
 - [ ] Electron中音效可能无法播放 (自动播放策略)

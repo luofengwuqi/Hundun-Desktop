@@ -1,6 +1,19 @@
 # Hundun Lite - 更新日志
 
-> 最后更新: 2026-10-01
+> 最后更新: 2026-10-02
+
+---
+
+## 2026-10-02
+
+### FastTXT Markdown 浏览模式 — 点击/聚焦后视口跳回文档顶部
+- [x] **Bug**: 浏览模式下滚动到文档中部后，鼠标点击任意块（或触发一次重渲染），视口立即弹回文档顶部
+- [x] **根因** (`plugins/fast-txt/js/md-preview.js` `renderMdPreview()`): `const st = mdPreviewEl.scrollTop` 写在 fragment 构建**之后**；而构建时 `pool.pop()` / `frag.appendChild(el)` 会把旧块元素从预览容器搬进游离 fragment → 容器被搬空 → Chromium 立即把 `scrollTop` 钳为 0 → 保存到的"原位置"本身就是 0，回填后自然回到顶部
+- [x] **修复**:
+  - `scrollTop` 与容器位置改在**移动任何 DOM 之前**捕获
+  - 新增**锚点补偿**: 以目标活动块（被点击/光标所在块）重建前的顶边位置为锚，重建后按位移差 `delta` 修正 `scrollTop`，抵消活动块"渲染态 ↔ 源码态"互换引起的上方块高度变化 → **点哪里，那一块就保持在原视觉位置（位移 0px）**
+- [x] **回归测试**: 新增 `scripts/test-md-scroll.js`（12 项断言：滚动保持 / 锚点位移 0 / 多次切换 / 真实鼠标输入 / 点击活动块 / 输入重渲染 / 模式往返），`npx electron scripts/test-md-scroll.js` **12/12 通过**
+- [x] 既有冒烟测试 `npx electron scripts/test-md-preview.js` **48/48 通过**；`npm run build` 构建通过
 
 ---
 
