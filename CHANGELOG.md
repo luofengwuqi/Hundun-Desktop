@@ -1,6 +1,50 @@
 # Hundun Lite - 更新日志
 
-> 最后更新: 2026-10-02
+> 最后更新: 2026-10-03
+
+---
+
+## 2026-10-03
+
+### 音效 Bug: 进入子程序后声音特别大 (含主窗口 preload 长期失效的连带修复)
+- [x] **用户报告 Bug**: 进入子程序 (FastTXT / FastCMD) 后音效"莫名其妙变得特别大"
+- [x] **根因 1 — 插件直放无视音效设置**: `plugins/fast-txt/js/sdk.js`、`plugins/fast-cmd/js/sdk.js` 直放音效硬编码 `audio.volume = 0.5`，完全不读母程序的音量滑块与静音开关；用户调低音量 (或静音) 后母程序安静、子程序仍按 50% 播放 → 听感"突然变大"，静音被绕过 (2026-09-25 的修复只覆盖了 preload 转发路径，直放路径从未修)
+- [x] **根因 2 — 主窗口 preload 整段加载失败 (排查中发现, 影响更大)**: `src/main/preload.js` 在 `contextIsolation: false` 下调用 `contextBridge.exposeInMainWorld` 直接抛错 `contextBridge API can only be used when contextIsolation is enabled` → **preload 从未成功加载**, `window.electronAPI` 一直是 undefined:
+  - `play-sound` 监听从未注册 → 插件经 IPC 转发的音效 (Calculator、FastTXT 兜底) 一直**无声**
+  - `stores/plugin.js` `scanDiskPlugins()` 恒返回 null → 插件磁盘扫描从未生效, "本地安装 .zip → 货架出现新卡带"的上架链路实际不通 (仅主进程冒烟测试通过)
+  - dev 分支 preload 路径 `out/main/preload.js` 本就不存在 (electron-vite 输出 `out/preload/preload.js`)
+- [x] **修复 — 单一音量真相 (主进程镜像)**:
+  - 新增 `src/main/sound-settings.js`: 音效设置的主进程运行期镜像 — `sound:sync` (renderer 推送) / `sound:get-sync` (同步读取) / `sound:get` / `sound:settings-changed` (广播所有窗口); 持久化仍由 localStorage 负责
+  - `src/renderer/utils/sound-settings.js`: 保存与启动时推送镜像; `audio.js` 模块加载即同步
+  - `plugin-preload.js` 新增 `hundun.sound` API: `getSettings()` (sendSync 初值) + `onSettingsChanged(cb)` (广播订阅)
+  - 插件 sdk 音量 = 设置值 (0~100 → 0~1)，静音不创建不播放; 音效文件缺失时兜底 IPC (音量同样按设置); 设置变更即时生效
+- [x] **修复 — preload**:
+  - `contextBridge` → 直接 `window.electronAPI = {...}` (与 plugin-preload.js 一致, 兼容 `contextIsolation: false`)
+  - 删除 preload 内的第二套音效播放器 (`_audioCache` / `_soundFiles` / `_getSoundVolume`); 插件转发音效改由 `App.vue` 的 `onPlaySound` → `audio.js` 单一播放器播放 (复用其 readyState 排队 / 错误恢复逻辑), 死代码 `onPlaySound` 正式启用
+  - `index.js` preload 路径改为 `resolvePreloadPath()` 候选解析 (`out/preload/preload.js` 优先, 兼容旧布局)
+  - `electron.vite.config.js` copyMainModules 增补 `sound-settings.js` (rollup 未打包该文件, 不复制则生产包启动即崩)
+- [x] **测试**: 新增 `scripts/test-sound-settings.js` (主窗口真 preload + 插件窗口真 plugin-preload + fast-txt 真 sdk) **9/9 通过**: 镜像同步 / 插件读取初值 / 直放音量=设置值 (不再 0.5) / 静音不创建不播 / 变更广播生效 / 播放失败 IPC 兜底 / host.playSound 转发
+- [x] **回归**: `test-md-preview.js` 48/48、`test-md-scroll.js` 12/12、`npm run build` 通过; 端到端探针确认 renderer 启动即同步设置、`play-sound` → audio.js 真实发声 (paused=false)、`electronAPI` 恢复可用
+- [x] 附带效果: Calculator 等 IPC 链路音效由"无声"恢复; 插件磁盘扫描 / 本地安装插件上架链路恢复
+
+### 母程序/子程序窗口互斥 — 修复"子程序启动时母程序意外出现"
+- [x] **用户报告 Bug**: 子程序启动时母程序窗口意外出现，母程序与子程序同时运行
+- [x] **根因** (脚本化生命周期测试 + CDP 实机复现确认): 主窗口的显示路径**完全没有互斥保护**
+  - `index.js` 的 `ready-to-show` / `did-finish-load` 无条件 `mainWindow.show()` —— **页面任何重载都会重新显示母窗口**（dev 下 Vite HMR 全量刷新即触发此路径；与"启动子程序"时机重叠时表现为母子同屏）
+  - `returnToParent` 只隐藏**活动**插件窗口，其余插件窗口仍可见 → 母程序 show 后母子同屏
+  - `startPlugin` existing-window / `resumePlugin` 路径先显示插件、后隐藏母程序（瞬时重叠），且 `plugin-manager:start` 直启路径完全不隐藏母程序
+  - 反向漏洞: 插件窗口被 X 关闭 / `suspendPlugin` 后**没有任何窗口可见**（应用"消失"），用户重新唤起应用时更易撞见异常窗口状态
+- [x] **修复 (互斥不变式: 任意时刻有且仅有一个窗口可见)**:
+  - `plugin-manager.js` 新增 `getVisiblePluginWindows()` / `hasVisiblePluginWindow()` / `_hideMainForPlugin()` / `_hideAllPluginWindows()` / `_recoverMainWindowIfIdle()`
+  - **中央防护**: 构造时给主窗口挂 `show` 监听 —— 有可见插件窗口时立即重新隐藏（覆盖所有 show 路径: 页面重载、second-instance、focus 等）
+  - `startPlugin`(existing) / `resumePlugin`: **先藏母再显子**，消除瞬时重叠
+  - `launchPluginWithTransition`: 显示新插件前先隐藏**其他**插件窗口（同一时间只允许一个子程序）
+  - `returnToParent`: 隐藏**所有**插件窗口（历史只隐藏活动插件）
+  - 插件窗口 `closed` / `suspendPlugin` → `_recoverMainWindowIfIdle()` 恢复母程序（置顶状态一并恢复）
+  - `index.js`: `ready-to-show` / `did-finish-load` 改走 `maybeShowMainWindow()`（有可见插件则跳过）；`second-instance` 聚焦策略改为"有可见子程序聚焦子程序，否则恢复母程序"
+- [x] **测试**: 新增 `scripts/test-window-lifecycle.js` **19/19 通过** (launch 直启 / 意外 show 拦截 / 插件切换 / 返回 / existing-window 直启 / X 关闭恢复 / 挂起恢复，每步断言互斥+至少一个可见)
+- [x] **真实应用端到端验证** (CDP 驱动 dev 实例): 子程序运行期间 `location.reload()` 母程序页面 → **确认页面确实重载 (did-finish-load 触发) 且母窗口保持隐藏**；子程序关闭 → 母窗口恢复，**5/5 通过**
+- [x] 回归: 音效测试 9/9、md 测试 48/48 + 12/12、`npm run build` 通过
 
 ---
 

@@ -6,11 +6,40 @@
       bengbeng: 'sounds/bengbeng.mp3', loading: 'sounds/loading.mp3',
       home: 'sounds/home.mp3', setting: 'sounds/setting.mp3'
     };
+
+    // 音量/静音设置: 取自母程序 (经主进程镜像下发, 见 plugin-preload.js 的 hundun.sound)
+    // 修复: 旧版硬编码 audio.volume = 0.5, 无视用户音量滑块与静音开关 ——
+    //       用户调低音量后进入子程序音效"莫名其妙变大", 静音也会响
+    let _soundSettings = (() => {
+      try {
+        if (window.hundun && window.hundun.sound && window.hundun.sound.getSettings) {
+          return window.hundun.sound.getSettings();
+        }
+      } catch (e) { /* ignore */ }
+      return { soundEnabled: true, volume: 50 };
+    })();
+    try {
+      if (window.hundun && window.hundun.sound && window.hundun.sound.onSettingsChanged) {
+        window.hundun.sound.onSettingsChanged((s) => { _soundSettings = s; });
+      }
+    } catch (e) { /* ignore */ }
+
+    // 计算本次播放音量 (0~1); 静音或音量为 0 时返回 0
+    const _resolveSoundVolume = () => {
+      if (!_soundSettings || _soundSettings.soundEnabled === false) return 0;
+      const v = Number(_soundSettings.volume);
+      if (!Number.isFinite(v)) return 0.5;
+      return Math.max(0, Math.min(100, v)) / 100;
+    };
+
     const playSound = async (name) => {
+      const volume = _resolveSoundVolume();
+      if (volume <= 0) return; // 静音: 不创建也不播放
       try {
         const src = _pluginSoundMap[name];
         if (!src) return;
         const path = require('path');
+        // 项目根目录: plugins/fast-cmd/ → 往上两级
         const root = path.resolve(__dirname || '.', '..', '..');
         const absPath = path.join(root, src).replace(/\\/g, '/');
         const fileUrl = 'file:///' + absPath;
@@ -19,9 +48,15 @@
         }
         const audio = _pluginAudioCache[name];
         audio.currentTime = 0;
-        audio.volume = 0.5;
-        audio.play().catch(() => {});
+        audio.volume = volume;
+        audio.play().catch(() => {
+          // 文件缺失/解码失败 → 兜底走 IPC (主窗口播放, 音量同样按用户设置)
+          if (window.hundun && window.hundun.host && window.hundun.host.playSound) {
+            window.hundun.host.playSound(name);
+          }
+        });
       } catch (e) {
+        // fallback: IPC
         if (window.hundun && window.hundun.host && window.hundun.host.playSound) {
           window.hundun.host.playSound(name);
         }

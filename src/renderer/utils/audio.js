@@ -1,5 +1,5 @@
 // 音效管理器
-import { loadSoundSettings, DEFAULT_SOUND_SETTINGS } from './sound-settings'
+import { loadSoundSettings, DEFAULT_SOUND_SETTINGS, syncSoundSettingsToMain } from './sound-settings'
 
 const sounds = {}
 const soundLoaded = {}
@@ -142,6 +142,8 @@ export const applySavedVolume = () => {
 initSounds()
 // 立即应用已保存的音量，避免启动后到打开设置页之前一直是满格音量
 applySavedVolume()
+// 把同一份设置镜像到主进程 (插件窗口直放音效读取该镜像)
+syncSoundSettingsToMain(loadSoundSettings())
 
 // 调试句柄: 便于排查音效问题 (控制台查看 window.__huntunAudio)
 if (typeof window !== 'undefined') {

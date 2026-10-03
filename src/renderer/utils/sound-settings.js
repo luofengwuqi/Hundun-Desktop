@@ -1,5 +1,9 @@
 // 音效设置持久化 (localStorage)
 // 供 utils/audio.js (启动时应用一次) 与 Settings.vue (读写) 共用，避免 key/默认值重复定义
+//
+// 同时负责把设置镜像推送给主进程 (src/main/sound-settings.js):
+//   主进程缓存后广播给插件窗口, 插件直放音效按同一份设置播放
+//   (修复: 插件曾硬编码 0.5 音量, 无视音量滑块与静音开关)
 
 const STORAGE_KEY = 'huntun-lite-settings'
 
@@ -29,6 +33,22 @@ export const loadSoundSettings = () => {
   }
 }
 
+// 推送当前设置到主进程 (运行期镜像, 供插件窗口读取)
+// 经 preload 暴露的 electronAPI 桥接; 测试环境/无 preload 时静默跳过
+export const syncSoundSettingsToMain = (settings) => {
+  try {
+    const payload = settings || loadSoundSettings()
+    if (typeof window !== 'undefined' && window.electronAPI && typeof window.electronAPI.syncSoundSettings === 'function') {
+      window.electronAPI.syncSoundSettings({
+        soundEnabled: payload.soundEnabled !== false,
+        volume: payload.volume
+      })
+    }
+  } catch (e) {
+    console.warn('[sound-settings] Failed to sync settings to main:', e)
+  }
+}
+
 // 保存音效设置
 export const saveSoundSettings = (settings) => {
   try {
@@ -36,6 +56,8 @@ export const saveSoundSettings = (settings) => {
       soundEnabled: settings.soundEnabled !== false,
       volume: settings.volume
     }))
+    // 同步镜像到主进程 → 广播给插件窗口
+    syncSoundSettingsToMain(settings)
   } catch (e) {
     console.warn('[sound-settings] Failed to save settings:', e)
   }
@@ -44,5 +66,6 @@ export const saveSoundSettings = (settings) => {
 export default {
   DEFAULT_SOUND_SETTINGS,
   loadSoundSettings,
-  saveSoundSettings
+  saveSoundSettings,
+  syncSoundSettingsToMain
 }

@@ -97,6 +97,35 @@ window.hundun = {
     }
   },
 
+  // ========== 音效设置 API ==========
+  // 数据源: 主进程内存镜像 (src/main/sound-settings.js), 由母程序 renderer 推送。
+  // 插件直放音效必须按此设置播放 (音量滑块 + 静音开关), 不得硬编码音量。
+  sound: {
+    _settings: (() => {
+      const fallback = { soundEnabled: true, volume: 50 }
+      try {
+        const s = ipcRenderer.sendSync('sound:get-sync')
+        if (s && typeof s === 'object') return s
+      } catch (e) {
+        // 主进程未注册该通道时退回默认值
+      }
+      return fallback
+    })(),
+    // 同步获取当前音效设置 {soundEnabled, volume(0-100)}
+    getSettings() {
+      return { ...this._settings }
+    },
+    // 订阅设置变更 (设置页修改音量/静音后主进程广播), 返回取消订阅函数
+    onSettingsChanged(callback) {
+      const handler = (event, settings) => {
+        this._settings = { ...this._settings, ...settings }
+        callback(this.getSettings())
+      }
+      ipcRenderer.on('sound:settings-changed', handler)
+      return () => ipcRenderer.removeListener('sound:settings-changed', handler)
+    }
+  },
+
   // ========== 宿主 API ==========
   host: {
     returnToParent: async () => {

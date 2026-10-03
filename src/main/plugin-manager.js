@@ -52,6 +52,19 @@ class PluginManager {
     
     // 追踪主窗口的置顶状态（launchPluginWithTransition 隐藏主窗口前保存，returnToParent 恢复）
     this._mainWindowPinned = false
+
+    // ========== 母程序/子程序可见性互斥 (2026-10-03) ==========
+    // 任何路径把主窗口 show() 出来时, 只要有插件窗口可见, 立即重新隐藏 ——
+    // 防止 did-finish-load / ready-to-show / 页面重载(HMR) / focus 等路径
+    // 在子程序运行期间把母程序带出来 (母子同时运行)
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.on('show', () => {
+        if (this.hasVisiblePluginWindow()) {
+          console.log('[PluginManager] Main window show() blocked: plugin window visible, re-hiding')
+          this.mainWindow.hide()
+        }
+      })
+    }
     
     // 插件窗口默认配置
     this.defaultWindowConfig = {
@@ -300,6 +313,8 @@ class PluginManager {
     // 如果已经在运行，返回现有窗口
     if (plugin.state === PluginState.RUNNING && this.windows.has(pluginId)) {
       const existingWindow = this.windows.get(pluginId)
+      // 互斥: 先藏母程序, 再显示插件窗口 (避免瞬间双窗口同时可见)
+      this._hideMainForPlugin()
       existingWindow.show()
       // 重新应用置顶状态（show() 会重置 always-on-top）
       if (this.pluginPinStates.get(pluginId)) {
@@ -370,6 +385,8 @@ class PluginManager {
         }
         this._emit('plugin-closed', { pluginId })
         console.log(`[PluginManager] Plugin window closed: ${pluginId}`)
+        // 互斥的另一半: 插件窗口消失后恢复母程序 (否则整个应用无可见窗口)
+        this._recoverMainWindowIfIdle()
       })
 
       // 窗口错误处理
@@ -466,13 +483,10 @@ class PluginManager {
       })
     }
     
-    // 隐藏母程序，显示插件
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      // 保存主窗口置顶状态（hide 不会重置 always-on-top，但 show 会）
-      this._mainWindowPinned = this.mainWindow.isAlwaysOnTop()
-      console.log(`[PluginManager] Hiding main window, pin state saved: ${this._mainWindowPinned}`)
-      this.mainWindow.hide()
-    }
+    // 互斥: 先隐藏其他可见插件 (同一时间只允许一个子程序可见), 再隐藏母程序, 最后显示新插件
+    this._hideAllPluginWindows(pluginId)
+    console.log(`[PluginManager] Hiding main window, pin state saved: ${this._mainWindowPinned}`)
+    this._hideMainForPlugin()
     console.log(`[PluginManager] Showing plugin window: ${pluginId}`)
     pluginWindow.show()
     pluginWindow.focus()
@@ -490,7 +504,8 @@ class PluginManager {
   async returnToParent(pluginId) {
     const pluginWindow = this.windows.get(pluginId)
     if (!pluginWindow || pluginWindow.isDestroyed()) {
-      // 直接显示母程序
+      // 直接显示母程序 (互斥: 先隐藏所有可见插件窗口)
+      this._hideAllPluginWindows()
       if (this.mainWindow && !this.mainWindow.isDestroyed()) {
         this.mainWindow.show()
         // 重新应用置顶状态（show() 会重置 always-on-top）
@@ -508,7 +523,8 @@ class PluginManager {
     await this._sleep(900)
     
     // 隐藏插件，显示母程序
-    pluginWindow.hide()
+    // 互斥: 隐藏**所有**插件窗口 (历史 Bug: 只隐藏活动插件, 其他插件窗口仍可见 → 母子同屏)
+    this._hideAllPluginWindows()
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
       this.mainWindow.show()
       // 重新应用置顶状态（show() 会重置 always-on-top）
@@ -538,11 +554,13 @@ class PluginManager {
     const plugin = this.plugins.get(pluginId)
     const pluginWindow = this.windows.get(pluginId)
     
-    if (plugin && plugin.state === PluginState.RUNNING && pluginWindow) {
+    if (plugin && plugin.state === PluginState.RUNNING && pluginWindow && !pluginWindow.isDestroyed()) {
       pluginWindow.hide()
       plugin.state = PluginState.SUSPENDED
       this._emit('plugin-suspended', { pluginId })
       console.log(`[PluginManager] Plugin suspended: ${pluginId}`)
+      // 互斥: 隐藏后若无任何可见插件窗口, 恢复母程序 (保证始终有窗口在运行)
+      this._recoverMainWindowIfIdle()
     }
   }
 
@@ -554,7 +572,9 @@ class PluginManager {
     const plugin = this.plugins.get(pluginId)
     const pluginWindow = this.windows.get(pluginId)
     
-    if (plugin && plugin.state === PluginState.SUSPENDED && pluginWindow) {
+    if (plugin && plugin.state === PluginState.SUSPENDED && pluginWindow && !pluginWindow.isDestroyed()) {
+      // 互斥: 先藏母程序再显示插件
+      this._hideMainForPlugin()
       pluginWindow.show()
       // 重新应用置顶状态（show() 会重置 always-on-top）
       if (this.pluginPinStates.get(pluginId)) {
@@ -765,6 +785,63 @@ class PluginManager {
    */
   getActivePluginId() {
     return this.activePluginId
+  }
+
+  /**
+   * 获取当前可见的插件窗口列表
+   * @returns {BrowserWindow[]}
+   */
+  getVisiblePluginWindows() {
+    const visible = []
+    for (const win of this.windows.values()) {
+      if (win && !win.isDestroyed() && win.isVisible()) visible.push(win)
+    }
+    return visible
+  }
+
+  /**
+   * 是否存在可见的插件窗口 (互斥不变式的判定依据)
+   * @returns {boolean}
+   */
+  hasVisiblePluginWindow() {
+    return this.getVisiblePluginWindows().length > 0
+  }
+
+  /**
+   * 显示插件窗口前隐藏母程序 (互斥: 先藏母, 再显子, 避免任何重叠窗口)
+   * 同时保存母程序置顶状态供 returnToParent 恢复
+   */
+  _hideMainForPlugin() {
+    if (this.mainWindow && !this.mainWindow.isDestroyed() && this.mainWindow.isVisible()) {
+      this._mainWindowPinned = this.mainWindow.isAlwaysOnTop()
+      this.mainWindow.hide()
+    }
+  }
+
+  /**
+   * 隐藏所有插件窗口 (返回母程序 / 启动新插件时保证只留一个可见窗口)
+   * @param {string} [exceptPluginId] - 保留显示的插件
+   */
+  _hideAllPluginWindows(exceptPluginId = null) {
+    for (const [pluginId, win] of this.windows) {
+      if (pluginId === exceptPluginId) continue
+      if (win && !win.isDestroyed() && win.isVisible()) win.hide()
+    }
+  }
+
+  /**
+   * 插件窗口消失后的母程序恢复 (互斥的另一半: 保证始终有一个窗口在运行)
+   */
+  _recoverMainWindowIfIdle() {
+    if (!this.mainWindow || this.mainWindow.isDestroyed()) return
+    if (this.hasVisiblePluginWindow()) return
+    if (this.mainWindow.isVisible()) return
+    console.log('[PluginManager] Plugin gone, restoring main window')
+    this.mainWindow.show()
+    // show() 会重置 always-on-top, 按保存的置顶状态恢复
+    if (this._mainWindowPinned) {
+      this.mainWindow.setAlwaysOnTop(true, 'screen-saver')
+    }
   }
 
   /**

@@ -781,6 +781,9 @@ const handleKeydown = (e) => {
 }
 
 // ========== 生命周期 ==========
+// 插件音效经主进程转发到本窗口, 统一交给 audio.js 播放 (同一份音量/静音设置)
+let unsubscribePlaySound = null
+
 onMounted(async () => {
   // 确保过渡状态被重置（防止上次异常退出残留）
   isTransitioning.value = false
@@ -793,7 +796,16 @@ onMounted(async () => {
   syncShelfWithStore()
   
   document.addEventListener('keydown', handleKeydown)
-  
+
+  // 接管插件转发过来的音效 (单一播放器: audio.js, 与母程序音量设置一致)
+  try {
+    if (window.electronAPI && window.electronAPI.onPlaySound) {
+      unsubscribePlaySound = window.electronAPI.onPlaySound((name) => playSound(name))
+    }
+  } catch (e) {
+    console.warn('[App] Failed to register play-sound handler:', e)
+  }
+
   // 监听主题请求（插件窗口请求当前主题状态）
   try {
     const { ipcRenderer } = require('electron')
@@ -814,6 +826,10 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
+  if (unsubscribePlaySound) {
+    try { unsubscribePlaySound() } catch (e) { /* ignore */ }
+    unsubscribePlaySound = null
+  }
 })
 </script>
 

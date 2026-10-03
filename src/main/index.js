@@ -3,6 +3,7 @@ const path = require('path')
 const fs = require('fs')
 const { PluginManager } = require('./plugin-manager')
 const { pickZipFile, installFromZip } = require('./plugin-installer')
+const { registerSoundSettingsIPC } = require('./sound-settings')
 
 // ========== 根治 GPU 缓存权限问题 ==========
 // 所有应用数据统一放在可执行文件旁边，不依赖系统目录
@@ -33,15 +34,41 @@ if (!gotTheLock) {
   app.quit()
 } else {
   app.on('second-instance', () => {
-    // 当运行第二个实例时，将聚焦到主窗口
-    if (mainWindow) {
+    // 再次启动应用时的聚焦策略 (互斥):
+    //   有可见子程序窗口 → 聚焦子程序 (绝不能把隐藏的母程序带出来)
+    //   否则 → 恢复并聚焦母程序 (兼作"子程序已关闭但母程序仍隐藏"的兜底恢复)
+    if (pluginManager && pluginManager.hasVisiblePluginWindow()) {
+      const visible = pluginManager.getVisiblePluginWindows()
+      if (visible.length) {
+        visible[visible.length - 1].focus()
+        return
+      }
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) {
       if (mainWindow.isMinimized()) mainWindow.restore()
+      if (!mainWindow.isVisible()) mainWindow.show()
       mainWindow.focus()
     }
   })
 }
 
 let mainWindow
+
+// preload 脚本路径:
+//   electron-vite 统一输出到 out/preload/preload.js (开发与打包一致);
+//   旧布局 out/main/preload.js 作为回退候选 (存在才用)。
+//   历史 Bug: 开发分支曾硬编码 out/main/preload.js —— 该文件不存在,
+//   preload 静默加载失败, window.electronAPI 长期不可用。
+function resolvePreloadPath () {
+  const candidates = [
+    path.join(__dirname, '../preload/preload.js'),
+    path.join(__dirname, 'preload.js')
+  ]
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p
+  }
+  return candidates[0]
+}
 
 function createWindow () {
   // 创建浏览器窗口（比 console 大一圈，透明背景露出桌面）
@@ -58,7 +85,7 @@ function createWindow () {
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
-      preload: path.join(__dirname, app.isPackaged ? '../preload/preload.js' : 'preload.js'),
+      preload: resolvePreloadPath(),
       autoplayPolicy: 'no-user-gesture-required'
     },
     icon: path.join(__dirname, '../renderer/assets/icon.png'),
@@ -81,15 +108,27 @@ function createWindow () {
 
   // 窗口准备就绪后显示
   mainWindow.once('ready-to-show', () => {
-    mainWindow.show()
+    maybeShowMainWindow('ready-to-show')
   })
 
   // 页面加载完成后再显示（防止白屏闪烁）
+  // 注意: 页面重载 (dev 下 Vite HMR 全量刷新、生产下任何 reload) 都会再次触发本事件,
+  // 若此时子程序窗口可见, 直接 show() 会造成"母程序和子程序同时运行"
   mainWindow.webContents.on('did-finish-load', () => {
     if (mainWindow && !mainWindow.isVisible()) {
-      mainWindow.show()
+      maybeShowMainWindow('did-finish-load')
     }
   })
+}
+
+// 显示母程序窗口的唯一入口: 有可见子程序窗口时跳过显示 (互斥不变式)
+function maybeShowMainWindow (reason) {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  if (pluginManager && pluginManager.hasVisiblePluginWindow()) {
+    console.log(`[Main] skip main window show (${reason}): plugin window visible`)
+    return
+  }
+  mainWindow.show()
 }
 
 // ========== 插件管理器实例 ==========
@@ -107,6 +146,9 @@ app.whenReady().then(() => {
   
   // 注册 FastTXT 文件系统 IPC 处理器
   registerFastTXTIPC(pluginManager)
+
+  // 注册音效设置 IPC (主进程镜像 + 跨窗口广播, 供插件直放音效读取)
+  registerSoundSettingsIPC()
   
   console.log('[Main] Plugin manager initialized')
 

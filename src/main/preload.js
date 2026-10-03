@@ -1,7 +1,12 @@
-const { contextBridge, ipcRenderer } = require('electron')
+const { ipcRenderer } = require('electron')
 
-// 暴露安全的 API 给渲染进程
-contextBridge.exposeInMainWorld('electronAPI', {
+// 注意: 本窗口 contextIsolation: false, 不能使用 contextBridge ——
+// contextBridge.exposeInMainWorld 在该模式下会抛
+// "contextBridge API can only be used when contextIsolation is enabled",
+// 导致整个 preload 加载失败 (window.electronAPI 一直是 undefined,
+// play-sound 监听、插件扫描等全部失效)。
+// 与 plugin-preload.js 保持一致, 直接挂载到 window 上。
+window.electronAPI = {
   // ========== 窗口控制 ==========
   windowMinimize: () => ipcRenderer.send('window-minimize'),
   windowMaximize: () => ipcRenderer.send('window-maximize'),
@@ -122,58 +127,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
   
   // 移除所有监听器
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel),
-  
-  // 监听插件音效播放
+
+  // 插件音效 (经主进程转发到本窗口) → 交给母程序 audio.js 播放
+  // 注意: 播放/音量统一由 utils/audio.js 决定 (用户音量/静音设置),
+  //       本 preload 不再自行创建 Audio (2026-10-03 移除重复播放器)
   onPlaySound: (callback) => {
     const handler = (event, soundName) => callback(soundName)
     ipcRenderer.on('play-sound', handler)
     return () => ipcRenderer.removeListener('play-sound', handler)
-  }
-})
+  },
 
-// 直接监听 play-sound 并播放音效（插件窗口用）
-const _audioCache = {}
-const _soundFiles = {
-  click: 'sounds/click.mp3', change: 'sounds/change.mp3',
-  OK: 'sounds/OK.mp3', exit: 'sounds/exit.mp3', error: 'sounds/error.mp3',
-  bengbeng: 'sounds/bengbeng.mp3', loading: 'sounds/loading.mp3',
-  home: 'sounds/home.mp3', setting: 'sounds/setting.mp3'
+  // 推送音效设置到主进程 (运行期镜像, 供插件窗口直放音效读取)
+  syncSoundSettings: (settings) => ipcRenderer.send('sound:sync', settings)
 }
-
-// 读取母程序设置页保存的音效设置 (localStorage)
-// 主窗口 contextIsolation: false，preload 与页面共用同一上下文，可直接读取
-// key 与 src/renderer/utils/sound-settings.js 保持一致
-const _SOUND_SETTINGS_KEY = 'huntun-lite-settings'
-const _getSoundVolume = () => {
-  try {
-    const saved = localStorage.getItem(_SOUND_SETTINGS_KEY)
-    if (!saved) return 0.5 // 默认 50%，与设置页默认一致
-    const data = JSON.parse(saved)
-    if (data.soundEnabled === false) return 0
-    const volume = Number(data.volume)
-    if (!Number.isFinite(volume)) return 0.5
-    return Math.max(0, Math.min(100, volume)) / 100
-  } catch (e) {
-    return 0.5
-  }
-}
-
-ipcRenderer.on('play-sound', (event, soundName) => {
-  try {
-    const src = _soundFiles[soundName]
-    if (!src) return
-    if (!_audioCache[soundName]) {
-      _audioCache[soundName] = new Audio(src)
-    }
-    const audio = _audioCache[soundName]
-    audio.currentTime = 0
-    audio.volume = _getSoundVolume()
-    audio.play().catch(() => {})
-  } catch (e) {}
-})
 
 // 暴露 Node.js 环境信息
-contextBridge.exposeInMainWorld('nodeInfo', {
+window.nodeInfo = {
   platform: process.platform,
   arch: process.arch,
   versions: {
@@ -181,4 +150,4 @@ contextBridge.exposeInMainWorld('nodeInfo', {
     electron: process.versions.electron,
     chrome: process.versions.chrome
   }
-})
+}

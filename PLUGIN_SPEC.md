@@ -339,8 +339,12 @@ sdk.host.onThemeChange((theme) => {
   console.log('Theme changed to:', theme)
 })
 
-// 播放音效
+// 播放音效 —— 音量与静音状态自动跟随母程序设置页 (2026-10-03 起)
 sdk.host.playSound('click') // click | change | OK | exit | error | ...
+// 插件若自行直放 (new Audio)，必须读取同一份设置:
+//   const s = window.hundun.sound.getSettings()          // {soundEnabled, volume(0-100)}
+//   window.hundun.sound.onSettingsChanged(cb)            // 设置变更时刷新
+//   静音 (soundEnabled === false) 时不要播放
 
 // 显示通知
 sdk.host.notify('Hello!', 'success')

@@ -1,7 +1,7 @@
 # Hundun Lite - 项目进度文档
 
-> 最后更新: 2026-10-02
-> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 新增 Markdown 实时渲染浏览模式 (markdown-it, Typora 式, 单换行直接渲染为换行)；修复浏览模式点击/聚焦后视口跳回文档顶部
+> 最后更新: 2026-10-03
+> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 新增 Markdown 实时渲染浏览模式 (markdown-it, Typora 式, 单换行直接渲染为换行)；修复"进入子程序后音效音量异常变大"（插件直放无视音量设置 + 主窗口 preload 因 contextBridge 长期失效一并修复）；修复"子程序启动时母程序意外出现"（母子窗口可见性互斥不变式）
 
 ---
 
@@ -150,8 +150,9 @@ src/
 │   ├── database.js           # 数据存储管理器 (JSON 文件)
 │   ├── plugin-manager.js     # 插件管理器 (BrowserWindow 创建)
 │   ├── plugin-installer.js   # 本地插件安装器 (.zip 审核 + 解压 + 落盘)
-│   ├── plugin-preload.js     # 插件窗口预加载脚本 (window.hundun)
-│   ├── preload.js            # 主窗口预加载脚本 (onPlaySound)
+│   ├── plugin-preload.js     # 插件窗口预加载脚本 (window.hundun, 含 hundun.sound)
+│   ├── preload.js            # 主窗口预加载脚本 (window.electronAPI 直挂, onPlaySound/syncSoundSettings)
+│   ├── sound-settings.js     # 音效设置主进程镜像 (sound:sync / get-sync / settings-changed 广播)
 │   ├── paths.js              # 路径解析 (appRoot / 插件目录 / 安装目录)
 │   └── transition.html       # 跨窗口加载蒙版
 ├── renderer/
@@ -265,7 +266,8 @@ FastTXT 数据   userData/plugins/fast-txt/  (统一, 不写 asar)
 - **plugin:setAlwaysOnTop** — 设置插件窗口置顶
 - **window-pin** — 母程序窗口置顶
 - **plugin:getTheme** — 主题查询 (路由到 themeRequestSender)
-- **plugin:playSound** — 音效播放 (转发到主窗口)
+- **plugin:playSound** — 音效播放 (转发到主窗口 → App.vue → audio.js)
+- **sound:sync / sound:get-sync / sound:get** — 音效设置镜像同步/读取，变更后 `sound:settings-changed` 广播所有窗口
 - **scanAll** — 扫描所有可用插件
 
 #### 2. 插件管理器 (plugin-manager.js v2.0)
@@ -275,17 +277,25 @@ FastTXT 数据   userData/plugins/fast-txt/  (统一, 不写 asar)
 - **launchPluginWithTransition()**: 关闭当前插件 → loading mask → 启动新插件
 - **getAllScannedPlugins()**: 扫描 plugins/ 目录获取全部插件信息
 - **setAlwaysOnTop()**: 设置插件窗口置顶状态
+- **窗口互斥 (2026-10-03)**: `hasVisiblePluginWindow()` / `getVisiblePluginWindows()` 判定可见性；`_hideMainForPlugin()` 先藏母再显子；`_hideAllPluginWindows(except)` 保证单子程序；`_recoverMainWindowIfIdle()` 插件消失后恢复母程序；主窗口 `show` 事件中央拦截
 
 #### 3. 插件预加载脚本 (plugin-preload.js v2.0)
 - **兼容性**: 直接挂载 `window.hundun = {...}` (兼容 `contextIsolation: false`)
-- **不再使用**: `contextBridge.exposeInMainWorld` (已移除)
-- **API**: storage / messaging / window / host / permissions / utils
+- **不再使用**: `contextBridge.exposeInMainWorld` (在 contextIsolation:false 下会抛错, 已移除)
+- **API**: storage / messaging / window / host / permissions / sound / utils
 - **window.setAlwaysOnTop()**: 设置窗口置顶
+- **hundun.sound**: `getSettings()` (sendSync 读主进程镜像) / `onSettingsChanged(cb)` — 插件直放音效的音量/静音依据
 
 #### 4. 主窗口预加载脚本 (preload.js)
-- **音效路由**: `ipcRenderer.on('play-sound')` → 触发音频播放
+- **兼容性**: 与 plugin-preload 一致直接挂载 `window.electronAPI = {...}` (2026-10-03 修复: contextBridge 在 contextIsolation:false 下抛错导致整个 preload 静默失效)
+- **音效路由**: `onPlaySound(cb)` 把主进程转发的 `play-sound` 交给 App.vue → `audio.js` 单一播放器 (preload 不再自带 Audio)
+- **音效设置**: `syncSoundSettings(settings)` → 主进程 `sound:sync` 镜像 (启动/保存时推送)
 - **主题监听**: `ipcRenderer.on('theme:toggle')` 同步主题
 - **窗口置顶**: `windowPin()` API 暴露给渲染进程
+
+#### 4.1 音效设置主进程镜像 (sound-settings.js)
+- **职责**: `sound:sync` 接收 renderer 推送并 normalize → 内存缓存 → `sound:settings-changed` 广播所有窗口; `sound:get-sync` (sendSync 供插件 preload 初始化) / `sound:get` (异步备用)
+- **不持久化**: 持久化仍由 renderer localStorage 负责, 主进程只是运行期镜像
 
 #### 5. 插件开发 SDK (plugin-sdk.js)
 - **host API**: returnToParent / getTheme / onThemeChange / playSound / notify
@@ -396,6 +406,18 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 ### 已决策 (2026-10-02)
 34. **md 浏览模式滚动保持**: `renderMdPreview()` 一律在**移动 DOM 之前**捕获 `scrollTop`（构建 fragment 会把旧块搬出容器，容器搬空时 Chromium 立即把 scrollTop 钳为 0）；并以目标活动块重建前的顶边为锚点做位移补偿，保证点击块的视觉位置零位移；回归测试 `scripts/test-md-scroll.js`
 
+### 已决策 (2026-10-03)
+35. **音效设置单一真相 = 主进程镜像**: 持久化仍在 renderer localStorage（`sound-settings.js`），但保存/启动时经 `sound:sync` 推送到主进程 `src/main/sound-settings.js` 做运行期镜像，主进程以 `sound:settings-changed` 广播给所有窗口；插件经 `window.hundun.sound.getSettings()/onSettingsChanged()` 读取（sendSync 初值）。**插件直放音效必须按此设置播放，禁止硬编码音量**
+36. **主窗口唯一音效播放器 = audio.js**: preload 不再自带 Audio 播放器；插件经 IPC 转发的音效由 `App.vue` 的 `onPlaySound` 接住后调用 `audio.js.playSound()`（复用 readyState 排队 / 错误恢复）。音效清单仍两份（母程序 `audio.js` / 插件 sdk `_pluginSoundMap`），后续可考虑由主进程统一下发
+37. **preload 直接挂载（纠正历史偏差）**: `contextIsolation: false` 时 `contextBridge.exposeInMainWorld` 会抛错导致**整个 preload 静默失效**——主窗口 preload 改为直接 `window.electronAPI = {...}`（与 plugin-preload.js 的 `window.hundun` 一致）；preload 路径由 `resolvePreloadPath()` 候选解析（`out/preload/preload.js` 优先，兼容旧 `out/main/preload.js` 布局）
+
+### 已决策 (2026-10-03, 窗口互斥)
+38. **母程序/子程序可见性互斥不变式**: 任意时刻有且仅有一个窗口可见。实现三层防护:
+   - **中央防护**: `PluginManager` 构造时给主窗口挂 `show` 监听，有可见插件窗口时立即重新隐藏（覆盖页面重载 `did-finish-load`、`ready-to-show`、`second-instance` 等一切 show 路径）
+   - **顺序防护**: 一切"显子"操作前先 `_hideMainForPlugin()`（先藏母再显子）；`launchPluginWithTransition` 先 `_hideAllPluginWindows(新插件)` 再显示新插件；`returnToParent` 隐藏**所有**插件窗口后再 show 母
+   - **恢复防护**: 插件窗口 `closed` / `suspendPlugin` → `_recoverMainWindowIfIdle()` 恢复母程序（含置顶状态），保证"不会两个都没了"
+   - 主窗口显示入口收敛到 `maybeShowMainWindow(reason)`（index.js），有可见插件则跳过并打日志
+
 ### 待定
 1. 插件市场实现方案
 2. 插件签名和安全验证
@@ -441,9 +463,13 @@ chore: 构建/工具链更新
 - ✅ 插件音效转发路径固定 0.5 音量、忽略静音开关 (preload.js 改读同一份设置)
 - ✅ 音效时有时无/刚启动无声 (playSound 改以 readyState 为准 + 多就绪事件监听 + error 恢复，不再死等 canplaythrough)
 - ✅ FastTXT md 浏览模式点击/聚焦后视口跳回文档顶部 (`renderMdPreview()` 在搬空容器后才读 scrollTop，读到的已是 0；改为搬移 DOM 前捕获 + 目标块锚点补偿，见 CHANGELOG 2026-10-02)
+- ✅ 进入子程序后音效特别大 (插件 sdk 直放硬编码 0.5 无视音量/静音；改为读主进程镜像 `hundun.sound`，见 CHANGELOG 2026-10-03)
+- ✅ 主窗口 preload 长期失效 (`contextBridge` 在 contextIsolation:false 下抛错 → electronAPI 一直 undefined；插件 IPC 音效无声、插件磁盘扫描不生效、dev preload 路径错误一并修复，见 CHANGELOG 2026-10-03)
+- ✅ 子程序启动时母程序意外出现 / 母子同时运行 (主窗口 show 路径无互斥保护：页面重载 did-finish-load、returnToParent 只藏活动插件、startPlugin 直启不藏母；中央 `show` 监听 + `maybeShowMainWindow` + 先藏母再显子，见 CHANGELOG 2026-10-03 与决策 38)
+- ✅ 插件窗口 X 关闭/挂起后整个应用无可见窗口 (closed/suspend → `_recoverMainWindowIfIdle()` 恢复母程序)
 
 ### 待修复
-- [ ] Electron中音效可能无法播放 (自动播放策略)
+- [ ] 插件窗口**非手势触发**的音效可能被自动播放策略拦截 (母程序有 `autoplayPolicy: no-user-gesture-required`，插件窗口未配置；插件窗口"直放"路径不受影响，仅 IPC 兜底路径理论上有风险)
 - [ ] 大量卡带时性能优化
 
 ---
@@ -454,6 +480,7 @@ chore: 构建/工具链更新
 1. 完善定时任务管理器/命令执行器插件功能
 2. 插件社区/插件市场对接（ADD 菜单"逛逛社区"目前跳转 Gitee 仓库，待官网完成后切换）
 3. ~~清理旧 Vue 组件文件 (CalculatorApp.vue, FastTXTApp.vue, TestApp.vue)~~ ✅ 2026-09-25 已完成
+4. 音效架构后续整改 (可选): 音效文件清单由主进程统一下发（现存母程序 `audio.js` 与插件 sdk 两份）、清理无引用死代码 `src/renderer/services/plugin-service.js`、插件窗口统一配置 `autoplayPolicy`
 
 ---
 
