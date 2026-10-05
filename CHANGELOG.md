@@ -1,6 +1,33 @@
 # Hundun Lite - 更新日志
 
-> 最后更新: 2026-10-03
+> 最后更新: 2026-10-04
+
+---
+
+## 2026-10-04
+
+### FastCmd 脚本执行 Bug: 脚本从未被真实执行
+- [x] **用户报告 Bug**: FastCmd 点"运行"弹「🚀 脚本已启动」但脚本实际从未执行
+- [x] **根因**: `runScript()` 把**相对路径**传给 `executeScript()` —— `spawn('cmd.exe', ['/c', relPath], { cwd: dirname(relPath) })` 中 `dirname('a.bat')` = `'.'`, cwd 变成渲染进程目录 (项目根/exe 根), 脚本不在那里 → `cmd.exe` 秒退 (exit 1); 且 `spawn` 的失败是**异步 error 事件**, `try/catch` 抓不到 → 照样 `return true` → 假成功 toast
+- [x] **连带同源 Bug**: `getScriptInfo()` 相对路径 `statSync` 恒 null (弹窗不显示 Size); `openInSystemEditor()` 相对路径 `shell.openPath` 失败; 且 `openPath` 对 `.bat` 是 open 动词 = **直接运行**而非编辑
+- [x] **修复 — 绝对路径**: 新增 `resolveScriptAbsPath(relPath)` 经 `window.hundun.fs.getBasePath()` 拼数据目录绝对路径, `runScript` / `editScript` / `showScriptActionModal` 全部改走绝对路径, 执行前 `fs.existsSync` 预检
+- [x] **修复 — 真实执行 + 可见控制台窗口** (`executor.js` 重写):
+  - 启动链 `cmd /c start "" /wait cmd /c <wrapper> <script> <exitfile>` — `start /wait` 新开控制台窗口, **`pause` 可交互阻塞、输出可见** (直接 spawn + `stdio:ignore` 时 pause 不阻塞、窗口不可用, 经 7 轮 Electron 实验确认)
+  - 自研 wrapper (纯 ASCII, 脚本路径走参数 → 规避中文/空格路径编码与引号问题): `.ps1` 分发 powershell / `.bat .cmd` 走 `call`, 并用**延迟展开** `!errorlevel!` 写退出码文件 (cmd 缺陷: `echo %errorlevel%>file` 展开为空)
+  - `start /wait` 外层退出码恒 0 不传播 → 真实退出码从退出码文件读取, 用完即删; 外层 spawn 成功 (`spawn` 事件) 即弹「已启动」, 脚本退出后非 0 再弹「退出码 N」
+- [x] **修复 — 编辑按钮**: `openInSystemEditor` 改 PowerShell `Start-Process -Verb Edit` (edit 动词, 打开编辑器不执行脚本), 经 `FASTCMD_EDIT_TARGET` 环境变量传路径避免引号问题
+- [x] **测试**: 新增 `scripts/test-fastcmd-exec.js` (真实 main.html + mock fs 落临时盘) **18/18 通过**: 真实执行 marker 落盘 / exit 0 不报错 / 退出码 7 toast / 中文+空格路径 / .ps1 / 缺失文件报错 / 刷新按钮 / 外部删文件夹自动退出模式 / 弹窗 Size
+- [x] 回归: `npm run build` 通过
+
+### FastCmd 移植 FastTxt 通用功能: 底部刷新按钮
+- [x] 底部栏新增 🔄 刷新按钮 (顺序: +新建 / 🗑️回收站 / 📁文件夹 / 🔄刷新), 复用 FastTxt 09-24 方案
+- [x] `refreshFilesFromDisk()`: 重新读盘同步列表; 刷新后当前文件夹若已被外部删除, 自动退出文件夹模式回根目录
+- [x] SVG 刷新图标 (`stroke: currentColor` 自适应主题) + 深色模式加号/刷新图标纯白、浅色保持朱红 (FastTxt 09-26 样式)
+- [x] i18n: `buttons.refresh` 中英文 + `toast.scriptExitCode` 中英文
+
+### FastCmd 旧数据目录迁移
+- [x] `plugins/fast-cmd/file/` (含 start-opencode.bat, 原被 git 跟踪) 迁移合并到 `user-data/plugins/fast-cmd/file/`, 两份 `.order.json` 合并 (并修复其中的编码损坏)
+- [x] 删除 `plugins/fast-cmd/file/` + `git rm --cached`; `.gitignore` 补 `plugins/fast-cmd/file/` (与 fast-txt 09-29 处理一致)
 
 ---
 

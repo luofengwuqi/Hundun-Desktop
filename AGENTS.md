@@ -1,7 +1,7 @@
 # Hundun Lite - 项目进度文档
 
-> 最后更新: 2026-10-03
-> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 新增 Markdown 实时渲染浏览模式 (markdown-it, Typora 式, 单换行直接渲染为换行)；修复"进入子程序后音效音量异常变大"（插件直放无视音量设置 + 主窗口 preload 因 contextBridge 长期失效一并修复）；修复"子程序启动时母程序意外出现"（母子窗口可见性互斥不变式）
+> 最后更新: 2026-10-04
+> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 新增 Markdown 实时渲染浏览模式 (markdown-it, Typora 式, 单换行直接渲染为换行)；修复"进入子程序后音效音量异常变大"（插件直放无视音量设置 + 主窗口 preload 因 contextBridge 长期失效一并修复）；修复"子程序启动时母程序意外出现"（母子窗口可见性互斥不变式）；**修复 FastCmd 脚本从未真实执行（相对路径 + 假成功 toast），改为绝对路径 + start /wait 可见控制台 + 退出码回报；FastCmd 移植底部刷新按钮；旧数据目录 plugins/fast-cmd/file/ 迁移至 user-data**
 
 ---
 
@@ -202,7 +202,17 @@ plugins/                       # 插件目录 (每个插件一个子目录)
 │   # ⚠️ 用户文件不在插件目录 → user-data/plugins/fast-txt/file/
 │   #    旧的 plugins/fast-txt/file/ 迁移残留已于 2026-09-29 删除 (详见 STORAGE.md)
 ├── timer-manager/             # 定时任务管理器 (占位)
-└── fast-cmd/                  # 脚本管理器
+├── fast-cmd/                 # 脚本管理器 (与 fast-txt 同构, 无内置编辑器)
+│   ├── manifest.json        # entry: "main.html", 800×540, permissions: []
+│   ├── main.html            # 入口 (js/ 按序加载)
+│   ├── css/                 # 9 个样式 (含 footer.css 刷新按钮 SVG 样式)
+│   └── js/                  # 17 个脚本
+│       ├── executor.js      # 脚本执行器 (resolveScriptAbsPath 绝对路径 /
+│       │                    #   wrapper+start /wait 可见控制台 / 退出码文件 /
+│       │                    #   openInSystemEditor 走 edit 动词)
+│       └── ...
+│   # ⚠️ 用户脚本不在插件目录 → user-data/plugins/fast-cmd/file/
+│   #    旧的 plugins/fast-cmd/file/ 已于 2026-10-04 迁移删除 (详见 CHANGELOG)
 ```
 
 ### 构建管线 (2026-09-23 修复)
@@ -418,6 +428,9 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
    - **恢复防护**: 插件窗口 `closed` / `suspendPlugin` → `_recoverMainWindowIfIdle()` 恢复母程序（含置顶状态），保证"不会两个都没了"
    - 主窗口显示入口收敛到 `maybeShowMainWindow(reason)`（index.js），有可见插件则跳过并打日志
 
+### 已决策 (2026-10-04, FastCmd 执行链路)
+39. **FastCmd 脚本执行 = 绝对路径 + wrapper + `start /wait`**: ①路径一律经 `resolveScriptAbsPath()` (`hundun.fs.getBasePath()` + 相对路径拼接), 禁止把相对路径交给 `spawn`/`stat`/`openPath`; ②启动链 `cmd /c start "" /wait cmd /c wrapper script exitfile` — `start /wait` 新开可见控制台 (`pause` 可交互、输出可见; 直接 spawn+stdio:ignore 时 pause 不阻塞), wrapper 纯 ASCII 且路径走参数 (规避中文/空格编码), 退出码用**延迟展开** `!errorlevel!` 写文件 (cmd 的 `%errorlevel%>file` 展开为空); ③外层 spawn `spawn`/`error` 事件判定真实启动成败, 退出码读文件 (外层 `start` 不传播), 非 0 弹 toast; ④「编辑」必须走 edit 动词 (PowerShell `Start-Process -Verb Edit`), `shell.openPath` 对 .bat 是运行
+
 ### 待定
 1. 插件市场实现方案
 2. 插件签名和安全验证
@@ -467,6 +480,8 @@ chore: 构建/工具链更新
 - ✅ 主窗口 preload 长期失效 (`contextBridge` 在 contextIsolation:false 下抛错 → electronAPI 一直 undefined；插件 IPC 音效无声、插件磁盘扫描不生效、dev preload 路径错误一并修复，见 CHANGELOG 2026-10-03)
 - ✅ 子程序启动时母程序意外出现 / 母子同时运行 (主窗口 show 路径无互斥保护：页面重载 did-finish-load、returnToParent 只藏活动插件、startPlugin 直启不藏母；中央 `show` 监听 + `maybeShowMainWindow` + 先藏母再显子，见 CHANGELOG 2026-10-03 与决策 38)
 - ✅ 插件窗口 X 关闭/挂起后整个应用无可见窗口 (closed/suspend → `_recoverMainWindowIfIdle()` 恢复母程序)
+- ✅ FastCmd 点运行弹「已启动」但脚本从未执行 (相对路径 spawn cwd 错位 + 异步 error 抓不到假成功；改 `resolveScriptAbsPath` 绝对路径 + `start /wait` 可见控制台 + wrapper 延迟展开写退出码文件，见 CHANGELOG 2026-10-04)
+- ✅ FastCmd「编辑」用 `shell.openPath` 对 .bat 是 open 动词 = 执行而非编辑 (改 PowerShell `-Verb Edit`)
 
 ### 待修复
 - [ ] 插件窗口**非手势触发**的音效可能被自动播放策略拦截 (母程序有 `autoplayPolicy: no-user-gesture-required`，插件窗口未配置；插件窗口"直放"路径不受影响，仅 IPC 兜底路径理论上有风险)
@@ -477,7 +492,7 @@ chore: 构建/工具链更新
 ## 🎯 下一步行动
 
 ### 下一步
-1. 完善定时任务管理器/命令执行器插件功能
+1. 完善定时任务管理器/命令执行器插件功能 (FastCmd 执行链路已于 2026-10-04 修复)
 2. 插件社区/插件市场对接（ADD 菜单"逛逛社区"目前跳转 Gitee 仓库，待官网完成后切换）
 3. ~~清理旧 Vue 组件文件 (CalculatorApp.vue, FastTXTApp.vue, TestApp.vue)~~ ✅ 2026-09-25 已完成
 4. 音效架构后续整改 (可选): 音效文件清单由主进程统一下发（现存母程序 `audio.js` 与插件 sdk 两份）、清理无引用死代码 `src/renderer/services/plugin-service.js`、插件窗口统一配置 `autoplayPolicy`

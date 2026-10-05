@@ -66,11 +66,13 @@ const FastCmdI18n = (() => {
       showDeleted: '查看已删除',
       openInExplorer: '在文件管理器中打开',
       shredAll: '粉碎全部',
+      refresh: '刷新',
     },
     shredder: { label: '碎纸机' },
     toast: {
       scriptRunning: '脚本已启动: {name}',
       scriptError: '启动失败: {name}',
+      scriptExitCode: '脚本异常退出 (退出码 {code}): {name}',
       editorOpen: '已打开编辑器: {name}',
     },
     defaults: {
@@ -143,11 +145,13 @@ const FastCmdI18n = (() => {
       showDeleted: 'Show deleted',
       openInExplorer: 'Open in Explorer',
       shredAll: 'Shred all',
+      refresh: 'Refresh',
     },
     shredder: { label: 'SHREDDER' },
     toast: {
       scriptRunning: 'Script started: {name}',
       scriptError: 'Failed to start: {name}',
+      scriptExitCode: 'Script exited abnormally (code {code}): {name}',
       editorOpen: 'Editor opened: {name}',
     },
     defaults: {

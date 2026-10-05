@@ -17,11 +17,12 @@
     };
 
     // ========== 弹出脚本操作模态框 ==========
-    const showScriptActionModal = (file) => {
+    const showScriptActionModal = async (file) => {
       if (!isScriptFile(file.name)) return;
       const type = getScriptType(file.name);
       const typeName = type === 'powershell' ? 'PowerShell' : 'Batch/CMD';
-      const info = getScriptInfo(getRelPath(file));
+      const absPath = await resolveScriptAbsPath(getRelPath(file));
+      const info = absPath ? getScriptInfo(absPath) : null;
 
       const msgParts = [
         FastCmdI18n.t('modal.runConfirm'),
@@ -37,27 +38,46 @@
       ]);
     };
 
-    const runScript = (file) => {
-      const api = fsAPI();
-      if (!api) return;
-      const filePath = getRelPath(file);
-      const success = executeScript(filePath);
-      if (success) {
-        showToast('🚀', FastCmdI18n.t('toast.scriptRunning', { name: file.name }));
-        playSound('OK');
-      } else {
+    const runScript = async (file) => {
+      const absPath = await resolveScriptAbsPath(getRelPath(file));
+      if (!absPath || !fs.existsSync(absPath)) {
         showToast('❌', FastCmdI18n.t('toast.scriptError', { name: file.name }));
+        playSound('error');
+        return;
+      }
+
+      const result = await executeScript(absPath, {
+        onStarted: () => {
+          showToast('🚀', FastCmdI18n.t('toast.scriptRunning', { name: file.name }));
+          playSound('OK');
+        },
+      });
+
+      // 脚本结束后按退出码反馈 (running=超时仍在跑, 不打扰)
+      if (result.running) return;
+      if (!result.ok) {
+        if (result.code !== null) {
+          showToast('⚠️', FastCmdI18n.t('toast.scriptExitCode', { name: file.name, code: result.code }));
+        } else {
+          showToast('❌', FastCmdI18n.t('toast.scriptError', { name: file.name }));
+        }
         playSound('error');
       }
     };
 
     const editScript = (file) => {
-      const filePath = getRelPath(file);
-      const success = openInSystemEditor(filePath);
-      if (success) {
-        showToast('✏️', FastCmdI18n.t('toast.editorOpen', { name: file.name }));
-        playSound('click');
-      }
+      resolveScriptAbsPath(getRelPath(file)).then((absPath) => {
+        if (!absPath || !fs.existsSync(absPath)) {
+          showToast('❌', FastCmdI18n.t('toast.scriptError', { name: file.name }));
+          playSound('error');
+          return;
+        }
+        const success = openInSystemEditor(absPath);
+        if (success) {
+          showToast('✏️', FastCmdI18n.t('toast.editorOpen', { name: file.name }));
+          playSound('click');
+        }
+      });
     };
 
     // ========== Rename ==========

@@ -4,6 +4,7 @@ dist/
 .user-data/
 user-data/
 plugins/fast-txt/file/
+plugins/fast-cmd/file/
 .idea/
 *.log
 .DS_Store

@@ -104,6 +104,7 @@
         { id: 'add', icon: '+', action: showCreateMenu, title: FastCmdI18n.t('buttons.create') },
         { id: 'trash', icon: '🗑️', action: toggleTrashMode, title: isTrashMode ? FastCmdI18n.t('buttons.backToFiles') : FastCmdI18n.t('buttons.showDeleted') },
         { id: 'folder', icon: '📁', action: openFolder, title: FastCmdI18n.t('buttons.openInExplorer') },
+        { id: 'refresh', icon: '<svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="21 4 21 10 15 10"/><polyline points="3 20 3 14 9 14"/><path d="M4.2 9a8.5 8.5 0 0 1 14-3.2L21 10"/><path d="M19.8 15a8.5 8.5 0 0 1-14 3.2L3 14"/></svg>', action: refreshFilesFromDisk, title: FastCmdI18n.t('buttons.refresh') },
       ];
       return btns;
     };

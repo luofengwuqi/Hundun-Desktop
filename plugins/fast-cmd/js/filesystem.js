@@ -105,6 +105,26 @@
 
     const saveFiles = async () => { await saveOrderToDisk(); };
 
+    // ========== 手动刷新: 读取磁盘真实文件并同步到程序 ==========
+    // 用于外部修改文件目录后 (资源管理器增删文件) 手动同步列表
+    const refreshFilesFromDisk = async () => {
+      playSound('click');
+      await loadFilesFromDisk();
+
+      // 刷新后当前文件夹可能已被外部删除 → 自动退出文件夹模式
+      if (isFolderMode && currentFolderPath) {
+        const folderStillExists = files.some(f => f.isFolder && !f.deleted && f.id === currentFolderPath);
+        if (!folderStillExists) {
+          isFolderMode = false;
+          currentFolderPath = '';
+          selectedRow = 0;
+          selectedCol = 0;
+        }
+      }
+
+      updateUI();
+    };
+
     const finalizeFsChange = async (soundName) => {
       await loadFilesFromDisk();
       saveFiles();
