@@ -1,7 +1,7 @@
 # Hundun Lite - 项目进度文档
 
-> 最后更新: 2026-10-04
-> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 新增 Markdown 实时渲染浏览模式 (markdown-it, Typora 式, 单换行直接渲染为换行)；修复"进入子程序后音效音量异常变大"（插件直放无视音量设置 + 主窗口 preload 因 contextBridge 长期失效一并修复）；修复"子程序启动时母程序意外出现"（母子窗口可见性互斥不变式）；**修复 FastCmd 脚本从未真实执行（相对路径 + 假成功 toast），改为绝对路径 + start /wait 可见控制台 + 退出码回报；FastCmd 移植底部刷新按钮；旧数据目录 plugins/fast-cmd/file/ 迁移至 user-data**
+> 最后更新: 2026-10-07
+> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 新增 Markdown 实时渲染浏览模式 (markdown-it, Typora 式, 单换行直接渲染为换行)；修复"进入子程序后音效音量异常变大"（插件直放无视音量设置 + 主窗口 preload 因 contextBridge 长期失效一并修复）；修复"子程序启动时母程序意外出现"（母子窗口可见性互斥不变式）；**修复 FastCmd 脚本从未真实执行（相对路径 + 假成功 toast），改为绝对路径 + start /wait 可见控制台 + 退出码回报；FastCmd 移植底部刷新按钮；旧数据目录 plugins/fast-cmd/file/ 迁移至 user-data；修复中文 .ps1 执行报"意外的标记"（UTF-8 无 BOM 被 PowerShell 5.1 按 GBK 读取 → ensurePs1Bom 就地补 BOM）**
 
 ---
 
@@ -429,7 +429,10 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
    - 主窗口显示入口收敛到 `maybeShowMainWindow(reason)`（index.js），有可见插件则跳过并打日志
 
 ### 已决策 (2026-10-04, FastCmd 执行链路)
-39. **FastCmd 脚本执行 = 绝对路径 + wrapper + `start /wait`**: ①路径一律经 `resolveScriptAbsPath()` (`hundun.fs.getBasePath()` + 相对路径拼接), 禁止把相对路径交给 `spawn`/`stat`/`openPath`; ②启动链 `cmd /c start "" /wait cmd /c wrapper script exitfile` — `start /wait` 新开可见控制台 (`pause` 可交互、输出可见; 直接 spawn+stdio:ignore 时 pause 不阻塞), wrapper 纯 ASCII 且路径走参数 (规避中文/空格编码), 退出码用**延迟展开** `!errorlevel!` 写文件 (cmd 的 `%errorlevel%>file` 展开为空); ③外层 spawn `spawn`/`error` 事件判定真实启动成败, 退出码读文件 (外层 `start` 不传播), 非 0 弹 toast; ④「编辑」必须走 edit 动词 (PowerShell `Start-Process -Verb Edit`), `shell.openPath` 对 .bat 是运行
+39. **FastCmd 脚本执行 = 绝对路径 + wrapper + `start /wait`**: ①路径一律经 `resolveScriptAbsPath()` (`hundun.fs.getBasePath()` + 相对路径拼接), 禁止把相对路径交给 `spawn`/`stat`/`openPath`; ②启动链 `cmd /c start "" /wait cmd /c wrapper script exitfile` — `start /wait` 新开可见控制台 (`pause` 可交互、输出可见; 直接 spawn+stdio:ignore 时 pause 不阻塞), wrapper 纯 ASCII 且路径走参数 (规避中文/空格编码), 退出码用**延迟展开** `!errorlevel!` 写文件 (cmd 的 `%errorlevel%>file` 展开为空); ③外层 spawn `spawn`/`error` 事件判定真实启动成败, 退出码读文件 (外层 `start` 不传播), 非 0 弹 toast;    ④「编辑」必须走 edit 动词 (PowerShell `Start-Process -Verb Edit`), `shell.openPath` 对 .bat 是运行
+
+### 已决策 (2026-10-07, FastCmd .ps1 编码守卫)
+40. **.ps1 执行前 `ensurePs1Bom()` 就地补 UTF-8 BOM**: Windows PowerShell 5.1 `-File` 对无 BOM 文件按系统 ANSI(GBK) 解码, UTF-8 中文脚本乱码且引号配对被破坏 → 解析错误 ("意外的标记")。规则: 无 BOM + 含非 ASCII + 严格 UTF-8 校验通过 → 就地补 3 字节 BOM (字符不变, 保留 $PSScriptRoot/相对路径语义, 优于临时副本); 纯 ASCII / 已有 BOM / 非 UTF-8 (GBK, PS 按 ANSI 读本就正确) 不动; 写入失败 best effort 不阻断执行
 
 ### 待定
 1. 插件市场实现方案
@@ -482,6 +485,7 @@ chore: 构建/工具链更新
 - ✅ 插件窗口 X 关闭/挂起后整个应用无可见窗口 (closed/suspend → `_recoverMainWindowIfIdle()` 恢复母程序)
 - ✅ FastCmd 点运行弹「已启动」但脚本从未执行 (相对路径 spawn cwd 错位 + 异步 error 抓不到假成功；改 `resolveScriptAbsPath` 绝对路径 + `start /wait` 可见控制台 + wrapper 延迟展开写退出码文件，见 CHANGELOG 2026-10-04)
 - ✅ FastCmd「编辑」用 `shell.openPath` 对 .bat 是 open 动词 = 执行而非编辑 (改 PowerShell `-Verb Edit`)
+- ✅ FastCmd 执行中文 .ps1 报「表达式或语句中包含意外的标记」(UTF-8 无 BOM 被 PowerShell 5.1 按 GBK 读取 → 乱码+引号错位; `ensurePs1Bom` 执行前就地补 BOM, 见 CHANGELOG 2026-10-07 与决策 40)
 
 ### 待修复
 - [ ] 插件窗口**非手势触发**的音效可能被自动播放策略拦截 (母程序有 `autoplayPolicy: no-user-gesture-required`，插件窗口未配置；插件窗口"直放"路径不受影响，仅 IPC 兜底路径理论上有风险)

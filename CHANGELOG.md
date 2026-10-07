@@ -1,6 +1,20 @@
 # Hundun Lite - 更新日志
 
-> 最后更新: 2026-10-04
+> 最后更新: 2026-10-07
+
+---
+
+## 2026-10-07
+
+### FastCmd 执行 .ps1 报"表达式或语句中包含意外的标记" (中文脚本编码)
+- [x] **用户报告 Bug**: 运行中文 .ps1 (如 `修复 - opencode - 一类 npm 包损坏.ps1`) 报一串 `表达式或语句中包含意外的标记 ")"` / `"{"` 解析错误, 脚本内容显示为乱码 (`鋍？${pkgName}：鏈◆...`)
+- [x] **根因**: 脚本文件是 **UTF-8 无 BOM**, 而 Windows PowerShell 5.1 `-File` 在无 BOM 时按系统 ANSI(GBK) 解码 — UTF-8 中文字节被按 GBK 解释 → 乱码 + 引号配对被破坏 → 解析错误 (路径与启动链均正常, 纯编码问题; GBK 文件与纯 ASCII 文件不受影响)
+- [x] **修复 — `executor.js` 新增 `ensurePs1Bom(absPath)`** (`executeScript` 入口调用):
+  - 无 BOM + 含非 ASCII + 严格 UTF-8 校验通过 → **就地补 3 字节 UTF-8 BOM** (字符内容不变, 一次性, 编辑器后续保存带 BOM 不会重复处理)
+  - 纯 ASCII (两种编码等价) / 已有 UTF-8·UTF-16 BOM / 非 UTF-8 (GBK 文件 PS 按 ANSI 读本就正确) → 不动
+  - 选**就地补 BOM** 而非临时副本: 保留 `$PSScriptRoot` / `$MyInvocation` / 自引用路径语义; 写入失败 (只读/被占用) best effort, 不阻断执行
+- [x] **测试**: `scripts/test-fastcmd-exec.js` 新增 5b 用例 → **23/23 通过**: 中文+emoji 无 BOM ps1 真实执行 / marker 中文未乱码 (证明 PS 按 UTF-8 读) / 执行后已补 BOM / 纯 ASCII ps1 不被补 BOM
+- [x] 回归: `npm run build` 通过
 
 ---
 

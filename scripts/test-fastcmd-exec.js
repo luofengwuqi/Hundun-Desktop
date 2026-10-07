@@ -116,6 +116,33 @@ app.whenReady().then(async () => {
     await waitFor(`files.some(f => f.name === 't.ps1')`);
     await js(`runScript(files.find(f => f.name === 't.ps1')); true`);
     check('.ps1 真实执行 (marker 落盘)', await waitFor(`require('fs').existsSync(${JSON.stringify(PS1_MARK)})`, 10000), 'ps1 marker missing');
+    check('纯 ASCII .ps1 不被补 BOM', (() => {
+      const b = fss.readFileSync(path.join(DATA_ROOT, 't.ps1'));
+      return !(b[0] === 0xef && b[1] === 0xbb && b[2] === 0xbf);
+    })());
+
+    // ---------- 5b. UTF-8 无 BOM 中文 .ps1 (PowerShell 5.1 按 GBK 读 → 乱码/解析错) ----------
+    console.log('== 5b. ps1 utf-8 no-bom ==');
+    const PS1_CN_MARK = path.join(DATA_ROOT, 'ps1_cn_marker.txt');
+    const ps1CnContent =
+      'Write-Host "    ✅ 中文：测试完成" -ForegroundColor Green\n' +
+      '[IO.File]::WriteAllText("' + PS1_CN_MARK + '", "中文OK", [Text.Encoding]::UTF8)\n' +
+      'exit 0\n';
+    await js(`fsAPI().writeFile('cn.ps1', ${JSON.stringify(ps1CnContent)}).then(() => loadFilesFromDisk())`);
+    await waitFor(`files.some(f => f.name === 'cn.ps1')`);
+    check('补 BOM 前无 BOM', (() => {
+      const b = fss.readFileSync(path.join(DATA_ROOT, 'cn.ps1'));
+      return !(b[0] === 0xef && b[1] === 0xbb && b[2] === 0xbf);
+    })());
+    await js(`runScript(files.find(f => f.name === 'cn.ps1')); true`);
+    check('中文 .ps1 真实执行 (marker 落盘)', await waitFor(`require('fs').existsSync(${JSON.stringify(PS1_CN_MARK)})`, 10000), 'cn ps1 marker missing (解析失败或未执行)');
+    check('中文未乱码 (PS 按 UTF-8 读取)', (() => {
+      try { return fss.readFileSync(PS1_CN_MARK, 'utf8').includes('中文OK'); } catch (_) { return false; }
+    })());
+    check('执行后已补 UTF-8 BOM', (() => {
+      const b = fss.readFileSync(path.join(DATA_ROOT, 'cn.ps1'));
+      return b[0] === 0xef && b[1] === 0xbb && b[2] === 0xbf;
+    })());
 
     // ---------- 6. 不存在的脚本 → 报错 ----------
     console.log('== 6. missing script ==');

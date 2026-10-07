@@ -38,6 +38,39 @@
     };
 
     /**
+     * .ps1 编码守卫 (bug 2026-10-04: 中文 ps1 报"意外的标记")
+     * 根因: Windows PowerShell 5.1 的 -File 在无 BOM 时按系统 ANSI(GBK) 读脚本,
+     *       UTF-8 中文脚本被按 GBK 解码 → 乱码 + 引号配对被破坏 → 解析错误。
+     * 处理: 无 BOM + 含非 ASCII + 严格 UTF-8 校验通过 → 就地补 3 字节 UTF-8 BOM;
+     *       纯 ASCII (两种编码等价) / 已有 BOM / 非 UTF-8 (GBK 文件 PS 按 ANSI 读本就正确) → 不动。
+     * 失败 (只读/被占用) 不阻断执行, best effort。
+     */
+    const ensurePs1Bom = (absPath) => {
+      try {
+        if (path.extname(absPath).toLowerCase() !== '.ps1') return;
+        const buf = fs.readFileSync(absPath);
+        if (buf.length >= 3 && buf[0] === 0xef && buf[1] === 0xbb && buf[2] === 0xbf) return;
+        let nonAscii = false;
+        for (let i = 0; i < buf.length; i++) {
+          if (buf[i] >= 0x80) { nonAscii = true; break; }
+        }
+        if (!nonAscii) return;
+        try {
+          new TextDecoder('utf-8', { fatal: true }).decode(buf);
+        } catch (_) {
+          return; // 非 UTF-8 (如 GBK): 保持原样
+        }
+        const out = Buffer.alloc(buf.length + 3);
+        out[0] = 0xef; out[1] = 0xbb; out[2] = 0xbf;
+        buf.copy(out, 3);
+        fs.writeFileSync(absPath, out);
+        console.log('[FastCmd] .ps1 UTF-8 无 BOM → 已补 BOM:', absPath);
+      } catch (err) {
+        console.error('[FastCmd] ensurePs1Bom error:', err);
+      }
+    };
+
+    /**
      * 相对路径 → 数据目录绝对路径 (经 preload getBasePath)
      */
     const resolveScriptAbsPath = async (relPath) => {
@@ -60,6 +93,7 @@
      * @returns {Promise<{ok:boolean, code:number|null, error:string|null}>} 脚本退出后 resolve
      */
     const executeScript = (absPath, handlers = {}) => {
+      ensurePs1Bom(absPath);
       ensureWrapper();
       const exitFile = path.join(os.tmpdir(), `fastcmd-exit-${Date.now()}-${Math.random().toString(36).slice(2, 10)}.txt`);
 
