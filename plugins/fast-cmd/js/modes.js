@@ -3,36 +3,6 @@
       if (!isTrashMode) { await loadFilesFromDisk(); }
       playSound('click');
       isTrashMode = !isTrashMode;
-      isFolderMode = false;
-      currentFolderPath = '';
-      selectedRow = 0;
-      selectedCol = 0;
-      isSearchFocused = false;
-      searchQuery = '';
-      searchInput.value = '';
-      searchInput.blur();
-      updateUI();
-    };
-
-    // ========== Folder Operations ==========
-    const enterFolder = (folderFile) => {
-      playSound('click');
-      isFolderMode = true;
-      isTrashMode = false;
-      currentFolderPath = folderFile.name;
-      selectedRow = 0;
-      selectedCol = 0;
-      isSearchFocused = false;
-      searchQuery = '';
-      searchInput.value = '';
-      searchInput.blur();
-      updateUI();
-    };
-
-    const exitFolderMode = () => {
-      playSound('click');
-      isFolderMode = false;
-      currentFolderPath = '';
       selectedRow = 0;
       selectedCol = 0;
       isSearchFocused = false;
@@ -49,9 +19,8 @@
       const fileId = e.dataTransfer.getData('text/plain');
       if (!fileId) return;
       const file = files.find(f => f.id === fileId);
-      if (file && !file.deleted) {
-        if (file.isFolder) { await deleteFolderToTrash(file); }
-        else { await deleteFileToTrash(file); }
+      if (file && !file.deleted && !file.isFolder) {
+        await deleteFileToTrash(file);
       }
     };
 

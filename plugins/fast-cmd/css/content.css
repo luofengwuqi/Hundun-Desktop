@@ -34,40 +34,6 @@
       box-shadow: 0 0 12px var(--shadow-color);
     }
 
-    /* Breadcrumb */
-    .fcmd-breadcrumb {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 4px 12px;
-      background: var(--bg-card);
-      border-bottom: 1px solid var(--border-color);
-      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
-      font-size: 8px;
-    }
-
-    .breadcrumb-back {
-      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
-      font-size: 8px;
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      color: var(--accent-primary);
-      padding: 4px 8px;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .breadcrumb-back:hover {
-      background: var(--accent-primary);
-      color: var(--bg-body);
-    }
-
-    .breadcrumb-path {
-      color: var(--text-muted);
-      letter-spacing: 1px;
-    }
-
     .search-icon {
       font-size: 12px;
     }

@@ -34,7 +34,7 @@
         if (key === 's' || key === 'S') key = 'ArrowDown';
         if (key === 'a' || key === 'A') key = 'ArrowLeft';
         if (key === 'd' || key === 'D') key = 'ArrowRight';
-        const totalOpts = 3;
+        const totalOpts = 2;
         if (key === 'Escape') { closeCreateMenu(); playSound('click'); }
         else if (key === 'ArrowUp' || key === 'ArrowDown') {
           playSound('click');
@@ -46,7 +46,6 @@
           playSound('click');
           if (createMenuSelectedIdx === 0) createFile('bat');
           else if (createMenuSelectedIdx === 1) createFile('ps1');
-          else if (createMenuSelectedIdx === 2) createFolder();
           else closeCreateMenu();
         }
         return;
@@ -69,9 +68,6 @@
           searchQuery = '';
           searchInput.blur();
           updateUI();
-        } else if (isFolderMode) {
-          e.stopImmediatePropagation();
-          exitFolderMode();
         } else if (isTrashMode) {
           e.stopImmediatePropagation();
           isTrashMode = false;
@@ -166,7 +162,7 @@
           e.preventDefault();
           if (selectedRow === 0 && !isTrashMode) {
             const file = getDisplayFiles()[selectedCol];
-            if (file && !file.isFolder) startRename(file);
+            if (file) startRename(file);
           }
           break;
 
@@ -180,15 +176,13 @@
               selectedRow = 0;
               const file = list[selectedCol] || list[0];
               if (file.deleted) restoreFile(file);
-              else if (file.isFolder) enterFolder(file);
-              else showScriptActionModal(file);
+              else if (isScriptFile(file.name)) runScript(file);
             }
           } else if (selectedRow === 0) {
             const file = getDisplayFiles()[selectedCol];
             if (file) {
               if (file.deleted) restoreFile(file);
-              else if (file.isFolder) enterFolder(file);
-              else showScriptActionModal(file);
+              else if (isScriptFile(file.name)) runScript(file);
             }
           } else {
             const btn = getFooterButtons()[selectedCol];
@@ -201,10 +195,7 @@
           e.preventDefault();
           if (!isSearchFocused && selectedRow === 0 && !isTrashMode) {
             const file = getDisplayFiles()[selectedCol];
-            if (file && !file.deleted) {
-              if (file.isFolder) deleteFolderToTrash(file);
-              else deleteFileToTrash(file);
-            }
+            if (file && !file.deleted) deleteFileToTrash(file);
           }
           break;
       }

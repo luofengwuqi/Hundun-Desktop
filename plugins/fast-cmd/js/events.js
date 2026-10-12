@@ -25,9 +25,6 @@
     fileList.addEventListener('dragover', handleListDragOver);
     fileList.addEventListener('drop', handleListDrop);
 
-    // Breadcrumb back
-    breadcrumbBack.addEventListener('click', () => exitFolderMode());
-
     // Trash zone
     trashZone.addEventListener('dragover', (e) => { e.preventDefault(); isTrashDragOver = true; trashZone.classList.add('drag-over'); });
     trashZone.addEventListener('dragleave', () => { isTrashDragOver = false; trashZone.classList.remove('drag-over'); });
@@ -51,7 +48,6 @@
         const idx = parseInt(btn.dataset.idx);
         if (idx === 0) createFile('bat');
         else if (idx === 1) createFile('ps1');
-        else if (idx === 2) createFolder();
       });
     });
     createMenuCancel.addEventListener('click', closeCreateMenu);

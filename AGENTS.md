@@ -1,7 +1,7 @@
 # Hundun Lite - 项目进度文档
 
-> 最后更新: 2026-10-07
-> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 新增 Markdown 实时渲染浏览模式 (markdown-it, Typora 式, 单换行直接渲染为换行)；修复"进入子程序后音效音量异常变大"（插件直放无视音量设置 + 主窗口 preload 因 contextBridge 长期失效一并修复）；修复"子程序启动时母程序意外出现"（母子窗口可见性互斥不变式）；**修复 FastCmd 脚本从未真实执行（相对路径 + 假成功 toast），改为绝对路径 + start /wait 可见控制台 + 退出码回报；FastCmd 移植底部刷新按钮；旧数据目录 plugins/fast-cmd/file/ 迁移至 user-data；修复中文 .ps1 执行报"意外的标记"（UTF-8 无 BOM 被 PowerShell 5.1 按 GBK 读取 → ensurePs1Bom 就地补 BOM）**
+> 最后更新: 2026-10-12
+> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 新增 Markdown 实时渲染浏览模式 (markdown-it, Typora 式, 单换行直接渲染为换行)；修复"进入子程序后音效音量异常变大"（插件直放无视音量设置 + 主窗口 preload 因 contextBridge 长期失效一并修复）；修复"子程序启动时母程序意外出现"（母子窗口可见性互斥不变式）；修复 FastCmd 脚本从未真实执行（相对路径 + 假成功 toast），改为绝对路径 + start /wait 可见控制台 + 退出码回报；FastCmd 移植底部刷新按钮；旧数据目录 plugins/fast-cmd/file/ 迁移至 user-data；修复中文 .ps1 执行报"意外的标记"（UTF-8 无 BOM 被 PowerShell 5.1 按 GBK 读取 → ensurePs1Bom 就地补 BOM）；**FastCmd 交互简化：点击脚本即运行（操作弹窗移除，结果走 toast）、移除编辑功能、移除文件夹（脚本仅一级目录）**
 
 ---
 
@@ -202,14 +202,13 @@ plugins/                       # 插件目录 (每个插件一个子目录)
 │   # ⚠️ 用户文件不在插件目录 → user-data/plugins/fast-txt/file/
 │   #    旧的 plugins/fast-txt/file/ 迁移残留已于 2026-09-29 删除 (详见 STORAGE.md)
 ├── timer-manager/             # 定时任务管理器 (占位)
-├── fast-cmd/                 # 脚本管理器 (与 fast-txt 同构, 无内置编辑器)
+├── fast-cmd/                 # 脚本管理器 (单级目录, 点击脚本即运行, 无编辑功能)
 │   ├── manifest.json        # entry: "main.html", 800×540, permissions: []
 │   ├── main.html            # 入口 (js/ 按序加载)
 │   ├── css/                 # 9 个样式 (含 footer.css 刷新按钮 SVG 样式)
 │   └── js/                  # 17 个脚本
 │       ├── executor.js      # 脚本执行器 (resolveScriptAbsPath 绝对路径 /
-│       │                    #   wrapper+start /wait 可见控制台 / 退出码文件 /
-│       │                    #   openInSystemEditor 走 edit 动词)
+│       │                    #   wrapper+start /wait 可见控制台 / 退出码文件)
 │       └── ...
 │   # ⚠️ 用户脚本不在插件目录 → user-data/plugins/fast-cmd/file/
 │   #    旧的 plugins/fast-cmd/file/ 已于 2026-10-04 迁移删除 (详见 CHANGELOG)
@@ -429,10 +428,13 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
    - 主窗口显示入口收敛到 `maybeShowMainWindow(reason)`（index.js），有可见插件则跳过并打日志
 
 ### 已决策 (2026-10-04, FastCmd 执行链路)
-39. **FastCmd 脚本执行 = 绝对路径 + wrapper + `start /wait`**: ①路径一律经 `resolveScriptAbsPath()` (`hundun.fs.getBasePath()` + 相对路径拼接), 禁止把相对路径交给 `spawn`/`stat`/`openPath`; ②启动链 `cmd /c start "" /wait cmd /c wrapper script exitfile` — `start /wait` 新开可见控制台 (`pause` 可交互、输出可见; 直接 spawn+stdio:ignore 时 pause 不阻塞), wrapper 纯 ASCII 且路径走参数 (规避中文/空格编码), 退出码用**延迟展开** `!errorlevel!` 写文件 (cmd 的 `%errorlevel%>file` 展开为空); ③外层 spawn `spawn`/`error` 事件判定真实启动成败, 退出码读文件 (外层 `start` 不传播), 非 0 弹 toast;    ④「编辑」必须走 edit 动词 (PowerShell `Start-Process -Verb Edit`), `shell.openPath` 对 .bat 是运行
+39. **FastCmd 脚本执行 = 绝对路径 + wrapper + `start /wait`**: ①路径一律经 `resolveScriptAbsPath()` (`hundun.fs.getBasePath()` + 相对路径拼接), 禁止把相对路径交给 `spawn`/`stat`/`openPath`; ②启动链 `cmd /c start "" /wait cmd /c wrapper script exitfile` — `start /wait` 新开可见控制台 (`pause` 可交互、输出可见; 直接 spawn+stdio:ignore 时 pause 不阻塞), wrapper 纯 ASCII 且路径走参数 (规避中文/空格编码), 退出码用**延迟展开** `!errorlevel!` 写文件 (cmd 的 `%errorlevel%>file` 展开为空); ③外层 spawn `spawn`/`error` 事件判定真实启动成败, 退出码读文件 (外层 `start` 不传播), 非 0 弹 toast;    ④~~「编辑」必须走 edit 动词 (PowerShell `Start-Process -Verb Edit`)~~ (编辑功能已于 2026-10-12 整体移除, 见决策 41; `openInSystemEditor` 已删除)
 
 ### 已决策 (2026-10-07, FastCmd .ps1 编码守卫)
 40. **.ps1 执行前 `ensurePs1Bom()` 就地补 UTF-8 BOM**: Windows PowerShell 5.1 `-File` 对无 BOM 文件按系统 ANSI(GBK) 解码, UTF-8 中文脚本乱码且引号配对被破坏 → 解析错误 ("意外的标记")。规则: 无 BOM + 含非 ASCII + 严格 UTF-8 校验通过 → 就地补 3 字节 BOM (字符不变, 保留 $PSScriptRoot/相对路径语义, 优于临时副本); 纯 ASCII / 已有 BOM / 非 UTF-8 (GBK, PS 按 ANSI 读本就正确) 不动; 写入失败 best effort 不阻断执行
+
+### 已决策 (2026-10-12, FastCmd 交互简化)
+41. **FastCmd 三化简**: ①**点击即运行** — 点击脚本卡直接 `runScript()` (结果 toast: 已启动→运行成功/退出码 N/启动失败), 不再"先选中再点击执行"两段式; 回收站条目仍两段式 (再次点击已选中项才恢复); 非脚本扩展名 (外部放入的杂项文件) 有 `isScriptFile` 守卫不执行; 键盘 Enter 同步直接运行; **双击重命名已移除** (会先触发两次点击运行, 重命名入口保留 ✎ 按钮与 M 键); ②**编辑功能移除** — `showScriptActionModal`/`editScript`/`openInSystemEditor`/`getScriptInfo` 删除, 相关 i18n 键清理; ③**单级目录** — CREATE NEW 不再有 Folder 项, `loadFilesFromDisk` 跳过目录 (根目录与回收站均只收文件), 移除 `parentPath`/`isFolderMode`/面包屑导航/文件夹删除链路, 路径一律 `file.name`; 底部 📁 按钮保留 (语义="在文件管理器中打开")
 
 ### 待定
 1. 插件市场实现方案

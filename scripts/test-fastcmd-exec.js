@@ -18,7 +18,6 @@ const DATA_ROOT = fss.mkdtempSync(path.join(os.tmpdir(), 'fastcmd-test-'));
 process.env.FASTCMD_TEST_ROOT = DATA_ROOT;
 
 const MARKER = path.join(DATA_ROOT, 'marker.txt');
-const CN_DIR = path.join(DATA_ROOT, 'sp ace');
 const CN_MARK = path.join(DATA_ROOT, 'cn_marker.txt');
 const PS1_MARK = path.join(DATA_ROOT, 'ps1_marker.txt');
 const EXT_MARK = path.join(DATA_ROOT, 'ext_marker.txt');
@@ -96,17 +95,12 @@ app.whenReady().then(async () => {
     check('退出码 7 toast 出现', await waitFor(`(document.getElementById('toastContainer')||{textContent:''}).textContent.includes('7')`, 8000), await toastText());
     check('退出码文案含脚本名', (await toastText()).includes('fail.bat'), await toastText());
 
-    // ---------- 4. 中文 + 空格路径 ----------
+    // ---------- 4. 中文 + 空格文件名 (单级目录: 脚本直接放根目录) ----------
     console.log('== 4. chinese+space path ==');
     const cnBatContent = '@echo off\r\nchcp 65001 >nul\r\necho cn> "' + CN_MARK + '"\r\nexit /b 0\r\n';
-    await js(`(async () => {
-      const api = fsAPI();
-      await api.mkdir('sp ace');
-      await api.writeFile('sp ace/中文 脚本.bat', ${JSON.stringify(cnBatContent)});
-      await loadFilesFromDisk(); return true;
-    })()`);
-    await waitFor(`files.some(f => f.id === 'sp ace/中文 脚本.bat')`);
-    await js(`runScript(files.find(f => f.id === 'sp ace/中文 脚本.bat')); true`);
+    await js(`fsAPI().writeFile('中文 脚本.bat', ${JSON.stringify(cnBatContent)}).then(() => loadFilesFromDisk())`);
+    await waitFor(`files.some(f => f.id === '中文 脚本.bat')`);
+    await js(`runScript(files.find(f => f.id === '中文 脚本.bat')); true`);
     check('中文+空格 .bat 真实执行', await waitFor(`require('fs').existsSync(${JSON.stringify(CN_MARK)})`, 8000), 'cn marker missing');
 
     // ---------- 5. .ps1 执行 ----------
@@ -147,7 +141,7 @@ app.whenReady().then(async () => {
     // ---------- 6. 不存在的脚本 → 报错 ----------
     console.log('== 6. missing script ==');
     await js(`
-      files.push({ id: 'ghost.bat', name: 'ghost.bat', content: null, deleted: false, order: 999, isFolder: false, parentPath: '' });
+      files.push({ id: 'ghost.bat', name: 'ghost.bat', content: null, deleted: false, order: 999, isFolder: false });
       runScript(files.find(f => f.name === 'ghost.bat')); true
     `);
     check('缺失文件 toast 报错', await waitFor(`(document.getElementById('toastContainer')||{textContent:''}).textContent.includes('ghost.bat')`, 6000), await toastText());
@@ -160,29 +154,30 @@ app.whenReady().then(async () => {
     await js(`refreshFilesFromDisk(); true`);
     check('刷新后列表包含 external.bat', await waitFor(`files.some(f => f.name === 'external.bat')`, 6000));
 
-    // ---------- 8. 刷新后文件夹被外部删除 → 自动退出文件夹模式 ----------
-    console.log('== 8. refresh folder-exit guard ==');
+    // ---------- 8. 单级目录: 文件夹/子目录脚本不进列表 ----------
+    console.log('== 8. flat (no folders) ==');
     await js(`(async () => {
       const api = fsAPI();
-      await api.mkdir('tempfolder');
-      await api.writeFile('tempfolder/x.bat', '@echo off\\r\\n');
+      await api.mkdir('subfolder');
+      await api.writeFile('subfolder/nested.bat', '@echo off\\r\\nexit /b 0\\r\\n');
       await loadFilesFromDisk();
-      const folder = files.find(f => f.id === 'tempfolder');
-      enterFolder(folder); return true;
+      return true;
     })()`);
-    check('已进入文件夹模式', await js(`isFolderMode === true && currentFolderPath === 'tempfolder'`));
-    fss.rmSync(path.join(DATA_ROOT, 'tempfolder'), { recursive: true, force: true });
-    await js(`refreshFilesFromDisk(); true`);
-    await sleep(600);
-    check('外部删文件夹后自动退出文件夹模式', await js(`isFolderMode === false`));
+    check('根目录文件夹不出现在列表', !(await js(`files.some(f => f.name === 'subfolder')`)));
+    check('子目录脚本不出现 (仅一级目录)', !(await js(`files.some(f => f.name === 'nested.bat')`)));
+    check('createFolder 已移除', await js(`typeof createFolder === 'undefined'`));
+    check('文件夹入口已移除 (breadcrumb DOM 不存在)', await js(`!document.getElementById('folderBreadcrumb')`));
 
-    // ---------- 9. 弹窗信息含 Size (getScriptInfo 走绝对路径) ----------
-    console.log('== 9. script info ==');
-    await js(`showScriptActionModal(files.find(f => f.name === 'ok.bat')); true`);
-    check('操作弹窗显示 Size', await waitFor(`document.getElementById('modalMessage').textContent.includes('Size')`, 5000),
-      await js(`document.getElementById('modalMessage').textContent`));
-    check('弹窗含运行/编辑按钮', await js(`document.getElementById('modalButtons').children.length`) === 3);
-    await js(`closeModal(); true`);
+    // ---------- 9. 点击脚本即运行 (操作弹窗已移除, 结果走 toast) ----------
+    console.log('== 9. click to run ==');
+    check('showScriptActionModal 已移除', await js(`typeof showScriptActionModal === 'undefined'`));
+    check('openInSystemEditor 已移除 (编辑功能移除)', await js(`typeof openInSystemEditor === 'undefined'`));
+    try { fss.unlinkSync(MARKER); } catch (_) {}
+    await js(`handleFileClick(files.find(f => f.name === 'ok.bat')); true`);
+    check('运行 toast 含脚本名', await waitFor(`(document.getElementById('toastContainer')||{textContent:''}).textContent.includes('ok.bat')`, 6000), await toastText());
+    check('点击脚本自动运行 (marker 重新落盘)', await waitFor(`require('fs').existsSync(${JSON.stringify(MARKER)})`, 8000), 'marker missing');
+    check('未弹出操作弹窗', await js(`document.getElementById('modalOverlay').style.display`) === 'none');
+    await sleep(1000);
   } catch (e) {
     check('测试执行未抛异常', false, e.message);
   }

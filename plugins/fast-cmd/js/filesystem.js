@@ -1,8 +1,6 @@
     // ========== File System Helpers ==========
     const fsAPI = () => window.hundun && window.hundun.fs ? window.hundun.fs : null;
 
-    const getRelPath = (file) => (file.parentPath ? `${file.parentPath}/${file.name}` : file.name);
-
     // ========== 回收站唯一命名 ==========
     const pickFreeName = async (rel, name) => {
       const api = fsAPI();
@@ -57,36 +55,24 @@
       const newFiles = [];
       let maxOrder = 0;
 
+      // 单级目录: 只收集根目录文件, 文件夹与其内容不进列表
       for (const entry of activeEntries) {
         if (entry.name === ORDER_FILE || entry.name === TRASH_DIR) continue;
         if (entry.name.startsWith('.')) continue;
+        if (entry.isDirectory) continue;
         const id = entry.name;
         const order = orderMap[id] !== undefined ? orderMap[id] : maxOrder++;
         if (order >= maxOrder) maxOrder = order + 1;
-
-        if (entry.isDirectory) {
-          newFiles.push({ id, name: id, content: '', deleted: false, order, isFolder: true, parentPath: '' });
-          try {
-            const subEntries = await api.readDir(id);
-            for (const sub of subEntries) {
-              if (sub.name.startsWith('.')) continue;
-              const subId = `${id}/${sub.name}`;
-              const subOrder = orderMap[subId] !== undefined ? orderMap[subId] : maxOrder++;
-              if (subOrder >= maxOrder) maxOrder = subOrder + 1;
-              newFiles.push({ id: subId, name: sub.name, content: null, deleted: false, order: subOrder, isFolder: sub.isDirectory, parentPath: id });
-            }
-          } catch (_) {}
-        } else {
-          newFiles.push({ id, name: id, content: null, deleted: false, order, isFolder: false, parentPath: '' });
-        }
+        newFiles.push({ id, name: id, content: null, deleted: false, order, isFolder: false });
       }
 
       for (const entry of trashEntries) {
         if (entry.name.startsWith('.')) continue;
+        if (entry.isDirectory) continue;
         const diskName = entry.name;
         const order = orderMap[diskName] !== undefined ? orderMap[diskName] : maxOrder++;
         if (order >= maxOrder) maxOrder = order + 1;
-        newFiles.push({ id: diskName, name: diskName, parentPath: '', content: entry.isDirectory ? '' : null, deleted: true, order, isFolder: !!entry.isDirectory, diskName });
+        newFiles.push({ id: diskName, name: diskName, content: null, deleted: true, order, isFolder: false, diskName });
       }
 
       newFiles.sort((a, b) => a.order - b.order);
@@ -110,18 +96,6 @@
     const refreshFilesFromDisk = async () => {
       playSound('click');
       await loadFilesFromDisk();
-
-      // 刷新后当前文件夹可能已被外部删除 → 自动退出文件夹模式
-      if (isFolderMode && currentFolderPath) {
-        const folderStillExists = files.some(f => f.isFolder && !f.deleted && f.id === currentFolderPath);
-        if (!folderStillExists) {
-          isFolderMode = false;
-          currentFolderPath = '';
-          selectedRow = 0;
-          selectedCol = 0;
-        }
-      }
-
       updateUI();
     };
 

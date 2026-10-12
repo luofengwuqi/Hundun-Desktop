@@ -1,6 +1,29 @@
 # Hundun Lite - 更新日志
 
-> 最后更新: 2026-10-07
+> 最后更新: 2026-10-12
+
+---
+
+## 2026-10-12
+
+### FastCmd 交互简化: 点击脚本即运行 / 移除编辑功能 / 移除文件夹 (单级目录)
+- [x] **需求**: ①移除编辑功能; ②移除点击脚本后的操作弹窗, 点击脚本直接运行并以 toast 反馈成功/失败; ③移除添加文件夹功能, 脚本只存在一级目录
+- [x] **点击即运行** (`file-actions.js handleFileClick`):
+  - 点击脚本卡 → 选中高亮 + **立即 `runScript()`** (不再有"先选中再点击执行"两段式, 也不再弹操作弹窗)
+  - 结果反馈: 启动 toast「🚀 已启动」→ 脚本结束后替换为「✅ 运行成功」/「⚠️ 退出码 N」/「❌ 启动失败」(新增 i18n `toast.scriptSuccess` 中英文)
+  - 回收站条目保持两段式 (再次点击已选中项才恢复); 非脚本扩展名文件 (外部放入的杂项) 点击不执行 (`isScriptFile` 守卫)
+  - 键盘 Enter 同步改为直接 `runScript()` (原 `showScriptActionModal`)
+  - **移除双击重命名**: 双击会先触发两次"点击即运行" (脚本被执行两遍再进重命名), 重命名入口保留 ✎ 按钮与 M 键
+- [x] **移除编辑功能**:
+  - 删除 `showScriptActionModal` / `editScript` / `openInSystemEditor` / `getScriptInfo`; i18n 清理 `file.run/edit`、`modal.run/edit/runConfirm/editConfirm`、`toast.editorOpen`
+- [x] **移除文件夹 (单级目录)**:
+  - CREATE NEW 菜单移除「Folder」项 (只剩 .bat / .ps1), `createFolder` 删除
+  - 磁盘扫描 (`loadFilesFromDisk`) 跳过目录: 根目录与回收站均只收文件, 子目录内容不进列表; 移除 `parentPath` / `isFolderMode` / `currentFolderPath` / 面包屑导航 (DOM + 样式 + i18n 全清)
+  - 删除 `enterFolder` / `exitFolderMode` / `deleteFolderToTrash` / `collectFolderFiles` / `performFolderDelete`; 路径一律根目录 (`getRelPath` 删除, 直接用 `file.name`)
+  - 底部 📁 按钮保留 (语义是"在文件管理器中打开", 非"新建文件夹")
+  - i18n 清理 `breadcrumb.*`、`empty.folder`、`footer.inFolder`、`create.folder`、`modal.deleteFolder*` / `deleteFailed` / `deleteCannotFolder` / `deleteIncomplete*`
+- [x] **测试** (`scripts/test-fastcmd-exec.js`): 用例 4 中文+空格路径改根目录 `中文 脚本.bat` (原子目录路径不再列出); 用例 8 改为"单级目录"断言 (根目录文件夹/子目录脚本均不出现在列表, `createFolder` 已移除, 面包屑 DOM 不存在); 用例 9 改为"点击即运行"断言 (`showScriptActionModal` / `openInSystemEditor` 已移除, 点击后 toast 含脚本名 + marker 重新落盘 + 不弹操作弹窗)
+- [x] 回归: 本机 (Linux, 无 cmd.exe) 冒烟 **19/28 通过** — 全部非执行类断言通过; 9 个失败均为"脚本真实执行"类断言 (需 Windows `cmd.exe`, 与改动前基线一致, 基线 HEAD 为 15/23 同因失败); `npm run build` 通过; **执行类断言需在 Windows 上复跑确认**
 
 ---
 

@@ -17,9 +17,6 @@
   const searchInput = document.getElementById('searchInput');
   if (searchInput) searchInput.placeholder = t('search.placeholder');
 
-  const breadcrumbBack = document.getElementById('breadcrumbBack');
-  if (breadcrumbBack) breadcrumbBack.textContent = t('breadcrumb.back');
-
   const shredderLabel = document.querySelector('.shredder-label');
   if (shredderLabel) shredderLabel.textContent = t('shredder.label');
 
@@ -28,10 +25,9 @@
   if (createMenuTitle) createMenuTitle.textContent = t('create.title');
 
   const createOpts = document.querySelectorAll('.create-option .create-label');
-  if (createOpts.length >= 3) {
+  if (createOpts.length >= 2) {
     createOpts[0].textContent = t('create.batFile');
     createOpts[1].textContent = t('create.ps1File');
-    createOpts[2].textContent = t('create.folder');
   }
 
   const createMenuCancel = document.getElementById('createMenuCancel');

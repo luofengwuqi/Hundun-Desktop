@@ -35,9 +35,7 @@
         if (e.clientY > midY) newOrder = i + 1;
       }
 
-      const viewFiles = isFolderMode
-        ? getFilesInCurrentFolder()
-        : isTrashMode ? getDeletedFiles() : getRootFiles();
+      const viewFiles = isTrashMode ? getDeletedFiles() : getActiveFiles();
       const active = viewFiles.filter(f => f.id !== fileId);
       active.splice(newOrder, 0, file);
       active.forEach((f, i) => f.order = i);

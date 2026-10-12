@@ -11,9 +11,6 @@
     const footerButtons = document.getElementById('footerButtons');
     const fileCountEl = document.getElementById('fileCount');
     const trashCountEl = document.getElementById('trashCount');
-    const folderBreadcrumb = document.getElementById('folderBreadcrumb');
-    const breadcrumbBack = document.getElementById('breadcrumbBack');
-    const breadcrumbPath = document.getElementById('breadcrumbPath');
     const modalOverlay = document.getElementById('modalOverlay');
     const modalIcon = document.getElementById('modalIcon');
     const modalTitle = document.getElementById('modalTitle');
@@ -27,8 +24,6 @@
     let currentView = 'main';
     let searchQuery = '';
     let isTrashMode = false;
-    let isFolderMode = false;
-    let currentFolderPath = '';
     let isTrashDragOver = false;
     let isShredderDragOver = false;
     let dragFileId = null;
@@ -63,9 +58,9 @@
     const SCRIPT_EXTENSIONS = ['.bat', '.cmd', '.ps1'];
 
     // ========== Computed ==========
-    const getActiveFiles = () => files.filter(f => !f.deleted).sort((a, b) => a.order - b.order);
-    const getRootFiles = () => files.filter(f => !f.deleted && !f.parentPath).sort((a, b) => a.order - b.order);
-    const getDeletedFiles = () => files.filter(f => f.deleted);
+    // 单级目录: 列表只含根目录脚本 (历史遗留的文件夹条目一并忽略)
+    const getActiveFiles = () => files.filter(f => !f.deleted && !f.isFolder).sort((a, b) => a.order - b.order);
+    const getDeletedFiles = () => files.filter(f => f.deleted && !f.isFolder);
 
     const getGridRow = (col) => Math.floor(col / GRID_COLS);
     const getGridRowCount = (total) => Math.ceil(total / GRID_COLS);
@@ -74,15 +69,10 @@
     const isInFirstRow = (col) => col < GRID_COLS;
     const isInLastRow = (col, total) => col >= (getGridRowCount(total) - 1) * GRID_COLS;
 
-    const getFilesInCurrentFolder = () => {
-      return getActiveFiles().filter(f => (f.parentPath || '') === currentFolderPath);
-    };
-
     const getDisplayFiles = () => {
       let base;
       if (isTrashMode) { base = getDeletedFiles(); }
-      else if (isFolderMode) { base = getFilesInCurrentFolder(); }
-      else { base = getRootFiles(); }
+      else { base = getActiveFiles(); }
       if (!searchQuery) return base;
       const q = searchQuery.toLowerCase();
       return base.filter(f => f.name.toLowerCase().includes(q));
@@ -91,12 +81,6 @@
     const isScriptFile = (name) => {
       const ext = name.substring(name.lastIndexOf('.')).toLowerCase();
       return SCRIPT_EXTENSIONS.includes(ext);
-    };
-
-    const getScriptType = (name) => {
-      const ext = name.substring(name.lastIndexOf('.')).toLowerCase();
-      if (ext === '.ps1') return 'powershell';
-      return 'cmd';
     };
 
     const getFooterButtons = () => {

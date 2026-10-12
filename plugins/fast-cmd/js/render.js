@@ -2,12 +2,6 @@
     const updateUI = () => {
       if (currentView === 'main') {
         viewMain.style.display = '';
-        if (isFolderMode) {
-          folderBreadcrumb.style.display = '';
-          breadcrumbPath.textContent = `📁 ${currentFolderPath}`;
-        } else {
-          folderBreadcrumb.style.display = 'none';
-        }
         document.querySelector('.fcmd-search').classList.toggle('search-focused', isSearchFocused);
         renderFileList();
         renderFooter();
@@ -39,10 +33,8 @@
         emptyDiv.className = 'fcmd-empty';
         const emptyText = isTrashMode
           ? FastCmdI18n.t('empty.trash')
-          : isFolderMode
-            ? FastCmdI18n.t('empty.folder', { folder: currentFolderPath })
-            : FastCmdI18n.t('empty.root');
-        const emptyHint = isTrashMode || isFolderMode ? '' : FastCmdI18n.t('empty.hint');
+          : FastCmdI18n.t('empty.root');
+        const emptyHint = isTrashMode ? '' : FastCmdI18n.t('empty.hint');
         emptyDiv.innerHTML = `
           <div class="empty-icon">📁</div>
           <div class="empty-text">${emptyText}</div>
@@ -62,17 +54,17 @@
         card.dataset.fileId = file.id;
 
         let icon = '📄';
-        if (file.isFolder) icon = '📁';
-        else if (file.name.endsWith('.bat') || file.name.endsWith('.cmd')) icon = '⚙️';
+        if (file.name.endsWith('.bat') || file.name.endsWith('.cmd')) icon = '⚙️';
         else if (file.name.endsWith('.ps1')) icon = '🔧';
 
-        const ext = file.isFolder ? '' : file.name.substring(file.name.lastIndexOf('.')).toUpperCase();
+        const dotIdx = file.name.lastIndexOf('.');
+        const ext = dotIdx > 0 ? file.name.substring(dotIdx).toUpperCase() : '';
         card.innerHTML = `
           <div class="file-icon">${icon}</div>
           <div class="file-info">
             <div class="file-name">${escapeHtml(file.name)}</div>
           </div>
-          ${!file.isFolder && ext ? `<span class="file-ext-badge">${ext}</span>` : ''}
+          ${ext ? `<span class="file-ext-badge">${ext}</span>` : ''}
           ${file.deleted ? `<div class="file-deleted-badge">${FastCmdI18n.t('file.deleted')}</div>` : ''}
           <button class="file-rename-btn" title="${FastCmdI18n.t('file.rename')}">✎</button>
         `;
@@ -80,10 +72,6 @@
         card.addEventListener('dragstart', (e) => handleFileDragStart(e, file));
         card.addEventListener('dragend', handleFileDragEnd);
         card.addEventListener('click', () => handleFileClick(file));
-        card.addEventListener('dblclick', (e) => {
-          e.preventDefault();
-          if (!isTrashMode && !file.isFolder) startRename(file);
-        });
         const renameBtn = card.querySelector('.file-rename-btn');
         if (renameBtn) {
           renameBtn.addEventListener('click', (e) => {
@@ -151,7 +139,7 @@
         const isFocused = selectedRow === 1 && selectedCol === idx;
         const wasFocused = el.classList.contains('btn-focused');
         if (isFocused !== wasFocused) el.classList.toggle('btn-focused', isFocused);
-        const isActive = (btn.id === 'trash' && isTrashMode) || (btn.id === 'folder' && isFolderMode);
+        const isActive = (btn.id === 'trash' && isTrashMode);
         const wasActive = el.classList.contains('active');
         if (isActive !== wasActive) el.classList.toggle('active', isActive);
       });
@@ -162,19 +150,14 @@
       if (isTrashMode) {
         fileCountEl.textContent = FastCmdI18n.t('footer.deleted', { count: deleted.length });
         trashCountEl.style.display = 'none';
-      } else if (isFolderMode) {
-        const inFolder = getFilesInCurrentFolder();
-        fileCountEl.textContent = FastCmdI18n.t('footer.inFolder', { count: inFolder.length, folder: currentFolderPath });
-        trashCountEl.style.display = 'none';
       } else {
-        const rootCount = getRootFiles().length;
-        fileCountEl.textContent = FastCmdI18n.t('footer.files', { count: rootCount });
+        fileCountEl.textContent = FastCmdI18n.t('footer.files', { count: getActiveFiles().length });
         trashCountEl.style.display = 'none';
       }
     };
 
     const updateTrashShredderZones = () => {
-      trashZone.style.display = (isTrashMode || isFolderMode) ? 'none' : '';
+      trashZone.style.display = isTrashMode ? 'none' : '';
       shredderZone.style.display = isTrashMode ? '' : 'none';
       emptyTrashBtn.style.display = isTrashMode ? '' : 'none';
     };
