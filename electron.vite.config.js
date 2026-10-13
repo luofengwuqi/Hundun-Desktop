@@ -13,6 +13,7 @@ function copyMainModules() {
         ['src/main/plugin-preload.js', 'out/main/plugin-preload.js'],
         ['src/main/plugin-installer.js', 'out/main/plugin-installer.js'],
         ['src/main/paths.js', 'out/main/paths.js'],
+        ['src/main/platform-support.js', 'out/main/platform-support.js'],
         ['src/main/sound-settings.js', 'out/main/sound-settings.js'],
         ['src/shared/plugin-loader.js', 'out/main/plugin-loader.js']
       ]

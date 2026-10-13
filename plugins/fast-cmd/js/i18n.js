@@ -9,7 +9,11 @@ const FastCmdI18n = (() => {
     empty: {
       trash: '回收站为空',
       root: '还没有脚本',
-      hint: '拖拽 .bat .ps1 .cmd 文件到这里',
+      hint: '拖拽 {exts} 文件到这里',
+    },
+    unsupported: {
+      title: '当前系统不受支持',
+      msg: 'FastCmd 仅支持 Windows 与 Linux (当前: {platform})',
     },
     file: {
       deleted: '已删除',
@@ -40,6 +44,7 @@ const FastCmdI18n = (() => {
       title: '新建',
       batFile: '.bat 文件',
       ps1File: '.ps1 文件',
+      shFile: '.sh 文件',
       cancel: '取消',
     },
     buttons: {
@@ -60,6 +65,7 @@ const FastCmdI18n = (() => {
     defaults: {
       bat: '@echo off\nchcp 65001 >nul\necho Hello from FastCmd!\npause',
       ps1: '# Hello from FastCmd!\nWrite-Host "Hello from FastCmd!"',
+      sh: '#!/bin/sh\necho "Hello from FastCmd!"\nprintf "Press Enter to continue..."\nread _r',
     },
   };
 
@@ -70,7 +76,11 @@ const FastCmdI18n = (() => {
     empty: {
       trash: 'Trash is empty',
       root: 'No scripts yet',
-      hint: 'Drag .bat .ps1 .cmd files here',
+      hint: 'Drag {exts} files here',
+    },
+    unsupported: {
+      title: 'Unsupported OS',
+      msg: 'FastCmd supports Windows and Linux only (current: {platform})',
     },
     file: {
       deleted: 'DELETED',
@@ -101,6 +111,7 @@ const FastCmdI18n = (() => {
       title: 'CREATE NEW',
       batFile: '.bat File',
       ps1File: '.ps1 File',
+      shFile: '.sh File',
       cancel: 'Cancel',
     },
     buttons: {
@@ -121,6 +132,7 @@ const FastCmdI18n = (() => {
     defaults: {
       bat: '@echo off\nchcp 65001 >nul\necho Hello from FastCmd!\npause',
       ps1: '# Hello from FastCmd!\nWrite-Host "Hello from FastCmd!"',
+      sh: '#!/bin/sh\necho "Hello from FastCmd!"\nprintf "Press Enter to continue..."\nread _r',
     },
   };
 

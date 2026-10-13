@@ -54,8 +54,8 @@
     const ORDER_FILE = '.order.json';
     const GRID_COLS = 3;
 
-    // 支持的脚本后缀
-    const SCRIPT_EXTENSIONS = ['.bat', '.cmd', '.ps1'];
+    // 支持的脚本后缀 (随系统而定: Windows=.bat .cmd .ps1 / Linux=.sh, 见 platform.js)
+    const SCRIPT_EXTENSIONS = FastCmdPlatform.extensions;
 
     // ========== Computed ==========
     // 单级目录: 列表只含根目录脚本 (历史遗留的文件夹条目一并忽略)
@@ -79,11 +79,12 @@
     };
 
     const isScriptFile = (name) => {
-      const ext = name.substring(name.lastIndexOf('.')).toLowerCase();
-      return SCRIPT_EXTENSIONS.includes(ext);
+      return FastCmdPlatform.isSupportedScript(name);
     };
 
     const getFooterButtons = () => {
+      // 不支持的系统: 无任何可用操作 (插件内显示不支持界面)
+      if (!FastCmdPlatform.isSupported) return [];
       const btns = [
         { id: 'add', icon: '+', action: showCreateMenu, title: FastCmdI18n.t('buttons.create') },
         { id: 'trash', icon: '🗑️', action: toggleTrashMode, title: isTrashMode ? FastCmdI18n.t('buttons.backToFiles') : FastCmdI18n.t('buttons.showDeleted') },

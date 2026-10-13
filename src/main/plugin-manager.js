@@ -15,6 +15,7 @@ const path = require('path')
 const fs = require('fs')
 const { getDatabase } = require('./database')
 const { resolvePluginsDirs } = require('./paths')
+const { checkPlatformSupport } = require('./platform-support')
 const PluginLoader = require(fs.existsSync(path.join(__dirname, 'plugin-loader.js'))
   ? './plugin-loader'
   : '../shared/plugin-loader')
@@ -309,7 +310,16 @@ class PluginManager {
     if (!plugin || plugin.state === PluginState.UNLOADED) {
       plugin = await this.loadPlugin(pluginId)
     }
-    
+
+    // 决策42: 打开前主动检查系统状态 — manifest.platforms 不含当前系统则拒绝创建窗口
+    // (错误经 launchPluginWithTransition/startPlugin 的 catch 回到渲染进程, 母程序弹提示)
+    const platformError = checkPlatformSupport(plugin.manifest, process.platform)
+    if (platformError) {
+      console.warn(`[PluginManager] ${platformError}`)
+      this._emit('plugin-error', { pluginId, error: platformError })
+      throw new Error(platformError)
+    }
+
     // 如果已经在运行，返回现有窗口
     if (plugin.state === PluginState.RUNNING && this.windows.has(pluginId)) {
       const existingWindow = this.windows.get(pluginId)

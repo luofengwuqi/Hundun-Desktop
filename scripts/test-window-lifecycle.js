@@ -111,6 +111,21 @@ app.whenReady().then(async () => {
     `visible=${mainWindow.isVisible()}`)
   checkInvariant('G', mainWindow)
 
+  // ---------- H. 平台拦截 (决策42): manifest.platforms 不含当前系统 → 打开前拒绝 ----------
+  await pm.loadPlugin('fast-cmd')
+  const fc = pm.plugins.get('fast-cmd')
+  const origPlatforms = fc.manifest.platforms
+  fc.manifest.platforms = ['sunos'] // 当前系统必然不在支持列表
+  const rh = await pm.launchPluginWithTransition('fast-cmd')
+  await sleep(300)
+  check('H. 不支持平台 → launch 返回失败且提示友好', rh && rh.success === false && /不支持当前系统/.test(rh.error || ''),
+    JSON.stringify(rh))
+  check('H. 未创建插件窗口 (打开前拦截)', !pm.getPluginWindow('fast-cmd'))
+  check('H. 母程序未被隐藏', mainWindow.isVisible(), `mainVisible=${mainWindow.isVisible()}`)
+  checkInvariant('H', mainWindow)
+  // 恢复 manifest (本机为 Linux, fast-cmd 实际受支持)
+  fc.manifest.platforms = origPlatforms
+
   const failed = results.filter(r => !r.pass)
   console.log(`\n结果: ${results.length - failed.length}/${results.length} 通过`)
   app.exit(failed.length ? 1 : 0)

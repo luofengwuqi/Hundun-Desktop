@@ -21,6 +21,7 @@ const path = require('path')
 const os = require('os')
 const zlib = require('zlib')
 const { resolvePluginsDirs, resolveInstallPluginsDir } = require('./paths')
+const { validatePlatformsField } = require('./platform-support')
 
 // ========== 限制（防解压炸弹） ==========
 const MAX_ENTRIES = 5000              // 最大文件数
@@ -350,6 +351,10 @@ function validateManifest (manifest, pluginRoot) {
   if (manifest.minAppVersion !== undefined && (typeof manifest.minAppVersion !== 'string' || !SEMVER_RE.test(manifest.minAppVersion))) {
     return `manifest.json 字段 minAppVersion 不合法: "${manifest.minAppVersion}"`
   }
+
+  // 可选: 支持的平台列表 (打开前的系统状态检查依据, 见 platform-support.js)
+  const platformsErr = validatePlatformsField(manifest.platforms)
+  if (platformsErr) return platformsErr
 
   return null
 }

@@ -1,7 +1,7 @@
 # Hundun Lite - 项目进度文档
 
-> 最后更新: 2026-10-12
-> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 新增 Markdown 实时渲染浏览模式 (markdown-it, Typora 式, 单换行直接渲染为换行)；修复"进入子程序后音效音量异常变大"（插件直放无视音量设置 + 主窗口 preload 因 contextBridge 长期失效一并修复）；修复"子程序启动时母程序意外出现"（母子窗口可见性互斥不变式）；修复 FastCmd 脚本从未真实执行（相对路径 + 假成功 toast），改为绝对路径 + start /wait 可见控制台 + 退出码回报；FastCmd 移植底部刷新按钮；旧数据目录 plugins/fast-cmd/file/ 迁移至 user-data；修复中文 .ps1 执行报"意外的标记"（UTF-8 无 BOM 被 PowerShell 5.1 按 GBK 读取 → ensurePs1Bom 就地补 BOM）；**FastCmd 交互简化：点击脚本即运行（操作弹窗移除，结果走 toast）、移除编辑功能、移除文件夹（脚本仅一级目录）**
+> 最后更新: 2026-10-13
+> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 新增 Markdown 实时渲染浏览模式 (markdown-it, Typora 式, 单换行直接渲染为换行)；修复"进入子程序后音效音量异常变大"（插件直放无视音量设置 + 主窗口 preload 因 contextBridge 长期失效一并修复）；修复"子程序启动时母程序意外出现"（母子窗口可见性互斥不变式）；修复 FastCmd 脚本从未真实执行（相对路径 + 假成功 toast），改为绝对路径 + start /wait 可见控制台 + 退出码回报；FastCmd 移植底部刷新按钮；旧数据目录 plugins/fast-cmd/file/ 迁移至 user-data；修复中文 .ps1 执行报"意外的标记"（UTF-8 无 BOM 被 PowerShell 5.1 按 GBK 读取 → ensurePs1Bom 就地补 BOM）；**FastCmd 交互简化：点击脚本即运行（操作弹窗移除，结果走 toast）、移除编辑功能、移除文件夹（脚本仅一级目录）**；**FastCmd 平台感知：打开前按 manifest.platforms 检查系统状态（支持 Windows/Linux），不支持的脚本文件不显示，Linux 新增 .sh 可见终端执行链（决策42）**
 
 ---
 
@@ -153,6 +153,7 @@ src/
 │   ├── plugin-preload.js     # 插件窗口预加载脚本 (window.hundun, 含 hundun.sound)
 │   ├── preload.js            # 主窗口预加载脚本 (window.electronAPI 直挂, onPlaySound/syncSoundSettings)
 │   ├── sound-settings.js     # 音效设置主进程镜像 (sound:sync / get-sync / settings-changed 广播)
+│   ├── platform-support.js   # 平台支持检查 (manifest.platforms 打开前拦截 + 安装器字段校验, 零依赖可单测)
 │   ├── paths.js              # 路径解析 (appRoot / 插件目录 / 安装目录)
 │   └── transition.html       # 跨窗口加载蒙版
 ├── renderer/
@@ -202,13 +203,16 @@ plugins/                       # 插件目录 (每个插件一个子目录)
 │   # ⚠️ 用户文件不在插件目录 → user-data/plugins/fast-txt/file/
 │   #    旧的 plugins/fast-txt/file/ 迁移残留已于 2026-09-29 删除 (详见 STORAGE.md)
 ├── timer-manager/             # 定时任务管理器 (占位)
-├── fast-cmd/                 # 脚本管理器 (单级目录, 点击脚本即运行, 无编辑功能)
-│   ├── manifest.json        # entry: "main.html", 800×540, permissions: []
-│   ├── main.html            # 入口 (js/ 按序加载)
+├── fast-cmd/                 # 脚本管理器 (单级目录, 点击脚本即运行, 无编辑功能; 平台感知, 见决策42)
+│   ├── manifest.json        # entry: "main.html", 800×540, permissions: [], platforms: ["win32","linux"]
+│   ├── main.html            # 入口 (js/ 按序加载, platform.js 先于 app-state)
 │   ├── css/                 # 9 个样式 (含 footer.css 刷新按钮 SVG 样式)
-│   └── js/                  # 17 个脚本
-│       ├── executor.js      # 脚本执行器 (resolveScriptAbsPath 绝对路径 /
-│       │                    #   wrapper+start /wait 可见控制台 / 退出码文件)
+│   └── js/                  # 18 个脚本
+│       ├── platform.js      # 平台感知 (win32=.bat .cmd .ps1 / linux=.sh / 其余不支持;
+│       │                    #   过滤·新建菜单·图标·执行分发全走它, FASTCMD_PLATFORM 可覆盖)
+│       ├── executor.js      # 脚本执行器 (win32: resolveScriptAbsPath 绝对路径 /
+│       │                    #   wrapper+start /wait 可见控制台 + 退出码文件;
+│       │                    #   linux: sh wrapper + 终端模拟器可见执行, 无终端回退后台直跑)
 │       └── ...
 │   # ⚠️ 用户脚本不在插件目录 → user-data/plugins/fast-cmd/file/
 │   #    旧的 plugins/fast-cmd/file/ 已于 2026-10-04 迁移删除 (详见 CHANGELOG)
@@ -225,6 +229,10 @@ electron-vite build
   ├── plugin-manager.js  → out/main/plugin-manager.js
   ├── database.js        → out/main/database.js
   ├── plugin-preload.js  → out/main/plugin-preload.js
+  ├── plugin-installer.js→ out/main/plugin-installer.js
+  ├── paths.js           → out/main/paths.js
+  ├── platform-support.js→ out/main/platform-support.js
+  ├── sound-settings.js  → out/main/sound-settings.js
   └── plugin-loader.js   → out/main/plugin-loader.js
 ```
 
@@ -436,6 +444,9 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 ### 已决策 (2026-10-12, FastCmd 交互简化)
 41. **FastCmd 三化简**: ①**点击即运行** — 点击脚本卡直接 `runScript()` (结果 toast: 已启动→运行成功/退出码 N/启动失败), 不再"先选中再点击执行"两段式; 回收站条目仍两段式 (再次点击已选中项才恢复); 非脚本扩展名 (外部放入的杂项文件) 有 `isScriptFile` 守卫不执行; 键盘 Enter 同步直接运行; **双击重命名已移除** (会先触发两次点击运行, 重命名入口保留 ✎ 按钮与 M 键); ②**编辑功能移除** — `showScriptActionModal`/`editScript`/`openInSystemEditor`/`getScriptInfo` 删除, 相关 i18n 键清理; ③**单级目录** — CREATE NEW 不再有 Folder 项, `loadFilesFromDisk` 跳过目录 (根目录与回收站均只收文件), 移除 `parentPath`/`isFolderMode`/面包屑导航/文件夹删除链路, 路径一律 `file.name`; 底部 📁 按钮保留 (语义="在文件管理器中打开")
 
+### 已决策 (2026-10-13, FastCmd 平台感知)
+42. **FastCmd 打开前系统状态检查 + 按平台过滤脚本**: 两层防护 — ①**主进程打开前拦截**: `manifest.platforms` (如 `["win32","linux"]`, 缺失=不限制) 经 `src/main/platform-support.js checkPlatformSupport()` 在 `startPlugin()` 创建窗口**之前**校验, 不支持则抛友好错误 → `launchPluginWithTransition` 返回 `{success:false}` → 母程序弹提示 (拦截发生在藏母之前, 母程序保持可见); 安装器同步校验字段格式; ②**插件内平台感知** `js/platform.js`: win32 收 .bat .cmd .ps1 / linux 收 .sh / 其余系统不支持 (列表·回收站·拖拽·新建菜单·图标全部经 `isScriptFile`/`FastCmdPlatform` 过滤, **不支持的脚本文件不显示**, 默认脚本与 CREATE NEW 菜单按平台动态生成, 不支持系统显示「当前系统不受支持」空态且无底部按钮); ③**Linux 真实执行 .sh**: `executeScript` 按平台分发 — 每次运行生成独立 POSIX sh wrapper (路径内联 + cd 脚本目录 + 有执行位尊重 shebang), 优先探测 10 种终端模拟器开可见窗口并轮询退出码文件 (对应 Windows 可见控制台), 无终端/终端失败回退后台直跑取子进程退出码; Windows 分支链路不变; 测试经 `FASTCMD_PLATFORM` 环境变量覆盖平台 (Linux 上回归 Windows 链路)
+
 ### 待定
 1. 插件市场实现方案
 2. 插件签名和安全验证
@@ -498,7 +509,7 @@ chore: 构建/工具链更新
 ## 🎯 下一步行动
 
 ### 下一步
-1. 完善定时任务管理器/命令执行器插件功能 (FastCmd 执行链路已于 2026-10-04 修复)
+1. 完善定时任务管理器/命令执行器插件功能 (FastCmd 执行链路已于 2026-10-04 修复; 平台感知与 Linux .sh 执行已于 2026-10-13 落地, 执行类断言待 Windows 复跑)
 2. 插件社区/插件市场对接（ADD 菜单"逛逛社区"目前跳转 Gitee 仓库，待官网完成后切换）
 3. ~~清理旧 Vue 组件文件 (CalculatorApp.vue, FastTXTApp.vue, TestApp.vue)~~ ✅ 2026-09-25 已完成
 4. 音效架构后续整改 (可选): 音效文件清单由主进程统一下发（现存母程序 `audio.js` 与插件 sdk 两份）、清理无引用死代码 `src/renderer/services/plugin-service.js`、插件窗口统一配置 `autoplayPolicy`

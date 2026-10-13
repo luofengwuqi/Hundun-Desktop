@@ -30,8 +30,11 @@
       if (!api) return;
       const existing = await api.readDir('');
       if (existing.length > 0) return;
-      await api.writeFile('hello.bat', FastCmdI18n.t('defaults.bat'));
-      await api.writeFile('hello.ps1', FastCmdI18n.t('defaults.ps1'));
+      // 默认脚本按平台生成 (Windows: hello.bat + hello.ps1 / Linux: hello.sh)
+      for (const type of FastCmdPlatform.createTypes) {
+        const meta = FastCmdPlatform.CREATE_TYPES[type];
+        await api.writeFile('hello' + meta.ext, FastCmdI18n.t(meta.defaultsKey));
+      }
     };
 
     const loadFilesFromDisk = async () => {
@@ -55,11 +58,13 @@
       const newFiles = [];
       let maxOrder = 0;
 
-      // 单级目录: 只收集根目录文件, 文件夹与其内容不进列表
+      // 单级目录: 只收集根目录文件, 文件夹与其内容不进列表;
+      // 且只收当前系统支持的脚本后缀 (不支持的脚本文件不显示, 见 platform.js)
       for (const entry of activeEntries) {
         if (entry.name === ORDER_FILE || entry.name === TRASH_DIR) continue;
         if (entry.name.startsWith('.')) continue;
         if (entry.isDirectory) continue;
+        if (!isScriptFile(entry.name)) continue;
         const id = entry.name;
         const order = orderMap[id] !== undefined ? orderMap[id] : maxOrder++;
         if (order >= maxOrder) maxOrder = order + 1;
@@ -69,6 +74,7 @@
       for (const entry of trashEntries) {
         if (entry.name.startsWith('.')) continue;
         if (entry.isDirectory) continue;
+        if (!isScriptFile(entry.name)) continue;
         const diskName = entry.name;
         const order = orderMap[diskName] !== undefined ? orderMap[diskName] : maxOrder++;
         if (order >= maxOrder) maxOrder = order + 1;

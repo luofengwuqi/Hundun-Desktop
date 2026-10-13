@@ -25,18 +25,26 @@
     const renderCreateMenu = () => {
       if (!showCreateMenuVisible) return;
       createMenuOverlay.style.display = '';
-      const options = createOptions.querySelectorAll('.create-option');
-      options.forEach((opt, idx) => {
-        opt.classList.toggle('btn-selected', idx === createMenuSelectedIdx);
+      // 选项随平台而定 (Windows: .bat/.ps1, Linux: .sh), 动态渲染 (决策42)
+      createOptions.innerHTML = '';
+      FastCmdPlatform.createTypes.forEach((type, idx) => {
+        const meta = FastCmdPlatform.CREATE_TYPES[type];
+        const btn = document.createElement('button');
+        btn.className = 'create-option' + (idx === createMenuSelectedIdx ? ' btn-selected' : '');
+        btn.dataset.type = type;
+        btn.innerHTML = `<span class="create-icon">${meta.icon}</span><span class="create-label">${FastCmdI18n.t(meta.labelKey)}</span>`;
+        btn.addEventListener('click', () => createFile(type));
+        createOptions.appendChild(btn);
       });
     };
 
     const createFile = async (type) => {
+      const meta = FastCmdPlatform.CREATE_TYPES[type];
+      if (!meta || !FastCmdPlatform.createTypes.includes(type)) return;
       closeCreateMenu();
-      const ext = type === 'bat' ? '.bat' : '.ps1';
-      const name = getUniqueName('new_script', ext);
+      const name = getUniqueName('new_script', meta.ext);
       const api = fsAPI();
-      const content = type === 'bat' ? FastCmdI18n.t('defaults.bat') : FastCmdI18n.t('defaults.ps1');
+      const content = FastCmdI18n.t(meta.defaultsKey);
       if (api) {
         await api.writeFile(name, content);
         await loadFilesFromDisk();

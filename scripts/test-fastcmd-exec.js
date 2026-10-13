@@ -16,6 +16,9 @@ const PLUGIN_HTML = path.join(__dirname, '..', 'plugins', 'fast-cmd', 'main.html
 const PRELOAD = path.join(__dirname, 'test-fastcmd-preload.js');
 const DATA_ROOT = fss.mkdtempSync(path.join(os.tmpdir(), 'fastcmd-test-'));
 process.env.FASTCMD_TEST_ROOT = DATA_ROOT;
+// 本用例回归的是 Windows 执行链 (.bat/.ps1 + cmd.exe) — 在 Linux 上运行时
+// 覆盖平台标识为 win32 (否则插件按系统只收 .sh, 断言全偏), 见 js/platform.js
+process.env.FASTCMD_PLATFORM = 'win32';
 
 const MARKER = path.join(DATA_ROOT, 'marker.txt');
 const CN_MARK = path.join(DATA_ROOT, 'cn_marker.txt');

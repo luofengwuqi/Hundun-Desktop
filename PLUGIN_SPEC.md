@@ -148,6 +148,7 @@ plugins/
 | `windowSize` | object | ❌ | `{width:400,height:400}` | 子程序窗口尺寸 |
 | `permissions` | string[] | ❌ | `[]` | 所需权限列表 |
 | `minAppVersion` | string | ❌ | `"1.0.0"` | 最低母程序版本 |
+| `platforms` | string[] | ❌ | 不限制 | 支持的平台列表 (如 `["win32","linux"]`)，允许值 `win32`/`darwin`/`linux`；**打开前**主进程校验，不含当前系统则拒绝创建窗口并由母程序弹提示 (见 `src/main/platform-support.js`) |
 | `settings` | object | ❌ | `{}` | 插件自定义配置 |
 
 ### 3.3 ID 命名规范

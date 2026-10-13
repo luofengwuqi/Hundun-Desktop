@@ -20,15 +20,9 @@
   const shredderLabel = document.querySelector('.shredder-label');
   if (shredderLabel) shredderLabel.textContent = t('shredder.label');
 
-  // 创建菜单
+  // 创建菜单 (选项按钮由 renderCreateMenu 按平台动态生成, 这里只翻静态的标题/取消)
   const createMenuTitle = document.querySelector('#createMenuOverlay .modal-title');
   if (createMenuTitle) createMenuTitle.textContent = t('create.title');
-
-  const createOpts = document.querySelectorAll('.create-option .create-label');
-  if (createOpts.length >= 2) {
-    createOpts[0].textContent = t('create.batFile');
-    createOpts[1].textContent = t('create.ps1File');
-  }
 
   const createMenuCancel = document.getElementById('createMenuCancel');
   if (createMenuCancel) createMenuCancel.textContent = t('create.cancel');

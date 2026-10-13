@@ -14,6 +14,8 @@
     const renderFileList = () => {
       const list = getDisplayFiles();
       if (isRenaming) { updateFileListSelection(list); return; }
+      // 空列表一律重建: 保证空态 (还没有脚本/回收站为空/系统不支持) 始终渲染且随模式切换更新
+      if (list.length === 0) { rebuildFileListDOM(list); return; }
 
       const cards = fileList.querySelectorAll('.fcmd-file-card');
       let sameSet = cards.length === list.length;
@@ -31,12 +33,22 @@
       if (list.length === 0) {
         const emptyDiv = document.createElement('div');
         emptyDiv.className = 'fcmd-empty';
-        const emptyText = isTrashMode
-          ? FastCmdI18n.t('empty.trash')
-          : FastCmdI18n.t('empty.root');
-        const emptyHint = isTrashMode ? '' : FastCmdI18n.t('empty.hint');
+        // 空列表时区分: 系统不支持 / 回收站为空 / 还没有脚本 (决策42)
+        let emptyIcon = '📁';
+        let emptyText;
+        let emptyHint = '';
+        if (!FastCmdPlatform.isSupported) {
+          emptyIcon = '⚠️';
+          emptyText = FastCmdI18n.t('unsupported.title');
+          emptyHint = FastCmdI18n.t('unsupported.msg', { platform: FastCmdPlatform.osName });
+        } else if (isTrashMode) {
+          emptyText = FastCmdI18n.t('empty.trash');
+        } else {
+          emptyText = FastCmdI18n.t('empty.root');
+          emptyHint = FastCmdI18n.t('empty.hint', { exts: FastCmdPlatform.extensions.join(' ') });
+        }
         emptyDiv.innerHTML = `
-          <div class="empty-icon">📁</div>
+          <div class="empty-icon">${emptyIcon}</div>
           <div class="empty-text">${emptyText}</div>
           <div class="empty-hint">${emptyHint}</div>
         `;
@@ -53,9 +65,7 @@
         card.draggable = true;
         card.dataset.fileId = file.id;
 
-        let icon = '📄';
-        if (file.name.endsWith('.bat') || file.name.endsWith('.cmd')) icon = '⚙️';
-        else if (file.name.endsWith('.ps1')) icon = '🔧';
+        const icon = FastCmdPlatform.iconFor(file.name);
 
         const dotIdx = file.name.lastIndexOf('.');
         const ext = dotIdx > 0 ? file.name.substring(dotIdx).toUpperCase() : '';
@@ -157,7 +167,8 @@
     };
 
     const updateTrashShredderZones = () => {
-      trashZone.style.display = isTrashMode ? 'none' : '';
+      // 不支持的系统: 无脚本可管理, 隐藏投放区
+      trashZone.style.display = (isTrashMode || !FastCmdPlatform.isSupported) ? 'none' : '';
       shredderZone.style.display = isTrashMode ? '' : 'none';
       emptyTrashBtn.style.display = isTrashMode ? '' : 'none';
     };

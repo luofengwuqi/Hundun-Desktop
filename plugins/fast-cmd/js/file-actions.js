@@ -184,8 +184,8 @@
       if (!droppedFiles || droppedFiles.length === 0) return;
       for (let i = 0; i < droppedFiles.length; i++) {
         const f = droppedFiles[i];
-        const name = f.name.toLowerCase();
-        if (name.endsWith('.bat') || name.endsWith('.cmd') || name.endsWith('.ps1')) {
+        // 只导入当前系统支持的脚本后缀 (不支持的不显示也不收, 见 platform.js)
+        if (isScriptFile(f.name)) {
           importFile(f, f.path);
         }
       }

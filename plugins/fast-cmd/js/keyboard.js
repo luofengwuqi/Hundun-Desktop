@@ -34,18 +34,20 @@
         if (key === 's' || key === 'S') key = 'ArrowDown';
         if (key === 'a' || key === 'A') key = 'ArrowLeft';
         if (key === 'd' || key === 'D') key = 'ArrowRight';
-        const totalOpts = 2;
+        const createTypeList = FastCmdPlatform.createTypes;
+        const totalOpts = createTypeList.length;
         if (key === 'Escape') { closeCreateMenu(); playSound('click'); }
         else if (key === 'ArrowUp' || key === 'ArrowDown') {
           playSound('click');
-          createMenuSelectedIdx = key === 'ArrowUp'
-            ? (createMenuSelectedIdx + totalOpts - 1) % totalOpts
-            : (createMenuSelectedIdx + 1) % totalOpts;
+          if (totalOpts > 0) {
+            createMenuSelectedIdx = key === 'ArrowUp'
+              ? (createMenuSelectedIdx + totalOpts - 1) % totalOpts
+              : (createMenuSelectedIdx + 1) % totalOpts;
+          }
           renderCreateMenu();
         } else if (key === 'Enter' || key === ' ') {
           playSound('click');
-          if (createMenuSelectedIdx === 0) createFile('bat');
-          else if (createMenuSelectedIdx === 1) createFile('ps1');
+          if (createTypeList[createMenuSelectedIdx]) createFile(createTypeList[createMenuSelectedIdx]);
           else closeCreateMenu();
         }
         return;

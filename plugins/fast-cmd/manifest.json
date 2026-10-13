@@ -1,7 +1,7 @@
 {
   "id": "fast-cmd",
   "name": "FastCmd",
-  "description": "Script manager & executor for .bat .ps1 .cmd",
+  "description": "Script manager & executor (.bat .cmd .ps1 on Windows, .sh on Linux)",
   "icon": "⚡",
   "color": "#ff9900",
   "version": "1.0.0",
@@ -11,5 +11,6 @@
     "width": 800,
     "height": 540
   },
-  "permissions": []
+  "permissions": [],
+  "platforms": ["win32", "linux"]
 }

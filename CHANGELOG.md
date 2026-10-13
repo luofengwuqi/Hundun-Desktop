@@ -1,6 +1,32 @@
 # Hundun Lite - 更新日志
 
-> 最后更新: 2026-10-12
+> 最后更新: 2026-10-13
+
+---
+
+## 2026-10-13
+
+### FastCmd 平台感知: 打开前检查系统状态 (Windows / Linux) + 不支持的脚本文件不显示
+- [x] **需求**: 用户系统各异, FastCmd 被打开前要主动检查系统状态 (先支持 Windows 与 Linux); 当前系统不支持的脚本文件不显示
+- [x] **主进程层 — 打开前拦截** (母程序弹提示, 窗口不创建):
+  - `manifest.json` 新增可选字段 `"platforms": ["win32", "linux"]`; 新建 `src/main/platform-support.js` (零依赖): `checkPlatformSupport()` 打开前校验 + `validatePlatformsField()` 安装器校验 + `describePlatform()` 系统名映射; 字段缺失/非法 = 不限制 (兼容历史插件, 从宽)
+  - `plugin-manager.js startPlugin()` 在创建 BrowserWindow **之前**抛出友好错误 → `launchPluginWithTransition` 转 `{success:false,error}` → App.vue 母程序弹「不支持当前系统」提示; 拦截发生在藏母窗口之前, 母程序保持可见
+  - `plugin-installer.js validateManifest()` 校验 `platforms` 格式 (非空字符串数组, 仅允许 win32/darwin/linux); `electron.vite.config.js` copyMainModules 补复制 `platform-support.js`
+- [x] **插件层 — 平台感知与过滤** (`js/platform.js` 新模块, app-state 之前加载):
+  - 后缀随系统而定: **win32 = .bat .cmd .ps1 / linux = .sh / 其余系统 = 不支持**; 支持 `FASTCMD_PLATFORM` 环境变量覆盖 (测试在 Linux 上回归 Windows 链路)
+  - **不支持的脚本文件不显示**: `loadFilesFromDisk` 根目录与回收站均按 `isScriptFile` 过滤; 拖拽导入同过滤; 支持后缀为空数组时列表全空
+  - 默认脚本按平台生成 (Windows: hello.bat+hello.ps1 / Linux: hello.sh); CREATE NEW 菜单改为按平台**动态渲染** (Linux 只有 .sh 项, `createFile('bat')` 被平台守卫拒绝, 静态 HTML 按钮移除); 文件图标经 `iconFor()` (.sh → 🖥️); 空态提示的拖拽后缀列表 i18n 参数化
+  - **插件内二次检查**: 不支持的系统 (如 macOS) 显示「当前系统不受支持」空态, 底部按钮/投放区全隐藏 (`getFooterButtons` 返回 [])
+- [x] **Linux 真实执行 .sh** (`executor.js` 按平台分发 `executeScript`):
+  - Windows 分支保持原链路 (cmd wrapper + `start /wait` 可见控制台 + 退出码文件 + ensurePs1Bom) 不变
+  - Linux 分支: 每次运行生成独立 POSIX sh wrapper (路径内联规避终端 CLI 引号差异; cd 脚本目录; 有执行位直接执行尊重 shebang, 否则 sh 执行; 退出码写文件); **优先探测终端模拟器** (gnome-terminal --wait / konsole / xfce4-terminal / tilix / kitty / alacritty / terminator / xterm / urxvt / x-terminal-emulator) 开可见窗口跑脚本并轮询退出码文件 (300ms, 30 分钟 running 兜底); 无终端/终端启动失败/终端退出无退出码 → 回退后台直跑 wrapper 取子进程退出码 (输出不可见, 与 Windows stdio:ignore 语义对齐)
+- [x] **附带修复**: `renderFileList` 空列表分支原本走 `sameSet` 快路径导致**初始空列表不渲染空态** (卡片 0 === 列表 0 视为"没变") → 空列表一律重建, 顺带修复回收站↔根目录空态文案不随模式切换更新
+- [x] **测试**:
+  - 新增 `scripts/test-platform-support.js` (plain node): **21/21 通过** (拦截/放行/从宽/字段校验/fast-cmd manifest 实测)
+  - 新增 `scripts/test-fastcmd-platform.js` (Electron 冒烟, Linux 模式 + 切 darwin 重载): **32/32 通过** — 默认 hello.sh / .bat .txt 不显示 / 新建菜单仅 .sh / createFile 守卫 / .sh 真实执行 marker 落盘 / 退出码 7 toast / darwin 空态「当前系统不受支持」
+  - `scripts/test-window-lifecycle.js` 新增 H 节 (篡改 manifest.platforms=['sunos'] → launch 拦截): **23/23 通过**
+  - `scripts/test-fastcmd-exec.js` 顶部固定 `FASTCMD_PLATFORM=win32` (Windows 链路回归语义不变): Linux 冒烟 **19/28**, 与改动前基线一致 (9 个失败均为需 Windows cmd.exe 的执行类)
+  - 回归: `npm run build` 通过, `out/main/platform-support.js` 复制落盘可加载
 
 ---
 

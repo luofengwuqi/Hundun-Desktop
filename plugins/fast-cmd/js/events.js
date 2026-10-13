@@ -42,14 +42,7 @@
     modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
     createMenuOverlay.addEventListener('click', (e) => { if (e.target === createMenuOverlay) closeCreateMenu(); });
 
-    // Create menu options
-    createOptions.querySelectorAll('.create-option').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const idx = parseInt(btn.dataset.idx);
-        if (idx === 0) createFile('bat');
-        else if (idx === 1) createFile('ps1');
-      });
-    });
+    // 创建菜单选项 (按钮由 renderCreateMenu 按平台动态生成并各自绑定点击)
     createMenuCancel.addEventListener('click', closeCreateMenu);
 
     // Global keyboard
