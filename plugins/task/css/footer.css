@@ -1,0 +1,83 @@
+    /* ========== Footer (主视图按钮群) ========== */
+    .task-footer {
+      height: 50px;
+      background: var(--bg-secondary);
+      border-top: 2px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      flex-shrink: 0;
+    }
+
+    .footer-buttons {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .footer-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 2px solid var(--border-color);
+      background: var(--bg-card);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+
+    .footer-btn:hover {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 12px var(--shadow-color);
+    }
+
+    .footer-btn.btn-focused {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 16px var(--accent-primary);
+      transform: scale(1.15);
+    }
+
+    .footer-btn.clean-btn:hover {
+      border-color: var(--accent-secondary);
+      box-shadow: 0 0 12px var(--accent-secondary);
+    }
+
+    .btn-icon {
+      font-size: 18px;
+      font-weight: bold;
+      transition: color 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+    }
+
+    /* 加号按钮: 深色模式纯白, 浅色模式跟正文色 (与 fast-cmd 一致) */
+    .footer-btn.add-btn .btn-icon {
+      color: #ffffff;
+    }
+
+    .light-mode .footer-btn.add-btn .btn-icon {
+      color: var(--text-primary);
+    }
+
+    .footer-info {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .task-count {
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+      font-size: 9px;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+    }
+
+    /* ========== Light Mode ========== */
+    .light-mode .footer-btn {
+      background: var(--bg-card);
+    }

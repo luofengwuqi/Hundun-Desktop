@@ -1,0 +1,218 @@
+    /* ========== Form View (创建 / 编辑任务) ========== */
+    .form-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 16px 20px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      min-height: 0;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-color) transparent;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-group.disabled {
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
+    .form-label {
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+      font-size: 9px;
+      color: var(--text-secondary);
+      letter-spacing: 2px;
+    }
+
+    .form-input {
+      background: var(--bg-card);
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      padding: 9px 10px;
+      color: var(--text-primary);
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+      font-size: 10px;
+      outline: none;
+      width: 100%;
+      transition: all 0.2s ease;
+      user-select: text;
+      letter-spacing: 0.5px;
+    }
+
+    .form-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .form-input:focus {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 12px var(--shadow-color);
+    }
+
+    .form-input:disabled {
+      cursor: not-allowed;
+    }
+
+    /* datetime-local 图标在深色下提亮 */
+    .form-input::-webkit-calendar-picker-indicator {
+      filter: invert(0.7);
+      cursor: pointer;
+    }
+
+    .light-mode .form-input::-webkit-calendar-picker-indicator {
+      filter: none;
+    }
+
+    select.form-input {
+      cursor: pointer;
+    }
+
+    .form-hint {
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+      font-size: 7px;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+    }
+
+    /* ========== 提醒时间多行 ========== */
+    .reminder-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .reminder-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .reminder-row .form-input {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .deadline-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .deadline-row .form-input {
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* ========== 小按钮 (添加提醒 / 清除) ========== */
+    .mini-btn {
+      border: 2px solid var(--border-color);
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      border-radius: 8px;
+      padding: 7px 12px;
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+      font-size: 9px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      letter-spacing: 1px;
+      flex-shrink: 0;
+      line-height: 1.4;
+    }
+
+    .mini-btn:hover {
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+      box-shadow: 0 0 10px var(--shadow-color);
+    }
+
+    .mini-btn.danger {
+      color: var(--accent-secondary);
+      border-color: color-mix(in srgb, var(--accent-secondary) 50%, var(--border-color));
+      font-size: 13px;
+      padding: 5px 11px;
+    }
+
+    .mini-btn.danger:hover {
+      border-color: var(--accent-secondary);
+      box-shadow: 0 0 10px var(--accent-secondary);
+    }
+
+    /* ========== 表单底部按钮 ========== */
+    .form-footer {
+      height: 50px;
+      background: var(--bg-secondary);
+      border-top: 2px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 16px;
+      flex-shrink: 0;
+    }
+
+    .form-btn {
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+      font-size: 10px;
+      padding: 9px 20px;
+      border-radius: 8px;
+      border: 2px solid var(--border-color);
+      background: var(--bg-card);
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      letter-spacing: 2px;
+    }
+
+    .form-btn:hover {
+      transform: scale(1.05);
+    }
+
+    .form-btn.primary {
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+    }
+
+    .form-btn.primary:hover {
+      background: var(--accent-primary);
+      color: #000;
+      box-shadow: 0 0 14px var(--shadow-color);
+    }
+
+    .form-btn.secondary {
+      border-color: var(--text-muted);
+      color: var(--text-muted);
+    }
+
+    .form-btn.secondary:hover {
+      border-color: var(--text-secondary);
+      color: var(--text-secondary);
+    }
+
+    .form-btn.danger {
+      border-color: var(--accent-secondary);
+      color: var(--accent-secondary);
+      margin-left: auto;
+    }
+
+    .form-btn.danger:hover {
+      background: var(--accent-secondary);
+      color: #fff;
+      box-shadow: 0 0 14px var(--accent-secondary);
+    }
+
+    /* ========== Light Mode ========== */
+    .light-mode .form-input {
+      background: var(--bg-card);
+    }
+
+    .light-mode .mini-btn {
+      background: var(--bg-card);
+    }
+
+    .light-mode .form-btn {
+      background: var(--bg-card);
+    }

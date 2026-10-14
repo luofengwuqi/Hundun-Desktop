@@ -1,0 +1,15 @@
+{
+  "id": "task",
+  "name": "TASK",
+  "description": "Task list with deadlines & reminders",
+  "icon": "📋",
+  "color": "#ff0080",
+  "version": "1.0.0",
+  "author": "Hundun Lite",
+  "entry": "main.html",
+  "windowSize": {
+    "width": 400,
+    "height": 520
+  },
+  "permissions": ["storage", "notifications"]
+}

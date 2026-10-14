@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TASK</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/header.css">
+  <link rel="stylesheet" href="css/task-list.css">
+  <link rel="stylesheet" href="css/footer.css">
+  <link rel="stylesheet" href="css/form.css">
+  <link rel="stylesheet" href="css/overlays.css">
+  <link rel="stylesheet" href="css/toast.css">
+</head>
+<body>
+  <div class="task-app" id="app">
+
+    <!-- ===== Shared Header (标题随视图切换) ===== -->
+    <header class="task-header">
+      <div class="toggle-container">
+        <span class="toggle-label" id="themeLabelDark">深色</span>
+        <div class="toggle-switch" id="themeToggle">
+          <div class="toggle-knob"></div>
+        </div>
+        <span class="toggle-label" id="themeLabelLight">浅色</span>
+      </div>
+      <div class="task-logo" id="headerTitle"></div>
+      <button class="task-pin-btn" id="pinBtn" title="窗口置顶">📌</button>
+      <button class="task-close-btn" id="closeBtn" title="返回母程序">✕</button>
+    </header>
+
+    <!-- ===== Main View: 任务卡片列表 ===== -->
+    <div id="view-main">
+      <main class="task-content">
+        <div class="task-list" id="taskList"></div>
+      </main>
+      <footer class="task-footer">
+        <div class="footer-buttons" id="footerButtons"></div>
+        <div class="footer-info">
+          <span class="task-count" id="taskCount"></span>
+        </div>
+      </footer>
+    </div>
+
+    <!-- ===== Form View: 创建 / 编辑任务 (与子程序等大) ===== -->
+    <div id="view-form" style="display:none;">
+      <div class="form-body">
+        <div class="form-group">
+          <label class="form-label" for="fName" id="lblName">任务名</label>
+          <input class="form-input" id="fName" type="text" maxlength="60" autocomplete="off" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" id="lblReminders">提醒时间</label>
+          <div class="reminder-rows" id="reminderRows"></div>
+          <button type="button" class="mini-btn" id="addReminderBtn">＋ 添加提醒</button>
+        </div>
+
+        <div class="form-group disabled" id="methodGroup">
+          <label class="form-label" for="fMethod" id="lblMethod">提醒方式</label>
+          <select class="form-input" id="fMethod" disabled>
+            <option value="popup" id="optPopup">弹窗提醒</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="fDeadline" id="lblDeadline">截止时间</label>
+          <div class="deadline-row">
+            <input class="form-input" id="fDeadline" type="datetime-local" />
+            <button type="button" class="mini-btn danger" id="clearDeadlineBtn" title="清除">×</button>
+          </div>
+          <div class="form-hint" id="deadlineHint">到期后自动标记为已过期</div>
+        </div>
+      </div>
+      <footer class="form-footer">
+        <button type="button" class="form-btn primary" id="saveBtn">保存</button>
+        <button type="button" class="form-btn secondary" id="cancelBtn">取消</button>
+        <button type="button" class="form-btn danger" id="deleteBtn" style="display:none;">删除</button>
+      </footer>
+    </div>
+
+    <!-- ===== Modal Overlay ===== -->
+    <div class="task-modal-overlay" id="modalOverlay" style="display:none;">
+      <div class="task-modal" id="modalBox">
+        <div class="modal-icon" id="modalIcon"></div>
+        <div class="modal-title" id="modalTitle"></div>
+        <div class="modal-message" id="modalMessage"></div>
+        <div class="modal-buttons" id="modalButtons"></div>
+      </div>
+    </div>
+
+    <!-- ===== Toast Container ===== -->
+    <div id="toastContainer"></div>
+  </div>
+
+  <script src="js/sdk.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/i18n-html.js"></script>
+  <script src="js/app-state.js"></script>
+  <script src="js/tasks.js"></script>
+  <script src="js/toast.js"></script>
+  <script src="js/modal.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/form.js"></script>
+  <script src="js/reminders.js"></script>
+  <script src="js/keyboard.js"></script>
+  <script src="js/events.js"></script>
+  <script src="js/theme-sync.js"></script>
+  <script src="js/init.js"></script>
+</body>
+</html>

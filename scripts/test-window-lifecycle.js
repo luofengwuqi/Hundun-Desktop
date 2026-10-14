@@ -12,8 +12,13 @@
  */
 const { app, BrowserWindow } = require('electron')
 const path = require('path')
+const os = require('os')
+const fs = require('fs')
 const { PluginManager } = require('../src/main/plugin-manager')
 const { registerSoundSettingsIPC } = require('../src/main/sound-settings')
+
+// 隔离 userData: 插件真实 storage (huntun-lite-data/*.json) 不写用户真实数据
+app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'winlife-')))
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))
 const results = []
@@ -125,6 +130,37 @@ app.whenReady().then(async () => {
   checkInvariant('H', mainWindow)
   // 恢复 manifest (本机为 Linux, fast-cmd 实际受支持)
   fc.manifest.platforms = origPlatforms
+
+  // ---------- I. TASK 子程序真实启动 (真实 plugin-preload + 真实 storage IPC + manifest windowSize) ----------
+  const ri = await pm.launchPluginWithTransition('task')
+  await sleep(500)
+  check('I. launch task 成功', ri && ri.success === true, JSON.stringify(ri))
+  const tWin = pm.getPluginWindow('task')
+  check('I. task 窗口可见', !!(tWin && tWin.isVisible()))
+  const [tw, th] = tWin ? tWin.getSize() : [0, 0]
+  check('I. 窗口尺寸 = windowSize+20 (420x540)', tw === 420 && th === 540, `${tw}x${th}`)
+  // 插件页数据层就绪 (init await TaskStore.load, 轮询等就绪)
+  let pageOk = false
+  for (let i = 0; i < 20 && !pageOk; i++) {
+    pageOk = await tWin.webContents.executeJavaScript(
+      `typeof TaskStore !== 'undefined' && typeof _lastListSig !== 'undefined' && _lastListSig !== null`, true
+    ).catch(() => false)
+    if (!pageOk) await sleep(200)
+  }
+  check('I. 插件页 TaskStore 初始化 (含 __PLUGIN_ID__ 注入兜底)', pageOk === true)
+  check('I. 插件内 id = task', await tWin.webContents.executeJavaScript(`window.__PLUGIN_ID__`, true).catch(() => null) === 'task')
+  // 真实 storage IPC 通道 (plugin:setData → database → 落盘 task.json)
+  const wOk = await tWin.webContents.executeJavaScript(
+    `window.hundun.storage.set('probe', { v: 1 }).then(() => true).catch(() => false)`, true
+  ).catch(() => false)
+  check('I. 真实 storage.set 可用', wOk === true)
+  await sleep(300)
+  const dbPath = path.join(app.getPath('userData'), 'huntun-lite-data', 'task.json')
+  check('I. 数据落盘 task.json', fs.existsSync(dbPath), dbPath)
+  await pm.returnToParent('task')
+  await sleep(300)
+  check('I. 返回后母程序可见', mainWindow.isVisible())
+  checkInvariant('I', mainWindow)
 
   const failed = results.filter(r => !r.pass)
   console.log(`\n结果: ${results.length - failed.length}/${results.length} 通过`)

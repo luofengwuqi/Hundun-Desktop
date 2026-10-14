@@ -105,7 +105,7 @@ huntunLite/
 ├── plugins/                      # 子程序目录
 │   ├── calculator/              # 计算器
 │   ├── fast-txt/                # 文本管理器
-│   ├── timer-manager/           # 定时任务管理器
+│   ├── task/                    # 任务清单 (截止/提醒)
 │   └── fast-cmd/                # 脚本管理器
 ├── electron.vite.config.js       # 构建配置 (含 copyMainModules 插件)
 ├── package.json
@@ -130,14 +130,14 @@ plugin-name/
 
 ```json
 {
-  "id": "timer-manager",
-  "name": "定时任务管理器",
+  "id": "task",
+  "name": "TASK",
   "version": "1.0.0",
-  "description": "管理您的定时任务和提醒",
-  "icon": "⏰",
+  "description": "Task list with deadlines & reminders",
+  "icon": "📋",
   "author": "Hundun Lite",
-  "entry": "index.html",
-  "permissions": ["notifications", "alarms"]
+  "entry": "main.html",
+  "permissions": ["storage", "notifications"]
 }
 ```
 

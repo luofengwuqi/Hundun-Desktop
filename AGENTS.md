@@ -1,7 +1,7 @@
 # Hundun Lite - 项目进度文档
 
-> 最后更新: 2026-10-13
-> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 新增 Markdown 实时渲染浏览模式 (markdown-it, Typora 式, 单换行直接渲染为换行)；修复"进入子程序后音效音量异常变大"（插件直放无视音量设置 + 主窗口 preload 因 contextBridge 长期失效一并修复）；修复"子程序启动时母程序意外出现"（母子窗口可见性互斥不变式）；修复 FastCmd 脚本从未真实执行（相对路径 + 假成功 toast），改为绝对路径 + start /wait 可见控制台 + 退出码回报；FastCmd 移植底部刷新按钮；旧数据目录 plugins/fast-cmd/file/ 迁移至 user-data；修复中文 .ps1 执行报"意外的标记"（UTF-8 无 BOM 被 PowerShell 5.1 按 GBK 读取 → ensurePs1Bom 就地补 BOM）；**FastCmd 交互简化：点击脚本即运行（操作弹窗移除，结果走 toast）、移除编辑功能、移除文件夹（脚本仅一级目录）**；**FastCmd 平台感知：打开前按 manifest.platforms 检查系统状态（支持 Windows/Linux），不支持的脚本文件不显示，Linux 新增 .sh 可见终端执行链（决策42）**
+> 最后更新: 2026-10-14
+> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 新增 Markdown 实时渲染浏览模式 (markdown-it, Typora 式, 单换行直接渲染为换行)；修复"进入子程序后音效音量异常变大"（插件直放无视音量设置 + 主窗口 preload 因 contextBridge 长期失效一并修复）；修复"子程序启动时母程序意外出现"（母子窗口可见性互斥不变式）；修复 FastCmd 脚本从未真实执行（相对路径 + 假成功 toast），改为绝对路径 + start /wait 可见控制台 + 退出码回报；FastCmd 移植底部刷新按钮；旧数据目录 plugins/fast-cmd/file/ 迁移至 user-data；修复中文 .ps1 执行报"意外的标记"（UTF-8 无 BOM 被 PowerShell 5.1 按 GBK 读取 → ensurePs1Bom 就地补 BOM）；**FastCmd 交互简化：点击脚本即运行（操作弹窗移除，结果走 toast）、移除编辑功能、移除文件夹（脚本仅一级目录）**；**FastCmd 平台感知：打开前按 manifest.platforms 检查系统状态（支持 Windows/Linux），不支持的脚本文件不显示，Linux 新增 .sh 可见终端执行链（决策42）**；**timer-manager 全量重构为 TASK 任务清单（纵向 400×520、状态徽章/排序/提醒弹窗/深浅色/键盘导航，旧进度不保留）；持久化 = hundun.storage JSON，SQLite 审核否决（决策43、44）**
 
 ---
 
@@ -202,7 +202,17 @@ plugins/                       # 插件目录 (每个插件一个子目录)
 │       └── ...
 │   # ⚠️ 用户文件不在插件目录 → user-data/plugins/fast-txt/file/
 │   #    旧的 plugins/fast-txt/file/ 迁移残留已于 2026-09-29 删除 (详见 STORAGE.md)
-├── timer-manager/             # 定时任务管理器 (占位)
+├── task/                      # TASK 任务清单 (2026-10-14 由 timer-manager 全量重构, 旧进度不保留)
+│   ├── manifest.json          # id: task, name: TASK, entry: main.html, 400×520 (纵向矩形), permissions: [storage, notifications]
+│   ├── main.html              # 入口: 共享 header + #view-main/#view-form 视图切换, css 7 个 + js 14 个按序加载
+│   ├── css/                   # 7 个样式 (base/header/task-list/footer/form/overlays/toast)
+│   └── js/                    # 14 个脚本 (全局脚本无模块, 与 fast-cmd 同构)
+│       ├── tasks.js           # 任务模型: hundun.storage 单键 tasks, 状态计算/排序/自动命名 taskN
+│       ├── render.js          # 列表/底部按钮渲染 (签名比对避免动画重放, 搬 DOM 前捕获 scrollTop)
+│       ├── form.js            # 创建/编辑表单 + 切换完成/删除/清理操作流
+│       ├── reminders.js       # 1s tick: 截止翻转重绘 + 提醒触发 (可见→应用内弹窗, 隐藏→Notification)
+│       └── ...
+│   # 数据 → hundun.storage key 'tasks' → userData/huntun-lite-data/task.json (决策43; SQLite 已否决)
 ├── fast-cmd/                 # 脚本管理器 (单级目录, 点击脚本即运行, 无编辑功能; 平台感知, 见决策42)
 │   ├── manifest.json        # entry: "main.html", 800×540, permissions: [], platforms: ["win32","linux"]
 │   ├── main.html            # 入口 (js/ 按序加载, platform.js 先于 app-state)
@@ -447,6 +457,12 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 ### 已决策 (2026-10-13, FastCmd 平台感知)
 42. **FastCmd 打开前系统状态检查 + 按平台过滤脚本**: 两层防护 — ①**主进程打开前拦截**: `manifest.platforms` (如 `["win32","linux"]`, 缺失=不限制) 经 `src/main/platform-support.js checkPlatformSupport()` 在 `startPlugin()` 创建窗口**之前**校验, 不支持则抛友好错误 → `launchPluginWithTransition` 返回 `{success:false}` → 母程序弹提示 (拦截发生在藏母之前, 母程序保持可见); 安装器同步校验字段格式; ②**插件内平台感知** `js/platform.js`: win32 收 .bat .cmd .ps1 / linux 收 .sh / 其余系统不支持 (列表·回收站·拖拽·新建菜单·图标全部经 `isScriptFile`/`FastCmdPlatform` 过滤, **不支持的脚本文件不显示**, 默认脚本与 CREATE NEW 菜单按平台动态生成, 不支持系统显示「当前系统不受支持」空态且无底部按钮); ③**Linux 真实执行 .sh**: `executeScript` 按平台分发 — 每次运行生成独立 POSIX sh wrapper (路径内联 + cd 脚本目录 + 有执行位尊重 shebang), 优先探测 10 种终端模拟器开可见窗口并轮询退出码文件 (对应 Windows 可见控制台), 无终端/终端失败回退后台直跑取子进程退出码; Windows 分支链路不变; 测试经 `FASTCMD_PLATFORM` 环境变量覆盖平台 (Linux 上回归 Windows 链路)
 
+### 已决策 (2026-10-14, TASK 子程序)
+43. **TASK 持久化 = hundun.storage JSON, SQLite 审核否决**: ①`package.json build.files` 排除 `node_modules` → better-sqlite3 等原生模块无法随包分发; ②决策8 已明确规避原生模块编译 (electron-rebuild/ABI, build:win --universal 尤甚); ③插件层只有 storage/fs 两条数据通道, 接 SQLite 需新增主进程依赖 + IPC, 违背零第三方依赖原则 (自研 ZIP 解析、零依赖 platform-support 同源); ④个人任务清单 (百行级、单进程写入) 下 JSON 全量写 + tmp/rename 原子落盘 + 100ms 防抖 + 退出 flush 已覆盖 SQLite 收益且可人工查看。实现: 单键 `tasks` = `{version, tasks:[...]}`; localStorage `task-data` 仅作 storage API 不可用时的兜底镜像; **`__PLUGIN_ID__` 注入竞态兜底** — plugin-manager 在 did-finish-load 才注入 (晚于 DOMContentLoaded), init 首行从入口路径 `/plugins/<id>/` 解析同值, 避免 storage 写到 null.json
+
+### 已决策 (2026-10-14, TASK 状态/排序/提醒语义)
+44. **TASK 状态为计算值 + 固定排序 + 提醒防重放**: ①状态不落库: `completed ? 已完成 : (deadline != null && now >= deadline ? 已过期 : 未完成)`, 1s tick 按状态签名 (`id:status`) 比对决定是否重绘 (签名不变不重建 DOM, 避免卡片入场动画每秒重放); ②排序: **未完成 (有截止按截止升序, 无截止排未完成末尾, 同组 createdAt 升序) > 已过期 (deadline 降序, 最近过期在前) > 已完成 (completedAt 降序)**; ③提醒: 每任务 `fired[]` 持久化已触发记录防重启重弹; 到点后 ≤2min 窗口内触发 — **窗口可见→应用内弹窗 + bengbeng 音效, 隐藏→HTML5 Notification 系统通知** (多条排队逐个弹); 超窗视为"应用未运行时错过"静默补记; 已完成任务的提醒直接抑制; ④提醒方式字段仅在提醒时间非空时可填 (默认"弹窗提醒", 其他方式待补充)
+
 ### 待定
 1. 插件市场实现方案
 2. 插件签名和安全验证
@@ -509,7 +525,7 @@ chore: 构建/工具链更新
 ## 🎯 下一步行动
 
 ### 下一步
-1. 完善定时任务管理器/命令执行器插件功能 (FastCmd 执行链路已于 2026-10-04 修复; 平台感知与 Linux .sh 执行已于 2026-10-13 落地, 执行类断言待 Windows 复跑)
+1. ~~完善定时任务管理器~~ ✅ 2026-10-14 已全量重构为 TASK 任务清单 (状态徽章/排序/截止过期/提醒弹窗); 后续: 提醒方式扩展 (现仅"弹窗提醒", 其他方式待补充)、FastCmd 执行类断言待 Windows 复跑
 2. 插件社区/插件市场对接（ADD 菜单"逛逛社区"目前跳转 Gitee 仓库，待官网完成后切换）
 3. ~~清理旧 Vue 组件文件 (CalculatorApp.vue, FastTXTApp.vue, TestApp.vue)~~ ✅ 2026-09-25 已完成
 4. 音效架构后续整改 (可选): 音效文件清单由主进程统一下发（现存母程序 `audio.js` 与插件 sdk 两份）、清理无引用死代码 `src/renderer/services/plugin-service.js`、插件窗口统一配置 `autoplayPolicy`

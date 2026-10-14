@@ -269,7 +269,7 @@ window.onerror = function(msg, url, line) {
 
 - `calculator` - 计算器
 - `fast-txt` - 文本管理器
-- `timer-manager` - 定时任务管理器
+- `task` - 任务清单 (截止时间/提醒/状态排序)
 - `fast-cmd` - 脚本管理器
 
 ## 常见问题

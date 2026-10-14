@@ -41,15 +41,15 @@ export const usePluginStore = defineStore('plugin', () => {
       state: 'unloaded'
     },
     {
-      id: 'timer-manager',
-      name: 'Timer',
-      description: 'Manage your timers and reminders',
-      icon: '⏰',
+      id: 'task',
+      name: 'TASK',
+      description: 'Task list with deadlines & reminders',
+      icon: '📋',
       version: '1.0.0',
       author: 'Hundun Lite',
       enabled: true,
       color: '#ff0080',
-      windowSize: { width: 400, height: 400 },
+      windowSize: { width: 400, height: 520 },
       state: 'unloaded'
     },
     {

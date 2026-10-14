@@ -1,6 +1,29 @@
 # Hundun Lite - 更新日志
 
-> 最后更新: 2026-10-13
+> 最后更新: 2026-10-14
+
+---
+
+## 2026-10-14
+
+### TASK 子程序: timer-manager 全量重构为任务清单 (旧进度不保留, 程序名更改为 TASK)
+- [x] **需求**: 原 Timer 定时任务占位插件整体废弃重写 → `plugins/task/` (id `task`, 显示名 `TASK`); 帮助用户记录任务内容/完成情况并提供必要提醒
+- [x] **外观 (复古掌机风格, 与 fast-cmd 同构)**:
+  - 纵向矩形窗口 400×520 (`manifest.windowSize`, 启动时居中为 420×540); 共享 header: 深/浅拨动开关 + 📋 **TASK** 高亮像素标题 (Press Start 2P + 辉光, 仿 FastCmd logo) + 📌 置顶 + ✕
+  - 中部任务卡片**纵向排列、一行一任务**, y 轴溢出时主体滚动 (细滚动条); 底部按钮群 `+` (新建) / `🧹` (清理已完成) + 计数 (`N 个任务 · M 已完成`)
+  - 卡片: 任务名左 / **状态徽章右 (未完成·已过期·已完成)** / ✎ 编辑键; 次行 meta 显示截止时间与提醒数; 已完成名称删除线弱化, 已过期徽章脉冲动画; 名称超长省略号
+- [x] **功能**:
+  - 2.0 深色/浅色互换 (localStorage `task-theme` + 母程序主题跟随) + 键盘控制 (WASD/方向键导航列表与按钮行, Enter 切换完成/执行按钮, E 编辑, Delete 删除, Esc 返回; 表单内不劫持输入, Esc 取消, 输入框回车保存; 弹窗内方向键+Enter 走 fast-cmd 同款导航)
+  - 2.1 底部 `+` → **创建表单视图 (与子程序等大, 同窗口切换)**: 任务名 (空 → 自动 `task+最小未占用数字`)、提醒时间 (可多个, 增删行)、提醒方式 (提醒时间非空才可填, 默认"弹窗提醒", 其他方式待补充)、截止时间 (可空, **到期自动变已过期**); 保存/取消, 改后取消有放弃确认
+  - 2.2 卡片 ✎ → 同款表单预填编辑 + **删除** (确认弹窗); 状态徽章点击切换 未完成↔已完成; `🧹` 批量清理已完成 (确认弹窗)
+  - 排序: **未完成且截止近的优先 > 未完成 > 已过期 > 已完成** (无截止的未完成排该组末尾; 过期按最近过期在前; 完成按最近完成在前)
+  - 提醒引擎: 1s tick; 窗口可见 → 应用内弹窗 + bengbeng 音效, 隐藏 → HTML5 Notification 系统通知; `fired[]` 持久化防重启重弹, 到点 >2min 视为错过静默补记, 已完成任务的提醒抑制
+- [x] **架构 — 持久化审核: SQLite 不合适, 采用 `hundun.storage` JSON (决策43)**: ①`build.files` 排除 node_modules → 原生模块无法随包分发; ②决策8 规避原生编译 (electron-rebuild/ABI); ③插件层无 DB 通道, 新增主进程依赖违背零第三方依赖原则; ④百行级单写入数据 JSON 原子写 (tmp+rename/防抖/退出 flush) 已覆盖 SQLite 收益。单键 `tasks={version,tasks:[...]}` → `userData/huntun-lite-data/task.json`, localStorage 镜像兜底; 状态/排序语义见决策44; 附带修复 `__PLUGIN_ID__` 注入竞态 (did-finish-load 晚于 DOMContentLoaded → init 从入口路径解析兜底, 避免写 null.json)
+- [x] **配套**: 母程序 `stores/plugin.js` DEFAULT_PLUGINS 的 timer-manager 条目替换为 task (400×520); README / QUICKSTART / PLUGIN_DEVELOPMENT 引用同步
+- [x] **测试**:
+  - 新增 `scripts/test-task-preload.js` (mock hundun.storage 落盘 + Notification 打桩 + document.hidden 强制隐藏) 与 `scripts/test-task.js` (Electron 冒烟): 空态/自动命名/状态计算/排序/徽章切换/编辑预填与保存/表单内删除/提醒触发与错过静默补记/提醒方式门槛/放弃确认/表单等大/持久化重载存活/全套键盘导航 → **64/64 通过** (连跑两次稳定)
+  - `scripts/test-window-lifecycle.js` 新增 I 节 (真实 plugin-preload + 真实 storage IPC 启动 task, 窗口尺寸 420×540, `task.json` 落盘): **32/32 通过**; 测试 userData 改为临时目录隔离
+  - 回归: `npm run build` 通过, `test-platform-support` 21/21
 
 ---
 
