@@ -1,7 +1,7 @@
 # Hundun Lite - 项目进度文档
 
 > 最后更新: 2026-10-14
-> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 新增 Markdown 实时渲染浏览模式 (markdown-it, Typora 式, 单换行直接渲染为换行)；修复"进入子程序后音效音量异常变大"（插件直放无视音量设置 + 主窗口 preload 因 contextBridge 长期失效一并修复）；修复"子程序启动时母程序意外出现"（母子窗口可见性互斥不变式）；修复 FastCmd 脚本从未真实执行（相对路径 + 假成功 toast），改为绝对路径 + start /wait 可见控制台 + 退出码回报；FastCmd 移植底部刷新按钮；旧数据目录 plugins/fast-cmd/file/ 迁移至 user-data；修复中文 .ps1 执行报"意外的标记"（UTF-8 无 BOM 被 PowerShell 5.1 按 GBK 读取 → ensurePs1Bom 就地补 BOM）；**FastCmd 交互简化：点击脚本即运行（操作弹窗移除，结果走 toast）、移除编辑功能、移除文件夹（脚本仅一级目录）**；**FastCmd 平台感知：打开前按 manifest.platforms 检查系统状态（支持 Windows/Linux），不支持的脚本文件不显示，Linux 新增 .sh 可见终端执行链（决策42）**；**timer-manager 全量重构为 TASK 任务清单（纵向 400×520、状态徽章/排序/提醒弹窗/深浅色/键盘导航，旧进度不保留）；持久化 = hundun.storage JSON，SQLite 审核否决（决策43、44）**；**镜像模式：底部新增「镜像模式」按钮开启并行镜像窗口（会话内母子互斥、A/B 可同屏；同一子程序同时只归属一个会话；镜像仅允许运行子程序、禁改配置，A 关闭后镜像升格恢复完整权限，全局仅一个镜像 — 决策45）**
+> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 新增 Markdown 实时渲染浏览模式 (markdown-it, Typora 式, 单换行直接渲染为换行)；修复"进入子程序后音效音量异常变大"（插件直放无视音量设置 + 主窗口 preload 因 contextBridge 长期失效一并修复）；修复"子程序启动时母程序意外出现"（母子窗口可见性互斥不变式）；修复 FastCmd 脚本从未真实执行（相对路径 + 假成功 toast），改为绝对路径 + start /wait 可见控制台 + 退出码回报；FastCmd 移植底部刷新按钮；旧数据目录 plugins/fast-cmd/file/ 迁移至 user-data；修复中文 .ps1 执行报"意外的标记"（UTF-8 无 BOM 被 PowerShell 5.1 按 GBK 读取 → ensurePs1Bom 就地补 BOM）；**FastCmd 交互简化：点击脚本即运行（操作弹窗移除，结果走 toast）、移除编辑功能、移除文件夹（脚本仅一级目录）**；**FastCmd 平台感知：打开前按 manifest.platforms 检查系统状态（支持 Windows/Linux），不支持的脚本文件不显示，Linux 新增 .sh 可见终端执行链（决策42）**；**timer-manager 全量重构为 TASK 任务清单（纵向 400×520、状态徽章/排序/提醒弹窗/深浅色/键盘导航，旧进度不保留）；持久化 = hundun.storage JSON，SQLite 审核否决（决策43、44）**；**镜像模式：底部新增「镜像模式」按钮开启并行镜像窗口（会话内母子互斥、A/B 可同屏；同一子程序同时只归属一个会话；镜像仅允许运行子程序、禁改配置，A 关闭后镜像升格恢复完整权限，全局仅一个镜像 — 决策45）**；**设置·插件页管理：实时运行状态（occupied + plugin-started/closed 转发）+ 左侧拖拽柄/Ctrl+↑↓ 排序持久化（货架 watch 同步、跨窗口 config-changed 广播）+ 右侧删除（运行中拦截、userdata 保留询问、内置=已移除名单可恢复/安装=删目录）— 决策46）**
 
 ---
 
@@ -150,7 +150,7 @@ src/
 │   ├── database.js           # 数据存储管理器 (JSON 文件)
 │   ├── plugin-manager.js     # 插件管理器 (BrowserWindow 创建, 会话化互斥/归属, 决策45)
 │   ├── mirror-manager.js     # 镜像窗口管理器 (单镜像/升格/会话注销, 依赖注入可单测, 决策45)
-│   ├── plugin-installer.js   # 本地插件安装器 (.zip 审核 + 解压 + 落盘)
+│   ├── plugin-installer.js   # 本地插件安装器 (.zip 审核 + 解压 + 落盘 + 卸载 uninstallPlugin, 决策46)
 │   ├── plugin-preload.js     # 插件窗口预加载脚本 (window.hundun, 含 hundun.sound)
 │   ├── preload.js            # 主窗口预加载脚本 (window.electronAPI 直挂, onPlaySound/syncSoundSettings)
 │   ├── sound-settings.js     # 音效设置主进程镜像 (sound:sync / get-sync / settings-changed 广播)
@@ -162,14 +162,14 @@ src/
 │   ├── components/
 │   │   ├── LoadingMask.vue   # 加载蒙版组件
 │   │   ├── Modal.vue         # 弹窗组件
-│   │   └── Settings.vue      # 设置页面 (声音/主题/语言/插件/关于)
+│   │   └── Settings.vue      # 设置页面 (声音/主题/语言/插件/关于; 插件页=实时状态+拖拽排序+移除/恢复, 决策46)
 │   ├── i18n/
 │   │   ├── index.js          # i18n 核心模块 (翻译函数、语言检测)
 │   │   ├── zh.js             # 中文翻译
 │   │   └── en.js             # 英文翻译
 │   ├── stores/
 │   │   ├── i18n.js           # 语言状态管理 (Pinia store)
-│   │   ├── plugin.js         # 插件状态管理 (scanAllPlugins IPC)
+│   │   ├── plugin.js         # 插件状态管理 (scanAllPlugins IPC; 数组序=显示顺序, 已移除名单 huntun-lite-plugins-removed, move/remove/restore, 决策46)
 │   │   └── theme.js          # 主题状态管理 (dark/light)
 │   └── utils/
 │       ├── audio.js          # 音效管理器 (masterVolume 全局音量控制, 启动时 applySavedVolume())
@@ -296,6 +296,10 @@ FastTXT 数据   userData/plugins/fast-txt/  (统一, 不写 asar)
 - **scanAll** — 扫描所有可用插件
 - **mirror:open / mirror:state** — 打开镜像（已存在→聚焦返回 `exists`，否则创建 `created`）/ 查询镜像开合（决策45）
 - **plugin-manager:getForeign** — 相对发送方会话"在别处运行"的插件列表（徽章/冲突拦截）
+- **plugin-manager:getOccupied** — 全局被占用的插件（存在插件窗口 = 运行中，设置页状态，决策46）
+- **plugin-install:uninstall** — 卸载插件（安装的删目录+registry，内置只隐藏；`removeData` 删 userdata，决策46）
+- **plugins:notify-changed** → 广播 `plugins:config-changed` 给其他母窗口（排序/移除/恢复/安装后各自 refreshFromDisk，决策46）
+- 生命周期出站: `plugin-started` / `plugin-closed` 由 index.js 订阅 PluginManager 事件后转发给所有母窗口（设置页实时状态，复活 preload 死监听，决策46）
 - **window-minimize/maximize/close/pin/resize/start-drag** — 按 `event.sender` 反查窗口（不再硬编码 mainWindow，镜像窗口各自独立）
 - 广播出站: `mirror:state-changed`（镜像开合）、`plugin-state-changed`（按会话视角的外部占用列表）、`window-role-changed`（镜像升格恢复完整权限）
 
@@ -342,12 +346,13 @@ FastTXT 数据   userData/plugins/fast-txt/  (统一, 不写 asar)
 - **使用方式**: `<script src="path/to/plugin-sdk.js">`
 
 #### 6. 本地插件安装器 (plugin-installer.js)
-- **IPC**: `plugin-install:pick`（打开文件资源管理器选 .zip）→ `plugin-install:install`（审核 + 安装）
+- **IPC**: `plugin-install:pick`（打开文件资源管理器选 .zip）→ `plugin-install:install`（审核 + 安装）→ `plugin-install:uninstall`（卸载，决策46）
 - **审核**: manifest 必需字段、id/version 规则、entry 存在性与类型、可选字段类型（见 PLUGIN_SPEC 第三章）
 - **解压**: 自研 ZIP 解析（zlib.inflateRawSync），含 CRC32 校验与 zip slip / 解压炸弹防护
 - **落盘**: 开发态 `项目根/plugins/<id>`，打包态 `exe目录/plugins/<id>`
 - **冲突**: 内置插件 ID 不可覆盖；已安装记录 `userData/installed-plugins.json` 允许覆盖升级
-- **安装后**: 渲染进程 `pluginStore.refreshFromDisk()` + `syncShelfWithStore()` 同步各页面
+- **卸载 (决策46)**: `uninstallPlugin(id, {removeData})` — registry 有记录 → 删安装目录 + 删记录（路径越界防护 + ID_RE 校验）；内置/手动放置 → **不删目录** 返回 `builtin:true`（渲染层"已移除名单"隐藏）；`removeData` → 删 `user-data/plugins/<id>/` + `Database.deleteAll(id)`（huntun-lite-data/<id>.json）
+- **安装后**: 渲染进程 `pluginStore.refreshFromDisk()` + `syncShelfWithStore()` 同步各页面 + `notifyChanged()` 广播其他窗口（决策46）
 - **社区入口**: `app:openExternal`（仅允许 http/https）→ 系统默认浏览器
 
 ### 插件 Manifest 规范
@@ -477,6 +482,9 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 ### 已决策 (2026-10-14, 镜像模式)
 45. **镜像模式 = 会话化母子架构**: 母程序底部新增「镜像模式」按钮，开启与原进程 A 并行的镜像窗口 B（**同一 Electron 应用内第二个母窗口，独立渲染进程，共用主进程协调**）。①**可见性**: 会话内互斥、A/B 可同屏 — 决策38 的"全局单窗口可见"降维为"每会话单窗口可见"，A组(A母 XOR A子)/B组(B母 XOR B子)各自成立；②**归属**: 同一子程序同时只归属一个会话（`pluginOwner`），A 运行的 a 则 B 启动 a 被 `startPlugin()` 拒绝（拦截在藏母前，错误弹窗「插件 x 正在另一个窗口中运行」），插件音效/主题查询路由到归属会话母窗口；③**单镜像**: `MirrorManager.open()` 已存在则聚焦返回 `exists`；④**镜像权限**: B 仅允许运行子程序 — `+ / ⚙ / 🪞 / 主题开关`保留但变灰，按钮群右侧提示「当前程序为镜像程序 不能修改配置」（配置经 localStorage/IPC 跨窗口共享，禁改避免污染 A）；⑤**关闭语义**: 关 B → 其会话子程序一并关闭（`removeSession`）；关 A → **B 升格为主窗口**（`onPromoted` 更新指针+主会话+发 `window-role-changed`，B 恢复完整权限，镜像槽释放可再开）；最后一个母窗口关闭才退出应用；⑥**推送**: `plugin-state-changed`（按会话视角的外部占用列表 → 卡带「运行中」徽章+冲突早拦截）、`mirror:state-changed`（🪞按钮高亮）、`window-role-changed`；⑦窗口控制 IPC 一律按 `event.sender` 反查窗口；⑧渲染层角色 = `--hundun-window=<label>` 注入 `window.nodeInfo.windowRole`；⑨**持久化**: 镜像为纯运行期状态，不落盘。测试 `scripts/test-mirror.js` 61/61
 
+### 已决策 (2026-10-14, 设置·插件页管理)
+46. **设置·插件页 = 实时状态 + 排序 + 移除**: ①**实时状态** — 修复"永远空闲"（store.state 从未更新）: 状态语义 = 全局 occupied（存在插件窗口，含镜像另一窗口/returnToParent 隐藏窗口）；主进程 `plugin-manager:getOccupied` 初始拉取 + index.js 订阅 PluginManager `plugin-started/closed` 事件转发所有母窗口（复活 preload 死监听）；②**排序** — 卡片左侧拖拽柄 ⣿ HTML5 拖拽（目标上/下半区 = 前/后插入）+ 键盘 `Ctrl+↑/↓`（仅插件页）；`huntun-lite-plugins` **数组顺序即显示顺序**（`loadFromStorage` 按保存顺序重排，新插件追加尾部），`movePlugin` 后 `saveToStorage`；货架体现 = App.vue `watch(插件id序列)` → `syncShelfWithStore()`（同时兜删除/恢复/安装，并在插槽卡带已从 store 消失时清幽灵插槽）；③**移除** — 右侧 ✕ / `Delete/Backspace`；**运行中拦截**（occupied 命中弹提示）；确认弹窗三选一 `[保留数据] [删除数据] [取消]`；主进程 `uninstallPlugin`: registry 有记录 → 删安装目录+记录（ID_RE + 越界防护），**内置/手动放置 → 不删目录只隐藏**；`removeData` → 删 `user-data/plugins/<id>/` + `Database.deleteAll`；**配置汇总核心 = 已移除名单** `huntun-lite-plugins-removed`（记 `{id,name,icon,version,removedAt}`），`init/scanDiskPlugins` 合并时过滤 — 挡 DEFAULT_PLUGINS/磁盘扫描回灌；`trackRemoved=false` 用于目录已删的安装插件（不进名单，重装 zip 即回，重装成功自动 `clearRemovedId`）；④**已移除+恢复** — 插件页底部折叠区，恢复 = 清名单 + `refreshFromDisk`（文件已删则弹"需重新安装"）；⑤**跨窗口** — 排序/移除/恢复/安装后 `plugins:notify-changed` → 主进程向其他母窗口广播 `plugins:config-changed` → 各窗 `refreshFromDisk()`（localStorage 同源共享，内存 store 需 reload；修掉镜像模式下 A 装/删 B 不同步的缺口）。已知取舍: 插件自身 localStorage 键（*-theme/locale）无法按插件定位清理。测试 `scripts/test-plugin-uninstall.js` 22/22
+
 ### 待定
 1. 插件市场实现方案
 2. 插件签名和安全验证
@@ -544,6 +552,7 @@ chore: 构建/工具链更新
 3. ~~清理旧 Vue 组件文件 (CalculatorApp.vue, FastTXTApp.vue, TestApp.vue)~~ ✅ 2026-09-25 已完成
 4. 音效架构后续整改 (可选): 音效文件清单由主进程统一下发（现存母程序 `audio.js` 与插件 sdk 两份）、清理无引用死代码 `src/renderer/services/plugin-service.js`、插件窗口统一配置 `autoplayPolicy`
 5. ~~镜像模式~~ ✅ 2026-10-14 已完成 (决策45, `scripts/test-mirror.js` 61/61); 日常回归请一并跑 `npx electron --no-sandbox scripts/test-mirror.js` 与 `test-window-lifecycle`。后续可选: 双开时母程序 CPU/GPU 占用观察、镜像窗口独立窗口位置记忆
+6. ~~设置·插件页管理~~ ✅ 2026-10-14 已完成 (决策46, `scripts/test-plugin-uninstall.js` 22/22); 后续可选: 拖拽动画/排序视觉反馈增强、已移除区显示移除时间、批量移除
 
 ---
 

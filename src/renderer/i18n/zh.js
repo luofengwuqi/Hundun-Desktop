@@ -71,6 +71,21 @@ export default {
     platform: '平台',
     desc: '复古掌机风格桌面效率工具',
     inUse: '使用中',
+    // 插件管理 (决策46)
+    removeTitle: '删除插件',
+    removeMsg: '确定移除 <strong>{name}</strong>？<br>是否保留该插件在 user-data 中的数据？',
+    keepData: '保留数据',
+    removeDataBtn: '删除数据',
+    removeRunningMsg: '<strong>{name}</strong> 正在运行（含其他镜像窗口），无法移除。',
+    removeOkTitle: '已移除',
+    removeOkMsg: '<strong>{name}</strong> 已从母程序移除<br>数据处理: {data}',
+    dataKept: '已保留',
+    dataDeleted: '已删除',
+    removeFailTitle: '移除失败',
+    removedSection: '已移除',
+    restore: '恢复',
+    restoreFailTitle: '恢复失败',
+    restoreMissingMsg: '<strong>{name}</strong> 的插件文件已不存在，请重新安装 (.zip)。',
   },
 
   // 插件状态

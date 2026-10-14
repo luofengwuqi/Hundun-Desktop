@@ -3,7 +3,7 @@ const path = require('path')
 const fs = require('fs')
 const { PluginManager } = require('./plugin-manager')
 const { MirrorManager } = require('./mirror-manager')
-const { pickZipFile, installFromZip } = require('./plugin-installer')
+const { pickZipFile, installFromZip, uninstallPlugin } = require('./plugin-installer')
 const { registerSoundSettingsIPC } = require('./sound-settings')
 
 // ========== 根治 GPU 缓存权限问题 ==========
@@ -173,6 +173,16 @@ function broadcastMirrorState () {
   }
 }
 
+// 向所有会话母窗口广播任意 channel (插件生命周期 / 配置变更, 决策45/46)
+function broadcastToSessionMains (channel, payload) {
+  if (!pluginManager) return
+  for (const session of pluginManager.sessions.values()) {
+    if (session.main && !session.main.isDestroyed()) {
+      session.main.webContents.send(channel, payload)
+    }
+  }
+}
+
 // 应用准备就绪
 app.whenReady().then(() => {
   mainWindow = createWindow('main')
@@ -200,6 +210,10 @@ app.whenReady().then(() => {
   
   // 注册插件管理器 IPC 处理器
   registerPluginManagerIPC()
+
+  // 插件生命周期事件 → 转发给所有母窗口 (设置页实时状态, 决策46; 复活 preload 的 onPluginStarted/onPluginClosed)
+  pluginManager.on('plugin-started', (data) => broadcastToSessionMains('plugin-started', data && data.pluginId))
+  pluginManager.on('plugin-closed', (data) => broadcastToSessionMains('plugin-closed', data && data.pluginId))
   
   // 注册 FastTXT 文件系统 IPC 处理器
   registerFastTXTIPC(pluginManager)
@@ -486,6 +500,11 @@ function registerPluginManagerIPC() {
     return pluginManager.getForeignPlugins(pluginManager.sessionForSender(event.sender))
   })
 
+  // 全局被占用的插件 (存在插件窗口 = 运行中, 设置页状态用, 决策46)
+  ipcMain.handle('plugin-manager:getOccupied', async () => {
+    return pluginManager.getOccupiedPlugins()
+  })
+
   ipcMain.handle('plugin-manager:getActive', async (event) => {
     return pluginManager.getActivePluginId(pluginManager.sessionForSender(event.sender))
   })
@@ -753,6 +772,31 @@ ipcMain.handle('plugin-install:install', async (event, zipPath) => {
     console.error('[PluginInstaller] install failed:', error)
     return { success: false, error: error.message || String(error) }
   }
+})
+
+// 卸载插件 (设置页删除, 决策46): 安装的删目录+记录, 内置只隐藏; 可选删 userdata
+ipcMain.handle('plugin-install:uninstall', async (event, pluginId, options) => {
+  try {
+    return uninstallPlugin(pluginId, options || {})
+  } catch (error) {
+    console.error('[PluginInstaller] uninstall failed:', error)
+    return { success: false, error: error.message || String(error) }
+  }
+})
+
+// 插件配置变更 (排序/移除/恢复/安装) → 广播给**其他**母窗口各自刷新
+// (localStorage 同源共享, 但各窗口内存中的 store 需要 reload, 决策46)
+ipcMain.handle('plugins:notify-changed', async (event) => {
+  const senderWin = (() => {
+    try { const w = BrowserWindow.fromWebContents(event.sender); return w && !w.isDestroyed() ? w : null } catch (_) { return null }
+  })()
+  if (!pluginManager) return { success: false }
+  for (const session of pluginManager.sessions.values()) {
+    const main = session.main
+    if (!main || main.isDestroyed() || main === senderWin) continue
+    main.webContents.send('plugins:config-changed')
+  }
+  return { success: true }
 })
 
 // 打开外部链接 (逛逛社区 → 系统默认浏览器)

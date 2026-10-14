@@ -22,6 +22,7 @@ const os = require('os')
 const zlib = require('zlib')
 const { resolvePluginsDirs, resolveInstallPluginsDir } = require('./paths')
 const { validatePlatformsField } = require('./platform-support')
+const { getDatabase } = require('./database')
 
 // ========== 限制（防解压炸弹） ==========
 const MAX_ENTRIES = 5000              // 最大文件数
@@ -523,4 +524,68 @@ async function installFromZip (zipPath) {
   }
 }
 
-module.exports = { pickZipFile, installFromZip }
+/**
+ * 卸载插件 (设置页·插件删除, 决策46)
+ *
+ * 规则:
+ *   - installed (installed-plugins.json 有记录): 删除安装目录 + 移除记录 (真卸载)
+ *   - 内置/手动放置 (无记录): **不删插件目录** (app 自带文件/源码), 返回 builtin=true,
+ *     由渲染层"已移除名单"负责隐藏 (挡 DEFAULT_PLUGINS/磁盘扫描回灌)
+ *   - removeData: 删除 userData 数据 — user-data/plugins/<id>/ 目录
+ *     + user-data/huntun-lite-data/<id>.json (Database 清缓存+删文件)
+ *   - 插件自身 localStorage 键 (*-theme/locale) 无法按插件定位, 不处理 (文档已知取舍)
+ *
+ * @param {string} pluginId
+ * @param {{ removeData?: boolean }} options
+ * @returns {{success: boolean, builtin?: boolean, removedDir?: boolean, removedData?: boolean, error?: string}}
+ */
+function uninstallPlugin (pluginId, { removeData = false } = {}) {
+  try {
+    if (typeof pluginId !== 'string' || !ID_RE.test(pluginId)) {
+      return { success: false, error: `插件 id 不合法: ${pluginId}` }
+    }
+
+    const registry = loadRegistry()
+    const installed = !!registry[pluginId]
+    let removedDir = false
+
+    if (installed) {
+      const installDir = resolveInstallPluginsDir()
+      const target = path.resolve(path.join(installDir, pluginId))
+      // 越界防护: 删除目标必须落在用户安装目录内
+      if (target !== path.resolve(installDir) && !target.startsWith(path.resolve(installDir) + path.sep)) {
+        return { success: false, error: '卸载路径越界，已中止' }
+      }
+      if (fs.existsSync(target)) {
+        fs.rmSync(target, { recursive: true, force: true })
+      }
+      delete registry[pluginId]
+      saveRegistry(registry)
+      removedDir = true
+    }
+
+    let removedData = false
+    if (removeData) {
+      // 文件系统数据目录 (fast-txt/fast-cmd 文档等): user-data/plugins/<id>/
+      const dataDir = path.join(app.getPath('userData'), 'plugins', pluginId)
+      if (fs.existsSync(dataDir)) {
+        fs.rmSync(dataDir, { recursive: true, force: true })
+      }
+      // JSON 存储 (hundun.storage → huntun-lite-data/<id>.json): 清内存缓存 + 删文件
+      try {
+        getDatabase().deleteAll(pluginId)
+      } catch (e) {
+        console.warn('[PluginInstaller] deleteAll data failed:', e.message)
+      }
+      removedData = true
+    }
+
+    console.log(`[PluginInstaller] Uninstalled: ${pluginId} (builtin=${!installed}, dir=${removedDir}, data=${removedData})`)
+    return { success: true, builtin: !installed, removedDir, removedData }
+  } catch (error) {
+    console.error('[PluginInstaller] Uninstall failed:', error)
+    return { success: false, error: error.message || String(error) }
+  }
+}
+
+module.exports = { pickZipFile, installFromZip, uninstallPlugin }

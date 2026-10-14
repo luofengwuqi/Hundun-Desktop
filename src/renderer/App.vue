@@ -165,7 +165,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useThemeStore } from './stores/theme'
 import { usePluginStore } from './stores/plugin'
 import { useI18nStore } from './stores/i18n'
@@ -257,6 +257,20 @@ const syncShelfWithStore = () => {
   }
   updateRowSelection()
 }
+
+// 决策46: 插件列表变化 (排序/移除/恢复/安装, 含其他窗口广播的变更) → 货架同步;
+// 插槽中的卡带若已从 store 消失 → 清幽灵卡带
+watch(
+  () => pluginStore.plugins.map(p => p.id).join('|'),
+  () => {
+    const ids = new Set(pluginStore.plugins.map(p => p.id))
+    if (slotPlugin.value && !ids.has(slotPlugin.value.id)) {
+      console.log('[App] Slot plugin removed from store, clearing slot:', slotPlugin.value.id)
+      slotPlugin.value = null
+    }
+    syncShelfWithStore()
+  }
+)
 
 // ========== 主题切换 ==========
 const toggleTheme = () => {
@@ -631,8 +645,13 @@ const handleInstallZip = async () => {
 
     if (result && result.success) {
       // 同步：重新扫描磁盘插件 → 卡带货架 / 设置页插件列表 / 信息栏
+      // 决策46: 重装同 id 时先解除"已移除名单"隐藏, 完成后通知其他母窗口刷新
+      if (result.plugin && result.plugin.id) {
+        pluginStore.clearRemovedId(result.plugin.id)
+      }
       await pluginStore.refreshFromDisk()
       syncShelfWithStore()
+      pluginStore.notifyChanged()
       playSound('OK')
 
       const p = result.plugin || {}
@@ -933,6 +952,7 @@ let unsubscribePlaySound = null
 let unsubscribeMirrorState = null
 let unsubscribeRoleChange = null
 let unsubscribePluginState = null
+let unsubscribeConfigChanged = null
 
 // 拉取"在别处运行"的插件列表 (启动时初始化; 之后靠推送刷新)
 const refreshForeignPlugins = async () => {
@@ -1016,6 +1036,19 @@ onMounted(async () => {
   } catch (e) {
     console.warn('[App] Failed to register plugin-state handler:', e)
   }
+
+  // 其他母窗口的插件配置变更 (排序/移除/恢复/安装) → 本窗口刷新 (决策46)
+  try {
+    if (window.electronAPI && window.electronAPI.onPluginsConfigChanged) {
+      unsubscribeConfigChanged = window.electronAPI.onPluginsConfigChanged(async () => {
+        console.log('[App] plugins config changed from another window, refreshing')
+        await pluginStore.refreshFromDisk()
+        syncShelfWithStore()
+      })
+    }
+  } catch (e) {
+    console.warn('[App] Failed to register plugins-config handler:', e)
+  }
   
   if (shelfPlugins.value.length > 0) {
     selectedIndex.value = 0
@@ -1035,6 +1068,8 @@ onUnmounted(() => {
   unsubscribeRoleChange = null
   safeUnsub(unsubscribePluginState)
   unsubscribePluginState = null
+  safeUnsub(unsubscribeConfigChanged)
+  unsubscribeConfigChanged = null
 })
 </script>
 

@@ -71,6 +71,21 @@ export default {
     platform: 'Platform',
     desc: 'Retro pocket console style desktop efficiency tool',
     inUse: 'IN USE',
+    // Plugin management (decision 46)
+    removeTitle: 'REMOVE PLUGIN',
+    removeMsg: 'Remove <strong>{name}</strong>?<br>Keep this plugin\'s data in user-data?',
+    keepData: 'KEEP DATA',
+    removeDataBtn: 'DELETE DATA',
+    removeRunningMsg: '<strong>{name}</strong> is running (including another mirror window) and cannot be removed.',
+    removeOkTitle: 'REMOVED',
+    removeOkMsg: '<strong>{name}</strong> removed from the console<br>Data: {data}',
+    dataKept: 'kept',
+    dataDeleted: 'deleted',
+    removeFailTitle: 'REMOVE FAILED',
+    removedSection: 'REMOVED',
+    restore: 'RESTORE',
+    restoreFailTitle: 'RESTORE FAILED',
+    restoreMissingMsg: 'Plugin files of <strong>{name}</strong> no longer exist. Please reinstall (.zip).',
   },
 
   // 插件状态

@@ -144,15 +144,51 @@
                 v-for="(plugin, index) in plugins" 
                 :key="plugin.id"
                 class="plugin-item detail-item"
-                :class="{ selected: currentSide === 'right' && detailIndex === index }"
+                :class="{
+                  selected: currentSide === 'right' && detailIndex === index,
+                  dragging: dragPluginId === plugin.id,
+                  'drop-before': dropTargetId === plugin.id && dropBefore,
+                  'drop-after': dropTargetId === plugin.id && !dropBefore
+                }"
+                draggable="true"
+                @click="selectDetail(index)"
+                @dragstart="onDragStart($event, plugin)"
+                @dragover.prevent="onDragOver($event, plugin)"
+                @dragleave="onDragLeave(plugin)"
+                @drop.prevent="onDrop(plugin)"
+                @dragend="onDragEnd"
               >
+                <!-- 拖拽柄 (决策46): 左侧, 拖动排序 -->
+                <span class="plugin-grip" title="⋮⋮">⣿</span>
                 <span class="plugin-icon">{{ plugin.icon }}</span>
                 <div class="plugin-info">
                   <span class="plugin-name">{{ plugin.name }}</span>
                   <span class="plugin-version">v{{ plugin.version }}</span>
                 </div>
-                <span v-if="plugin.state === 'running'" class="in-use-tag">{{ t('settings.inUse') }}</span>
+                <!-- 实时状态 (决策46): 存在插件窗口 = 运行中 -->
+                <span v-if="occupiedIds.includes(plugin.id)" class="in-use-tag">{{ t('settings.inUse') }}</span>
                 <span v-else class="plugin-status idle">{{ t('plugin.idle') }}</span>
+                <!-- 移除 (决策46) -->
+                <button
+                  class="plugin-remove-btn"
+                  :title="t('settings.removeTitle')"
+                  @click.stop="requestRemove(plugin)"
+                >✕</button>
+              </div>
+            </div>
+
+            <!-- 已移除列表 + 恢复 (决策46) -->
+            <div v-if="removedRecords.length" class="removed-section">
+              <button class="removed-toggle" @click="removedOpen = !removedOpen">
+                <span>{{ t('settings.removedSection') }} ({{ removedRecords.length }})</span>
+                <span class="removed-arrow">{{ removedOpen ? '▾' : '▸' }}</span>
+              </button>
+              <div v-if="removedOpen" class="removed-list">
+                <div v-for="r in removedRecords" :key="r.id" class="removed-item">
+                  <span class="removed-icon">{{ r.icon }}</span>
+                  <span class="removed-name">{{ r.name }}</span>
+                  <button class="restore-btn" @click="restoreRemoved(r)">{{ t('settings.restore') }}</button>
+                </div>
               </div>
             </div>
           </div>
@@ -186,6 +222,16 @@
     <footer class="settings-footer">
       <span class="footer-hint">{{ t('keys.escToExit') }}</span>
     </footer>
+
+    <!-- 弹窗 (移除确认 / 结果提示, 决策46) -->
+    <Modal
+      v-if="modalVisible"
+      :icon="modalIcon"
+      :title="modalTitle"
+      :message="modalMessage"
+      :buttons="modalButtons"
+      @close="closeModal"
+    />
   </div>
 </template>
 
@@ -197,6 +243,7 @@ import { useI18nStore } from '../stores/i18n'
 import { playSound, setGlobalVolume } from '../utils/audio'
 import { loadSoundSettings, saveSoundSettings } from '../utils/sound-settings'
 import { localeOptions } from '../i18n/index.js'
+import Modal from './Modal.vue'
 
 const emit = defineEmits(['close'])
 
@@ -214,6 +261,26 @@ const previousSideIndex = ref(0) // 记住从右侧返回时要恢复的左侧�
 const platform = ref('Unknown')
 const currentLocale = computed(() => i18nStore.locale)
 const languageOptions = localeOptions
+
+// ========== 插件页状态 (决策46) ==========
+// 全局运行中 (存在插件窗口, 含镜像另一窗口与隐藏窗口)
+const occupiedIds = ref([])
+// 已移除名单 (含展示信息, 供恢复区)
+const removedRecords = ref([])
+const removedOpen = ref(false)
+// 拖拽排序
+const dragPluginId = ref(null)
+const dropTargetId = ref(null)
+const dropBefore = ref(true)
+// 弹窗 (移除确认 / 结果)
+const modalVisible = ref(false)
+const modalIcon = ref('')
+const modalTitle = ref('')
+const modalMessage = ref('')
+const modalButtons = ref([])
+// 生命周期事件退订
+let unsubPluginStarted = null
+let unsubPluginClosed = null
 
 // i18n
 const t = (key, params = {}) => i18nStore.t(key, params)
@@ -318,6 +385,191 @@ const selectDetail = (index) => {
   currentSide.value = 'right'
 }
 
+// ========== 决策46: 运行状态实时化 ==========
+const refreshOccupied = async () => {
+  try {
+    if (window.electronAPI && window.electronAPI.getOccupiedPlugins) {
+      const ids = await window.electronAPI.getOccupiedPlugins()
+      occupiedIds.value = Array.isArray(ids) ? ids : []
+    }
+  } catch (e) {
+    console.warn('[Settings] Failed to load occupied plugins:', e)
+  }
+}
+
+// ========== 决策46: 弹窗 helpers ==========
+const escapeHtml = (str) => String(str ?? '')
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;')
+
+const showModal = (icon, title, message, buttons) => {
+  modalIcon.value = icon
+  modalTitle.value = title
+  modalMessage.value = message
+  modalButtons.value = buttons
+  modalVisible.value = true
+}
+
+const closeModal = () => {
+  playSound('exit')
+  modalVisible.value = false
+}
+
+// 流程中切换到下一个弹窗 (避免叠加 exit 音效)
+const closeModalSilent = () => {
+  modalVisible.value = false
+}
+
+// ========== 决策46: 移除插件 ==========
+const requestRemove = (plugin) => {
+  if (!plugin) return
+  // 运行中拦截 (含镜像另一窗口占用)
+  if (occupiedIds.value.includes(plugin.id)) {
+    playSound('error')
+    showModal('⚠️', t('settings.removeTitle'),
+      t('settings.removeRunningMsg', { name: escapeHtml(plugin.name) }),
+      [{ text: t('cartridge.ok'), class: 'primary', action: closeModal }])
+    return
+  }
+  playSound('click')
+  showModal(
+    '🗑️',
+    t('settings.removeTitle'),
+    t('settings.removeMsg', { name: `${plugin.icon} ${escapeHtml(plugin.name)}` }),
+    [
+      { text: t('settings.keepData'), class: 'primary', action: () => doRemove(plugin, false) },
+      { text: t('settings.removeDataBtn'), class: 'danger', action: () => doRemove(plugin, true) },
+      { text: t('cartridge.cancel'), class: 'secondary', action: closeModal }
+    ]
+  )
+}
+
+const doRemove = async (plugin, removeData) => {
+  closeModalSilent()
+  playSound('click')
+  try {
+    const { ipcRenderer } = require('electron')
+    const r = await ipcRenderer.invoke('plugin-install:uninstall', plugin.id, { removeData })
+
+    if (!r || !r.success) {
+      playSound('error')
+      showModal('❌', t('settings.removeFailTitle'),
+        escapeHtml(r && r.error ? r.error : t('error.unknownError')),
+        [{ text: t('cartridge.ok'), class: 'primary', action: closeModal }])
+      return
+    }
+
+    // 配置汇总 (决策46): 目录已删 (安装插件) → 不进名单, 重装 zip 即回;
+    // 内置/保留目录 → 进"已移除名单"挡 DEFAULT/磁盘扫描回灌, 可恢复
+    pluginStore.removePluginFromConfig(plugin, { trackRemoved: !r.removedDir })
+    removedRecords.value = pluginStore.getRemovedRecords()
+    if (detailIndex.value >= plugins.value.length) {
+      detailIndex.value = plugins.value.length - 1
+    }
+
+    playSound('OK')
+    showModal('✅', t('settings.removeOkTitle'),
+      t('settings.removeOkMsg', {
+        name: `${plugin.icon} ${escapeHtml(plugin.name)}`,
+        data: r.removedData ? t('settings.dataDeleted') : t('settings.dataKept')
+      }),
+      [{ text: t('cartridge.ok'), class: 'primary', action: closeModal }])
+  } catch (e) {
+    console.error('[Settings] Remove plugin failed:', e)
+    playSound('error')
+    showModal('❌', t('settings.removeFailTitle'),
+      escapeHtml(e.message || t('error.unknownError')),
+      [{ text: t('cartridge.ok'), class: 'primary', action: closeModal }])
+  }
+}
+
+// ========== 决策46: 恢复已移除插件 ==========
+const restoreRemoved = async (record) => {
+  playSound('click')
+  try {
+    const ok = await pluginStore.restorePlugin(record.id)
+    removedRecords.value = pluginStore.getRemovedRecords()
+    if (ok) {
+      playSound('OK')
+    } else {
+      playSound('error')
+      showModal('❌', t('settings.restoreFailTitle'),
+        t('settings.restoreMissingMsg', { name: escapeHtml(record.name) }),
+        [{ text: t('cartridge.ok'), class: 'primary', action: closeModal }])
+    }
+  } catch (e) {
+    console.error('[Settings] Restore plugin failed:', e)
+    playSound('error')
+    showModal('❌', t('settings.restoreFailTitle'),
+      escapeHtml(e.message || t('error.unknownError')),
+      [{ text: t('cartridge.ok'), class: 'primary', action: closeModal }])
+  }
+}
+
+// ========== 决策46: 拖拽排序 ==========
+const onDragStart = (e, plugin) => {
+  dragPluginId.value = plugin.id
+  e.dataTransfer.effectAllowed = 'move'
+  // Firefox 需要 setData 才会启动拖拽
+  try { e.dataTransfer.setData('text/plain', plugin.id) } catch (_) { /* ignore */ }
+}
+
+const onDragOver = (e, plugin) => {
+  e.dataTransfer.dropEffect = 'move'
+  if (dragPluginId.value === plugin.id) {
+    dropTargetId.value = null
+    return
+  }
+  const rect = e.currentTarget.getBoundingClientRect()
+  dropBefore.value = e.clientY < rect.top + rect.height / 2
+  dropTargetId.value = plugin.id
+}
+
+const onDrop = (plugin) => {
+  const fromId = dragPluginId.value
+  const before = dropBefore.value
+  dragPluginId.value = null
+  dropTargetId.value = null
+  if (!fromId || fromId === plugin.id) return
+
+  const list = plugins.value
+  const targetIdx = list.findIndex(p => p.id === plugin.id)
+  const fromIdx = list.findIndex(p => p.id === fromId)
+  if (targetIdx === -1 || fromIdx === -1) return
+
+  // 目标最终下标: 上半区插到目标前, 下半区插到目标后; 源在前则左移补偿
+  let to = before ? targetIdx : targetIdx + 1
+  if (fromIdx < to) to -= 1
+  if (pluginStore.movePlugin(fromId, to)) {
+    // 选中跟随被移动项
+    if (currentSide.value === 'right') {
+      detailIndex.value = pluginStore.plugins.findIndex(p => p.id === fromId)
+    }
+    playSound('click')
+  }
+}
+
+const onDragEnd = () => {
+  dragPluginId.value = null
+  dropTargetId.value = null
+}
+
+// ========== 决策46: 键盘排序 (Ctrl+↑/↓) ==========
+const moveCurrent = (delta) => {
+  const list = plugins.value
+  const from = detailIndex.value
+  if (from < 0 || from >= list.length) return
+  const to = from + delta
+  if (to < 0 || to >= list.length) return
+  if (pluginStore.movePlugin(list[from].id, to)) {
+    detailIndex.value = to
+    playSound('click')
+  }
+}
+
 // Execute action for selected detail item (Enter key)
 const executeDetailAction = () => {
   if (detailIndex.value < 0) return
@@ -361,6 +613,11 @@ const handleKeydown = (e) => {
     }
     return
   }
+
+  // 弹窗打开时键盘交给 Modal (其自带 document 监听), 设置页不响应 (决策46)
+  if (modalVisible.value) {
+    return
+  }
   
   if (e.key === 'Escape') {
     closeSettings()
@@ -399,6 +656,22 @@ const handleKeydown = (e) => {
   
   // 右侧栏导航
   else if (currentSide.value === 'right') {
+    // Ctrl+↑/↓ 移动排序 (决策46, 仅插件页)
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault()
+      if (selectedTab.value === 3) {
+        moveCurrent(e.key === 'ArrowUp' ? -1 : 1)
+      }
+      return
+    }
+
+    // Delete/Backspace 打开移除确认 (决策46, 仅插件页)
+    if ((e.key === 'Delete' || e.key === 'Backspace') && selectedTab.value === 3 && detailIndex.value >= 0) {
+      e.preventDefault()
+      requestRemove(plugins.value[detailIndex.value])
+      return
+    }
+
     // 上下箭头键移动细节焦点
     if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
       e.preventDefault()
@@ -450,10 +723,39 @@ onMounted(() => {
   if (window.nodeInfo) {
     platform.value = window.nodeInfo.platform
   }
+
+  // 决策46: 运行状态实时化 (初始拉取 + 生命周期事件增删)
+  refreshOccupied()
+  try {
+    if (window.electronAPI) {
+      if (window.electronAPI.onPluginStarted) {
+        unsubPluginStarted = window.electronAPI.onPluginStarted((pluginId) => {
+          if (pluginId && !occupiedIds.value.includes(pluginId)) {
+            occupiedIds.value.push(pluginId)
+          }
+        })
+      }
+      if (window.electronAPI.onPluginClosed) {
+        unsubPluginClosed = window.electronAPI.onPluginClosed((pluginId) => {
+          occupiedIds.value = occupiedIds.value.filter(id => id !== pluginId)
+        })
+      }
+    }
+  } catch (e) {
+    console.warn('[Settings] Failed to register plugin lifecycle handlers:', e)
+  }
+
+  // 已移除名单
+  removedRecords.value = pluginStore.getRemovedRecords()
 })
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
+  const safeUnsub = (fn) => { try { if (fn) fn() } catch (e) { /* ignore */ } }
+  safeUnsub(unsubPluginStarted)
+  unsubPluginStarted = null
+  safeUnsub(unsubPluginClosed)
+  unsubPluginClosed = null
 })
 </script>
 
@@ -892,6 +1194,145 @@ onUnmounted(() => {
 .plugin-status.idle,
 .plugin-status.unloaded {
   color: var(--text-muted);
+}
+
+/* ========== 插件页: 拖拽排序 / 移除 / 已移除 (决策46) ========== */
+.plugin-item {
+  cursor: pointer;
+}
+
+.plugin-grip {
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-muted);
+  cursor: grab;
+  user-select: none;
+  padding: 2px 0;
+  transition: color 0.15s ease;
+}
+
+.plugin-item:hover .plugin-grip {
+  color: var(--accent-primary);
+}
+
+.plugin-item:active .plugin-grip {
+  cursor: grabbing;
+}
+
+.plugin-item.dragging {
+  opacity: 0.4;
+}
+
+.plugin-item.drop-before {
+  border-top: 2px solid var(--accent-primary);
+}
+
+.plugin-item.drop-after {
+  border-bottom: 2px solid var(--accent-primary);
+}
+
+.plugin-remove-btn {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.plugin-remove-btn:hover {
+  color: #ff0040;
+  border-color: #ff0040;
+  box-shadow: 0 0 8px rgba(255, 0, 64, 0.4);
+}
+
+/* 已移除区 */
+.removed-section {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border-color);
+}
+
+.removed-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 2px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-family: 'Noto Sans SC', 'Press Start 2P', cursive;
+  font-size: 11px;
+  transition: color 0.15s ease;
+}
+
+.removed-toggle:hover {
+  color: var(--accent-secondary);
+}
+
+.removed-arrow {
+  font-size: 11px;
+}
+
+.removed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.removed-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--bg-slot);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  opacity: 0.75;
+}
+
+.removed-icon {
+  font-size: 16px;
+}
+
+.removed-name {
+  flex: 1;
+  min-width: 0;
+  font-family: 'Noto Sans SC', 'Press Start 2P', cursive;
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.restore-btn {
+  flex-shrink: 0;
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--accent-primary);
+  background: transparent;
+  color: var(--accent-primary);
+  cursor: pointer;
+  font-family: 'Noto Sans SC', 'Press Start 2P', cursive;
+  font-size: 10px;
+  transition: all 0.15s ease;
+}
+
+.restore-btn:hover {
+  background: var(--accent-primary);
+  color: #0a0a0a;
 }
 
 /* About Section */

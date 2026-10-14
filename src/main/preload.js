@@ -38,6 +38,16 @@ window.electronAPI = {
   getActivePlugin: () => ipcRenderer.invoke('plugin-manager:getActive'),
   // 相对本窗口会话"在别处运行"的插件 (镜像徽章/冲突拦截, 决策45)
   getForeignPlugins: () => ipcRenderer.invoke('plugin-manager:getForeign'),
+  // 全局运行中 (存在插件窗口) 的插件 — 设置页实时状态 (决策46)
+  getOccupiedPlugins: () => ipcRenderer.invoke('plugin-manager:getOccupied'),
+  // 排序/移除/恢复/安装等配置变更 (其他窗口发起时收到, 决策46)
+  onPluginsConfigChanged: (callback) => {
+    const handler = () => callback()
+    ipcRenderer.on('plugins:config-changed', handler)
+    return () => ipcRenderer.removeListener('plugins:config-changed', handler)
+  },
+  // 本窗口配置已变更 → 主进程广播给其他母窗口 (决策46)
+  notifyPluginsChanged: () => ipcRenderer.invoke('plugins:notify-changed'),
 
   // ========== 镜像模式 (决策45) ==========
   // 打开镜像窗口; 已存在则聚焦 → { success, status: 'created'|'exists' }

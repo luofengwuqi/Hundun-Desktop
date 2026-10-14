@@ -6,6 +6,25 @@
 
 ## 2026-10-14
 
+### 设置·插件页管理: 实时状态 / 拖拽排序持久化 / 移除+userdata 询问+可恢复 (决策46)
+- [x] **修复"永远空闲"**: 原状态读 `plugin.store.state` — App.vue 直接走 IPC 启动插件、store.state 从未更新 → 恒显示空闲。改为**全局 occupied 语义** (存在插件窗口 = 运行中, 含镜像另一窗口与 returnToParent 后的隐藏窗口): 新 IPC `plugin-manager:getOccupied` 初始拉取 + **index.js 订阅 PluginManager `plugin-started`/`plugin-closed` 转发所有母窗口** (复活 preload 从未被触发的 onPluginStarted/onPluginClosed 死监听); Settings 订阅事件实时增删 `occupiedIds` → `使用中` / `○ 空闲`
+- [x] **排序 (拖拽 + 键盘 + 持久化 + 货架体现)**:
+  - 卡片**左侧拖拽柄 ⣿** (整卡 HTML5 拖拽): dragover 按指针上/下半区显示插入指示线 (drop-before/drop-after), drop 计算最终下标 (源在前左移补偿), 选中跟随被移动项; 卡片本身可点击选中 (原 div 点不中, 顺带修)
+  - **键盘 `Ctrl+↑/↓`** (仅插件页右侧栏): 上下移动并持久化, detailIndex 同步; 普通 ↑/↓ 导航不变
+  - **持久化**: `huntun-lite-plugins` **数组顺序即显示顺序** — `saveToStorage` 本就全量按序写, `loadFromStorage` 新增按保存顺序重排 (保存后新装的插件自动追加尾部)
+  - **货架体现**: App.vue 新增 `watch(插件 id 序列)` → `syncShelfWithStore()` (同时兜住移除/恢复/安装的货架同步; 插槽中卡带已从 store 消失 → 清幽灵插槽)
+- [x] **移除 (全可移除 + 数据保留询问 + 已移除/恢复)**:
+  - 入口: 卡片**右侧 ✕ 按钮** + 键盘 `Delete/Backspace` (原全仓空闲键位); **运行中拦截** (occupied 命中 → 弹「正在运行 (含其他镜像窗口), 无法移除」)
+  - 确认弹窗 (Settings 内嵌 Modal, 三按钮): 「是否保留 \<name\> 在 user-data 中的数据?」→ `[保留数据]` `[删除数据]` `[取消]`; 弹窗打开时设置页键盘让路 (Modal 自带 document 监听)
+  - 主进程 `plugin-installer.js uninstallPlugin(id, {removeData})`: **ID_RE 校验 (拒绝路径穿越) + 安装目录越界防护**; registry (`installed-plugins.json`) 有记录 → **删安装目录 + 删记录** (真卸载); **内置/手动放置 → 不删目录** 返回 `builtin:true` (app 文件/源码安全); `removeData` → 删 `user-data/plugins/<id>/` + `Database.deleteAll(id)` (清缓存删 huntun-lite-data/<id>.json)
+  - **配置汇总核心 — 已移除名单** `huntun-lite-plugins-removed` (`{id,name,icon,version,removedAt}`): `init` 默认插件与 `scanDiskPlugins` 合并后过滤 → **挡 DEFAULT_PLUGINS/磁盘扫描回灌** (原 removePlugin 只改内存, 重启即复活); 目录已删的安装插件 `trackRemoved:false` 不进名单 (重装 zip 即回), 重装成功自动 `clearRemovedId`
+  - **已移除+恢复区**: 插件页底部折叠「已移除 (N)」逐条 + `恢复` 按钮 (清名单 + refreshFromDisk; 文件已删弹「请重新安装 (.zip)」)
+- [x] **跨窗口同步 (镜像模式联动)**: 排序/移除/恢复/安装 → `plugins:notify-changed` → 主进程向**其他**母窗口广播 `plugins:config-changed` → 各窗 `refreshFromDisk()` + `syncShelfWithStore()` (localStorage 同源共享, 内存 store 需 reload; 顺带修掉镜像下 A 装插件 B 不更新的既有缺口)
+- [x] **i18n**: `settings.remove*/keepData/dataKept/dataDeleted/removedSection/restore*` 中英文 16 键
+- [x] **测试**: 新增 `scripts/test-plugin-uninstall.js` (隔离 userData + 伪安装目录 finally/exit 兜底清理) — 真卸载删目录删记录删数据 / keepData 保留数据 / 内置不删目录 / 内置删数据 / 非法 id 三项拒绝 → **22/22 通过**
+- [x] 回归: `test-mirror` **61/61**, `test-window-lifecycle` **32/32**, `npm run build` 通过
+- [x] **已知取舍**: 插件自身 localStorage 键 (`*-theme`/`*-locale`/`task-data`) 无法按插件定位, 删除数据时不清理 (Chromium 分区不可寻址); `enabled:false` 插件仍显示货架 (历史行为, 未动)
+
 ### 镜像模式: 底部新增「镜像模式」按钮, 开启与原进程并行的镜像窗口 (决策45)
 - [x] **需求**: 母程序底部新增「镜像模式」按钮 — 点击开启与原进程(A)并行的新窗口(B), 用户对 B 与 A 的体验完全一致; 约束: A 正在运行的子程序 a, B 不允许运行 (对称: 同一子程序同时只归属一个会话); 全局只允许一个镜像窗口
 - [x] **可见性模型 (拍板)**: **会话内互斥, A/B 可同屏** — A组(A母 XOR A子)与 B组(B母 XOR B子)各自维持决策38 的母子互斥不变式, 跨组不受限 (真·并行分屏); 决策38 由"全局单窗口可见"降维为"每会话单窗口可见"
