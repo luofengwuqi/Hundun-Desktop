@@ -427,6 +427,23 @@ body {
   z-index: 1;
 }
 
+/* 在别处运行的插件徽章 (镜像互斥可见化, 决策45) */
+.cartridge-running {
+  position: absolute;
+  top: 14px;
+  right: 6px;
+  z-index: 2;
+  font-family: 'Noto Sans SC', 'Press Start 2P', cursive;
+  font-size: 8px;
+  line-height: 1;
+  padding: 3px 5px;
+  border-radius: 4px;
+  color: #0a0a0a;
+  background: var(--accent-primary);
+  box-shadow: 0 0 8px var(--accent-primary);
+  pointer-events: none;
+}
+
 /* ========== Slot Row ========== */
 .slot-row {
   display: flex;
@@ -469,10 +486,69 @@ body {
   transform: scale(1.1);
 }
 
+/* 镜像程序禁用的配置入口: 变灰、无悬停效果 (决策45) */
+.slot-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  filter: grayscale(1);
+}
+
+.slot-btn:disabled:hover {
+  border-color: var(--border-color);
+  box-shadow: none;
+  transform: none;
+}
+
+.slot-btn:disabled.selected {
+  border-color: var(--text-muted);
+  box-shadow: none;
+  transform: none;
+}
+
+.slot-btn:disabled.selected .slot-btn-icon {
+  color: var(--text-muted);
+}
+
+/* 镜像按钮激活态 (镜像窗口已打开时高亮) */
+.slot-btn.mirror-btn.active {
+  border-color: var(--accent-secondary);
+  box-shadow: 0 0 15px var(--accent-secondary);
+}
+
+.slot-btn.mirror-btn.active .slot-btn-icon {
+  color: var(--accent-secondary);
+}
+
+.slot-btn.mirror-btn.active.selected {
+  box-shadow: 0 0 15px var(--accent-secondary), 0 0 6px var(--accent-primary);
+}
+
+/* 镜像受限提示 (按钮群右侧, 决策45) */
+.mirror-notice {
+  flex: 1;
+  min-width: 0;
+  font-family: 'Noto Sans SC', 'Press Start 2P', cursive;
+  font-size: 11px;
+  color: var(--accent-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.85;
+  user-select: none;
+}
+
 .slot-btn-icon {
   font-size: 20px;
   color: var(--accent-primary);
   font-weight: bold;
+}
+
+/* 镜像按钮 SVG 图标 (双镜对开): 描边属性内联 (stroke=currentColor, 同 fast-cmd 刷新按钮做法),
+   颜色经 .slot-btn-icon 的 color —— 默认 accent-primary / active accent-secondary / 禁用灰度自动生效 */
+svg.slot-btn-icon {
+  width: 22px;
+  height: 22px;
+  display: block;
 }
 
 /* ========== Cartridge Slot ========== */
@@ -690,4 +766,28 @@ body {
     width: 100%;
     height: 100vh;
   }
+}
+
+/* ========== 镜像程序禁用态 · 浅色覆盖 (置于文件末尾保证优先级, 决策45) ========== */
+.light-mode .slot-btn:disabled,
+.light-mode .slot-btn:disabled:hover,
+.light-mode .slot-btn:disabled.selected {
+  background: #FFE8B8;
+  border-color: #E8DCC8;
+  box-shadow: none;
+  transform: none;
+  opacity: 0.4;
+  filter: grayscale(1);
+}
+
+/* 镜像程序的主题开关禁用态 (保留但变灰, 决策45) */
+.toggle-switch.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  filter: grayscale(1);
+}
+
+.toggle-switch.disabled:hover {
+  border-color: var(--border-color);
+  box-shadow: none;
 }

@@ -16,7 +16,7 @@
           <span class="toggle-label">{{ t('settings.dark') }}</span>
           <div 
             class="toggle-switch" 
-            :class="{ active: !isDarkMode }"
+            :class="{ active: !isDarkMode, disabled: isMirror }"
             @click="toggleTheme"
           >
             <div class="toggle-knob"></div>
@@ -68,6 +68,7 @@
               <div class="cartridge-icon">{{ plugin.icon }}</div>
               <div class="cartridge-title">{{ plugin.name }}</div>
               <div class="cartridge-id">#{{ String(idx + 1).padStart(3, '0') }}</div>
+              <div v-if="foreignIds.includes(plugin.id)" class="cartridge-running">{{ t('cartridge.running') }}</div>
             </div>
           </div>
         </div>
@@ -78,6 +79,8 @@
             <button 
               class="slot-btn" 
               :class="{ selected: selectedRow === 1 && selectedCol === 0 }"
+              :disabled="isMirror"
+              :title="isMirror ? t('mirror.notice') : ''"
               @click="handleBtnAddClick"
             >
               <span class="slot-btn-icon">+</span>
@@ -85,17 +88,37 @@
             <button 
               class="slot-btn" 
               :class="{ selected: selectedRow === 1 && selectedCol === 1 }"
+              :disabled="isMirror"
+              :title="isMirror ? t('mirror.notice') : ''"
               @click="handleBtnSettingsClick"
             >
               <span class="slot-btn-icon">⚙</span>
             </button>
+            <button 
+              class="slot-btn mirror-btn" 
+              :class="{ selected: selectedRow === 1 && selectedCol === 2, active: mirrorActive }"
+              :disabled="isMirror"
+              :title="isMirror ? t('mirror.notice') : t('bottom.mirror')"
+              @click="handleBtnMirrorClick"
+            >
+              <!-- 双镜对开: 左右两块对称方形镜面, 线性描边同 fast-cmd 刷新按钮 -->
+              <svg class="slot-btn-icon mirror-btn-icon" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="4" y="6.5" width="6" height="11" rx="1.5" fill="currentColor" fill-opacity="0.16" />
+                <rect x="14" y="6.5" width="6" height="11" rx="1.5" fill="currentColor" fill-opacity="0.16" />
+              </svg>
+            </button>
           </div>
-          
+
+          <!-- 镜像程序提示: 按钮群右侧 -->
+          <span v-if="isMirror" class="mirror-notice">{{ t('mirror.notice') }}</span>
+
           <div 
             class="cartridge-slot" 
             ref="slotRef"
             :class="{ 
-              selected: selectedRow === 1 && selectedCol === 2,
+              selected: selectedRow === 1 && selectedCol === 3,
               'drag-over': isDragOver
             }"
             @dragover.prevent="handleDragOver"
@@ -174,7 +197,21 @@ const selectedRow = ref(0)
 const selectedCol = ref(0)
 const dragPlugin = ref(null)
 const isDragOver = ref(false)
-const bottomRowNames = ['ADD', 'SETTINGS', 'SLOT']
+const bottomRowNames = computed(() => [
+  t('bottom.add'),
+  t('bottom.settings'),
+  t('bottom.mirror'),
+  t('bottom.slot')
+])
+
+// ========== 镜像模式状态 (决策45) ==========
+// 本窗口角色: 'main' 完整权限 | 'mirror' 镜像受限 (仅允许运行子程序)
+const windowRole = ref((window.nodeInfo && window.nodeInfo.windowRole) || 'main')
+const isMirror = computed(() => windowRole.value === 'mirror')
+// 镜像窗口是否已开 (镜像按钮高亮)
+const mirrorActive = ref(false)
+// 在**其他窗口**运行中的插件 (卡带徽章 + 冲突拦截)
+const foreignIds = ref([])
 
 // 弹窗状态
 const modalVisible = ref(false)
@@ -223,6 +260,11 @@ const syncShelfWithStore = () => {
 
 // ========== 主题切换 ==========
 const toggleTheme = () => {
+  // 镜像程序禁止修改配置 (变灰按钮 + 提示)
+  if (isMirror.value) {
+    showMirrorNotice()
+    return
+  }
   playSound('change')
   themeStore.toggleTheme()
 }
@@ -284,6 +326,18 @@ const insertSelectedToSlot = () => {
   if (selectedIndex.value < 0 || selectedIndex.value >= shelfPlugins.value.length) return
   
   const plugin = shelfPlugins.value[selectedIndex.value]
+
+  // 镜像互斥 (决策45): 目标在另一窗口运行 → 拦截, 不动插槽
+  if (foreignIds.value.includes(plugin.id)) {
+    playSound('error')
+    showModal(
+      '⚠️',
+      t('cartridge.running'),
+      t('cartridge.busyOtherMsg', { name: `${plugin.icon} ${plugin.name}` }),
+      [{ text: t('cartridge.ok'), class: 'primary', action: closeModal }]
+    )
+    return
+  }
   
   if (slotPlugin.value && slotPlugin.value.id === plugin.id) {
     showModal(
@@ -343,6 +397,17 @@ const sortShelfPlugins = () => {
   })
 }
 
+// 启动失败回滚: 卡带放回货架、清空插槽 (避免插槽残留假"运行中" — 覆盖镜像互斥/平台拦截等失败路径)
+const rollbackSlot = (plugin) => {
+  if (!slotPlugin.value || slotPlugin.value.id !== plugin.id) return
+  slotPlugin.value = null
+  shelfPlugins.value.push(plugin)
+  sortShelfPlugins()
+  if (selectedIndex.value < 0 && shelfPlugins.value.length > 0) {
+    selectedIndex.value = 0
+  }
+}
+
 // ========== 启动子程序（BrowserWindow + 过渡动画） ==========
 const launchApp = async (plugin) => {
   // 防止动画重入
@@ -361,12 +426,16 @@ const launchApp = async (plugin) => {
       })
       if (!result || !result.success) {
         console.error('Plugin launch failed:', result?.error)
+        rollbackSlot(plugin)
+        playSound('error')
         showModal('❌', t('error.launchFailed'), result?.error || t('error.unknownError'), [
           { text: t('cartridge.ok'), class: 'primary', action: closeModal }
         ])
       }
     } catch (e) {
       console.error('Failed to launch plugin window:', e)
+      rollbackSlot(plugin)
+      playSound('error')
       showModal('❌', t('error.launchFailed'), e.message, [
         { text: t('cartridge.ok'), class: 'primary', action: closeModal }
       ])
@@ -425,6 +494,7 @@ const ejectCurrentPlugin = async () => {
 const handleBtnAddClick = () => {
   playSound('click')
   if (selectedRow.value === 1 && selectedCol.value === 0) {
+    if (isMirror.value) { showMirrorNotice(); return }
     handleAddApp()
   } else {
     selectedRow.value = 1
@@ -435,6 +505,7 @@ const handleBtnAddClick = () => {
 const handleBtnSettingsClick = () => {
   playSound('click')
   if (selectedRow.value === 1 && selectedCol.value === 1) {
+    if (isMirror.value) { showMirrorNotice(); return }
     handleSettings()
   } else {
     selectedRow.value = 1
@@ -442,9 +513,51 @@ const handleBtnSettingsClick = () => {
   }
 }
 
-const handleSlotClick = () => {
+// ========== 镜像按钮 (决策45) ==========
+const handleBtnMirrorClick = () => {
   playSound('click')
   if (selectedRow.value === 1 && selectedCol.value === 2) {
+    if (isMirror.value) { showMirrorNotice(); return }
+    openMirror()
+  } else {
+    selectedRow.value = 1
+    selectedCol.value = 2
+  }
+}
+
+// 打开镜像窗口; 已存在则由主进程聚焦 (全局至多一个镜像)
+const openMirror = async () => {
+  try {
+    const { ipcRenderer } = require('electron')
+    const r = await ipcRenderer.invoke('mirror:open')
+    if (r && r.success) {
+      playSound(r.status === 'exists' ? 'click' : 'OK')
+    } else {
+      playSound('error')
+      showModal('❌', t('bottom.mirror'), escapeHtml(r && r.error ? r.error : t('error.unknownError')), [
+        { text: t('cartridge.ok'), class: 'primary', action: closeModal }
+      ])
+    }
+  } catch (e) {
+    console.error('[App] mirror:open failed:', e)
+    playSound('error')
+  }
+}
+
+// 镜像受限提示 (禁用入口的统一反馈)
+const showMirrorNotice = () => {
+  playSound('error')
+  showModal(
+    '🪞',
+    t('mirror.title'),
+    t('mirror.notice'),
+    [{ text: t('cartridge.ok'), class: 'primary', action: closeModal }]
+  )
+}
+
+const handleSlotClick = () => {
+  playSound('click')
+  if (selectedRow.value === 1 && selectedCol.value === 3) {
     if (!slotPlugin.value) {
       showModal(
         '🎮',
@@ -467,7 +580,7 @@ const handleSlotClick = () => {
     }
   } else {
     selectedRow.value = 1
-    selectedCol.value = 2
+    selectedCol.value = 3
   }
 }
 
@@ -604,6 +717,19 @@ const handleDrop = () => {
   if (!dragPlugin.value) return
   
   const plugin = dragPlugin.value
+
+  // 镜像互斥 (决策45): 拖拽目标在另一窗口运行 → 拦截
+  if (foreignIds.value.includes(plugin.id)) {
+    playSound('error')
+    showModal(
+      '⚠️',
+      t('cartridge.running'),
+      t('cartridge.busyOtherMsg', { name: `${plugin.icon} ${plugin.name}` }),
+      [{ text: t('cartridge.ok'), class: 'primary', action: closeModal }]
+    )
+    dragPlugin.value = null
+    return
+  }
   
   if (slotPlugin.value && slotPlugin.value.id === plugin.id) {
     showModal(
@@ -674,12 +800,23 @@ const continueToChild = async () => {
       // 通过主进程启动插件 BrowserWindow
       try {
         const { ipcRenderer } = require('electron')
-        await ipcRenderer.invoke('plugin-manager:launch', plugin.id, {
+        const result = await ipcRenderer.invoke('plugin-manager:launch', plugin.id, {
           pluginId: plugin.id,
           pluginPath: plugin.pluginPath || `plugins/${plugin.id}`
         })
+        if (!result || !result.success) {
+          console.error('Failed to relaunch plugin window:', result?.error)
+          playSound('error')
+          showModal('❌', t('error.launchFailed'), result?.error || t('error.unknownError'), [
+            { text: t('cartridge.ok'), class: 'primary', action: closeModal }
+          ])
+        }
       } catch (e) {
         console.error('Failed to launch plugin window:', e)
+        playSound('error')
+        showModal('❌', t('error.launchFailed'), e.message, [
+          { text: t('cartridge.ok'), class: 'primary', action: closeModal }
+        ])
       }
     } finally {
       isTransitioning.value = false
@@ -736,7 +873,7 @@ const handleKeydown = (e) => {
           updateRowSelection()
         }
       } else {
-        selectedCol.value = Math.min(selectedCol.value + 1, 2)
+        selectedCol.value = Math.min(selectedCol.value + 1, 3)
       }
       playSound('click')
       break
@@ -762,9 +899,19 @@ const handleKeydown = (e) => {
         }
       } else {
         switch (selectedCol.value) {
-          case 0: handleAddApp(); break
-          case 1: handleSettings(); break
-          case 2: handleSlotClick(); break
+          case 0:
+            if (isMirror.value) showMirrorNotice()
+            else handleAddApp()
+            break
+          case 1:
+            if (isMirror.value) showMirrorNotice()
+            else handleSettings()
+            break
+          case 2:
+            if (isMirror.value) showMirrorNotice()
+            else openMirror()
+            break
+          case 3: handleSlotClick(); break
         }
       }
       break
@@ -783,6 +930,21 @@ const handleKeydown = (e) => {
 // ========== 生命周期 ==========
 // 插件音效经主进程转发到本窗口, 统一交给 audio.js 播放 (同一份音量/静音设置)
 let unsubscribePlaySound = null
+let unsubscribeMirrorState = null
+let unsubscribeRoleChange = null
+let unsubscribePluginState = null
+
+// 拉取"在别处运行"的插件列表 (启动时初始化; 之后靠推送刷新)
+const refreshForeignPlugins = async () => {
+  try {
+    if (window.electronAPI && window.electronAPI.getForeignPlugins) {
+      const ids = await window.electronAPI.getForeignPlugins()
+      if (Array.isArray(ids)) foreignIds.value = ids
+    }
+  } catch (e) {
+    console.warn('[App] Failed to load foreign plugins:', e)
+  }
+}
 
 onMounted(async () => {
   // 确保过渡状态被重置（防止上次异常退出残留）
@@ -816,6 +978,44 @@ onMounted(async () => {
   } catch (e) {
     console.warn('[App] Failed to register theme handler:', e)
   }
+
+  // ========== 镜像模式状态 (决策45) ==========
+  try {
+    const { ipcRenderer } = require('electron')
+    // ipcRenderer.on 不返回退订函数 → 自行包装
+    const onIpc = (channel, cb) => {
+      ipcRenderer.on(channel, cb)
+      return () => ipcRenderer.removeListener(channel, cb)
+    }
+    // 镜像开合 (镜像按钮高亮)
+    const initMirror = async () => {
+      const s = await ipcRenderer.invoke('mirror:state')
+      mirrorActive.value = !!(s && s.open)
+    }
+    initMirror()
+    unsubscribeMirrorState = onIpc('mirror:state-changed', (e, s) => {
+      mirrorActive.value = !!(s && s.open)
+    })
+    // 本窗口角色变更 (镜像升格 → 恢复完整权限)
+    unsubscribeRoleChange = onIpc('window-role-changed', (e, role) => {
+      windowRole.value = role
+      console.log('[App] window role changed:', role)
+    })
+  } catch (e) {
+    console.warn('[App] Failed to register mirror handlers:', e)
+  }
+
+  // 在别处运行的插件 (徽章 + 冲突拦截)
+  await refreshForeignPlugins()
+  try {
+    if (window.electronAPI && window.electronAPI.onPluginStateChanged) {
+      unsubscribePluginState = window.electronAPI.onPluginStateChanged((ids) => {
+        foreignIds.value = Array.isArray(ids) ? ids : []
+      })
+    }
+  } catch (e) {
+    console.warn('[App] Failed to register plugin-state handler:', e)
+  }
   
   if (shelfPlugins.value.length > 0) {
     selectedIndex.value = 0
@@ -826,10 +1026,15 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
-  if (unsubscribePlaySound) {
-    try { unsubscribePlaySound() } catch (e) { /* ignore */ }
-    unsubscribePlaySound = null
-  }
+  const safeUnsub = (fn) => { try { if (fn) fn() } catch (e) { /* ignore */ } }
+  safeUnsub(unsubscribePlaySound)
+  unsubscribePlaySound = null
+  safeUnsub(unsubscribeMirrorState)
+  unsubscribeMirrorState = null
+  safeUnsub(unsubscribeRoleChange)
+  unsubscribeRoleChange = null
+  safeUnsub(unsubscribePluginState)
+  unsubscribePluginState = null
 })
 </script>
 

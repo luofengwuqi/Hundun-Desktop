@@ -9,6 +9,7 @@ function copyMainModules() {
     closeBundle() {
       const copies = [
         ['src/main/plugin-manager.js', 'out/main/plugin-manager.js'],
+        ['src/main/mirror-manager.js', 'out/main/mirror-manager.js'],
         ['src/main/database.js', 'out/main/database.js'],
         ['src/main/plugin-preload.js', 'out/main/plugin-preload.js'],
         ['src/main/plugin-installer.js', 'out/main/plugin-installer.js'],

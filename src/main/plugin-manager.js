@@ -31,9 +31,15 @@ const PluginState = {
 
 class PluginManager {
   constructor(mainWindow) {
-    this.mainWindow = mainWindow // 主窗口引用
+    this.mainWindow = mainWindow // 主会话母窗口引用 (镜像升格后随 setPrimarySession 更新)
     this.plugins = new Map()     // pluginId -> PluginInstance
     this.windows = new Map()     // pluginId -> BrowserWindow
+    // ========== 会话 (2026-10-14 决策45: 镜像模式) ==========
+    // 一个会话 = 一个母窗口 + 它启动的子程序窗口; 互斥不变式按会话判定
+    // (会话内母子互斥, 跨会话可同屏并行)
+    this.sessions = new Map()    // 母窗口(BrowserWindow) -> { label, main, activePluginId, pinnedMain }
+    this.primarySession = null   // 主会话 (原进程 A; A 关闭后镜像 B 升格接管)
+    this.pluginOwner = new Map() // pluginId -> 归属会话 (镜像互斥: 同一插件同时只属于一个会话)
     this.database = getDatabase()
     // 扫描内置插件目录 + 用户安装插件目录（本地安装的 .zip 插件落盘于后者）
     this.pluginDirs = resolvePluginsDirs()
@@ -45,26 +51,12 @@ class PluginManager {
     // 过渡动画窗口
     this.transitionWindow = null
     
-    // 当前运行的插件ID
-    this.activePluginId = null
-    
     // 追踪每个插件窗口的置顶状态（show() 会重置 always-on-top，需要独立追踪）
     this.pluginPinStates = new Map() // pluginId -> boolean
-    
-    // 追踪主窗口的置顶状态（launchPluginWithTransition 隐藏主窗口前保存，returnToParent 恢复）
-    this._mainWindowPinned = false
 
-    // ========== 母程序/子程序可见性互斥 (2026-10-03) ==========
-    // 任何路径把主窗口 show() 出来时, 只要有插件窗口可见, 立即重新隐藏 ——
-    // 防止 did-finish-load / ready-to-show / 页面重载(HMR) / focus 等路径
-    // 在子程序运行期间把母程序带出来 (母子同时运行)
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.on('show', () => {
-        if (this.hasVisiblePluginWindow()) {
-          console.log('[PluginManager] Main window show() blocked: plugin window visible, re-hiding')
-          this.mainWindow.hide()
-        }
-      })
+    // 默认会话 = 主会话 (兼容 test-window-lifecycle 等直接 new PluginManager(mainWin) 的用法)
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      this.setPrimarySession(this.addSession(mainWindow, 'main'))
     }
     
     // 插件窗口默认配置
@@ -87,6 +79,126 @@ class PluginManager {
     
     // 注册 IPC 处理器
     this._registerIPC()
+  }
+
+  // ========== 会话管理 (决策45: 镜像模式) ==========
+
+  /**
+   * 注册一个母窗口会话 (创建母窗口/镜像窗口时调用, 幂等)
+   * @param {BrowserWindow} mainWin - 母窗口
+   * @param {string} label - 'main' | 'mirror'
+   * @returns {Object|null} 会话对象
+   */
+  addSession(mainWin, label = 'main') {
+    if (!mainWin || mainWin.isDestroyed()) return null
+    const existing = this.sessions.get(mainWin)
+    if (existing) return existing
+
+    const session = { label, main: mainWin, activePluginId: null, pinnedMain: false }
+    this.sessions.set(mainWin, session)
+
+    // ========== 会话内母子可见性互斥 (2026-10-03, 2026-10-14 会话化) ==========
+    // 任何路径把该会话母窗口 show() 出来时, 只要该会话有可见插件窗口, 立即重新隐藏 ——
+    // 跨会话不受影响 (镜像窗口/其子程序可与本会话同屏并行)
+    mainWin.on('show', () => {
+      if (this.hasVisiblePluginWindow(session)) {
+        console.log(`[PluginManager] Main window show() blocked (${label}): session plugin visible, re-hiding`)
+        mainWin.hide()
+      }
+    })
+
+    console.log(`[PluginManager] Session added: ${label}`)
+    return session
+  }
+
+  /**
+   * 设定主会话 (原进程 A; A 关闭后镜像 B 升格时调用)
+   */
+  setPrimarySession(session) {
+    this.primarySession = session || null
+    this.mainWindow = session ? session.main : null
+  }
+
+  /**
+   * 会话注销: 关闭该会话名下全部插件窗口并移除注册
+   * (母窗口关闭时调用 — 镜像 B 关闭时其子程序一并关闭)
+   * @returns {Object|null} 被注销的会话
+   */
+  removeSession(mainWin) {
+    const session = this.sessions.get(mainWin)
+    if (!session) return null
+
+    for (const [pluginId, owner] of [...this.pluginOwner]) {
+      if (owner !== session) continue
+      this.pluginOwner.delete(pluginId)
+      const win = this.windows.get(pluginId)
+      this.windows.delete(pluginId)
+      const plugin = this.plugins.get(pluginId)
+      if (plugin) plugin.state = PluginState.UNLOADED
+      if (win && !win.isDestroyed()) win.close()
+      this._emit('plugin-closed', { pluginId })
+    }
+
+    session.activePluginId = null
+    this.sessions.delete(mainWin)
+    if (this.primarySession === session) this.primarySession = null
+    this._broadcastPluginState()
+    console.log(`[PluginManager] Session removed: ${session.label}`)
+    return session
+  }
+
+  /**
+   * 由 IPC 发送方反查会话: 母窗口 → 该会话; 插件窗口 → 归属会话; 兜底主会话
+   */
+  sessionForSender(webContents) {
+    for (const [win, session] of this.sessions) {
+      if (!win.isDestroyed() && win.webContents === webContents) return session
+    }
+    const pluginId = this._getWindowPluginId(webContents)
+    if (pluginId) {
+      const owner = this.pluginOwner.get(pluginId)
+      if (owner) return owner
+    }
+    return this.primarySession
+  }
+
+  /**
+   * 获取某插件的归属会话
+   */
+  getPluginOwner(pluginId) {
+    return this.pluginOwner.get(pluginId) || null
+  }
+
+  /**
+   * 当前被占用的插件 (存在未销毁的插件窗口 = 某会话持有)
+   * @returns {string[]}
+   */
+  getOccupiedPlugins() {
+    const occupied = []
+    for (const [pluginId, win] of this.windows) {
+      if (win && !win.isDestroyed()) occupied.push(pluginId)
+    }
+    return occupied
+  }
+
+  /**
+   * 相对某会话而言"在别处运行"的插件列表 (镜像窗口用于徽章与冲突拦截)
+   */
+  getForeignPlugins(session = null) {
+    const target = session || this.primarySession
+    return this.getOccupiedPlugins().filter(id => this.pluginOwner.get(id) !== target)
+  }
+
+  /**
+   * 向每个母窗口推送"别处运行的插件"列表 (会话视角不同, 内容不同)
+   */
+  _broadcastPluginState() {
+    const occupied = this.getOccupiedPlugins()
+    for (const session of this.sessions.values()) {
+      if (!session.main || session.main.isDestroyed()) continue
+      const foreign = occupied.filter(id => this.pluginOwner.get(id) !== session)
+      session.main.webContents.send('plugin-state-changed', foreign)
+    }
   }
 
   /**
@@ -161,22 +273,24 @@ class PluginManager {
       return false
     })
 
-    // 插件 -> 主进程：播放音效
+    // 插件 -> 主进程：播放音效 (转发给归属会话的母窗口)
     ipcMain.handle('plugin:playSound', (event, soundName) => {
-      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-        this.mainWindow.webContents.send('play-sound', soundName)
+      const session = this.sessionForSender(event.sender) || this.primarySession
+      if (session && session.main && !session.main.isDestroyed()) {
+        session.main.webContents.send('play-sound', soundName)
       }
     })
 
-    // 插件 -> 主进程：获取当前主题
+    // 插件 -> 主进程：获取当前主题 (向归属会话的母程序查询)
     ipcMain.handle('plugin:getTheme', (event) => {
-      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      const session = this.sessionForSender(event.sender) || this.primarySession
+      if (session && session.main && !session.main.isDestroyed()) {
         // 从母程序获取主题状态
         return new Promise((resolve) => {
           ipcMain.once('theme:get-response', (event, theme) => {
             resolve(theme)
           })
-          this.mainWindow.webContents.send('theme:get-request')
+          session.main.webContents.send('theme:get-request')
         })
       }
       return 'dark'
@@ -302,9 +416,22 @@ class PluginManager {
    * 启动插件（创建 BrowserWindow）
    * @param {string} pluginId - 插件ID
    * @param {Object} options - 启动选项
+   * @param {Object|null} session - 目标会话 (缺省 = 主会话; 由 IPC 发送方反查)
    * @returns {BrowserWindow} 插件窗口
    */
-  async startPlugin(pluginId, options = {}) {
+  async startPlugin(pluginId, options = {}, session = null) {
+    const targetSession = session || this.primarySession
+
+    // ========== 镜像互斥归属校验 (决策45) ==========
+    // 该插件已被其他会话持有 (存在插件窗口) → 拒绝启动, 错误回到渲染进程弹提示
+    const owner = this.pluginOwner.get(pluginId)
+    if (owner && owner !== targetSession && this.windows.has(pluginId)) {
+      const msg = `插件 "${pluginId}" 正在另一个窗口中运行`
+      console.warn(`[PluginManager] ${msg} (owner=${owner.label}, request=${targetSession ? targetSession.label : 'none'})`)
+      this._emit('plugin-error', { pluginId, error: msg })
+      throw new Error(msg)
+    }
+
     // 确保插件已加载
     let plugin = this.plugins.get(pluginId)
     if (!plugin || plugin.state === PluginState.UNLOADED) {
@@ -323,8 +450,8 @@ class PluginManager {
     // 如果已经在运行，返回现有窗口
     if (plugin.state === PluginState.RUNNING && this.windows.has(pluginId)) {
       const existingWindow = this.windows.get(pluginId)
-      // 互斥: 先藏母程序, 再显示插件窗口 (避免瞬间双窗口同时可见)
-      this._hideMainForPlugin()
+      // 互斥(会话内): 先藏本会话母程序, 再显示插件窗口 (避免瞬间双窗口同时可见)
+      this._hideMainForPlugin(targetSession)
       existingWindow.show()
       // 重新应用置顶状态（show() 会重置 always-on-top）
       if (this.pluginPinStates.get(pluginId)) {
@@ -386,17 +513,23 @@ class PluginManager {
 
       // 窗口关闭事件
       pluginWindow.on('closed', () => {
+        // 先捕获归属会话 (removeSession 注销时会提前清掉 owner, 此时不再恢复已销毁的母窗口)
+        const ownerSession = this.pluginOwner.get(pluginId)
         this.windows.delete(pluginId)
         if (plugin) {
           plugin.state = PluginState.UNLOADED
         }
-        if (this.activePluginId === pluginId) {
-          this.activePluginId = null
+        if (ownerSession) {
+          if (ownerSession.activePluginId === pluginId) {
+            ownerSession.activePluginId = null
+          }
+          this.pluginOwner.delete(pluginId)
         }
         this._emit('plugin-closed', { pluginId })
         console.log(`[PluginManager] Plugin window closed: ${pluginId}`)
-        // 互斥的另一半: 插件窗口消失后恢复母程序 (否则整个应用无可见窗口)
-        this._recoverMainWindowIfIdle()
+        // 互斥的另一半: 插件窗口消失后恢复本会话母程序 (否则该会话无可见窗口)
+        this._recoverMainWindowIfIdle(ownerSession)
+        this._broadcastPluginState()
       })
 
       // 窗口错误处理
@@ -417,18 +550,20 @@ class PluginManager {
         `)
       })
 
-      // 存储窗口引用
+      // 存储窗口引用与归属会话
       this.windows.set(pluginId, pluginWindow)
+      this.pluginOwner.set(pluginId, targetSession)
       
       // 更新插件状态
       plugin.state = PluginState.RUNNING
       plugin.startedAt = new Date().toISOString()
-      this.activePluginId = pluginId
+      if (targetSession) targetSession.activePluginId = pluginId
       
       // 触发事件
       this._emit('plugin-started', { pluginId, manifest: plugin.manifest })
+      this._broadcastPluginState()
       
-      console.log(`[PluginManager] Plugin started: ${pluginId}`)
+      console.log(`[PluginManager] Plugin started: ${pluginId} (session=${targetSession ? targetSession.label : 'none'})`)
       return pluginWindow
     } catch (error) {
       console.error(`[PluginManager] Failed to start plugin ${pluginId}:`, error)
@@ -443,10 +578,12 @@ class PluginManager {
    * 启动插件并执行过渡动画
    * @param {string} pluginId - 插件ID
    * @param {Object} options - 启动选项
+   * @param {Object|null} session - 目标会话 (缺省 = 主会话; 由 IPC 发送方反查)
    */
-  async launchPluginWithTransition(pluginId, options = {}) {
+  async launchPluginWithTransition(pluginId, options = {}, session = null) {
     console.log(`[PluginManager] launchPluginWithTransition called for: ${pluginId}`)
-    
+    const targetSession = session || this.primarySession
+
     const plugin = this.plugins.get(pluginId)
     if (!plugin) {
       console.log(`[PluginManager] Plugin not loaded, loading: ${pluginId}`)
@@ -466,19 +603,19 @@ class PluginManager {
     const manifest = loadedPlugin?.manifest
     const childSize = manifest?.windowSize || { width: 400, height: 400 }
     
-    // 启动插件窗口
+    // 启动插件窗口 (含镜像互斥归属校验, 决策45)
     let pluginWindow
     try {
-      pluginWindow = await this.startPlugin(pluginId, options)
+      pluginWindow = await this.startPlugin(pluginId, options, targetSession)
     } catch (e) {
       console.error(`[PluginManager] Failed to start plugin ${pluginId}:`, e)
       return { success: false, error: e.message }
     }
     
-    // 获取母程序位置，对齐插件窗口
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      const [mainX, mainY] = this.mainWindow.getPosition()
-      const [mainW, mainH] = this.mainWindow.getSize()
+    // 获取本会话母程序位置，对齐插件窗口
+    if (targetSession && targetSession.main && !targetSession.main.isDestroyed()) {
+      const [mainX, mainY] = targetSession.main.getPosition()
+      const [mainW, mainH] = targetSession.main.getSize()
       
       const pluginW = childSize.width + 20
       const pluginH = childSize.height + 20
@@ -493,34 +630,37 @@ class PluginManager {
       })
     }
     
-    // 互斥: 先隐藏其他可见插件 (同一时间只允许一个子程序可见), 再隐藏母程序, 最后显示新插件
-    this._hideAllPluginWindows(pluginId)
-    console.log(`[PluginManager] Hiding main window, pin state saved: ${this._mainWindowPinned}`)
-    this._hideMainForPlugin()
+    // 互斥(会话内): 先隐藏本会话其他可见插件, 再隐藏本会话母程序, 最后显示新插件
+    // 跨会话不受影响 — 镜像会话的窗口保持原状 (并行)
+    this._hideAllPluginWindows(targetSession, pluginId)
+    console.log(`[PluginManager] Hiding main window (${targetSession ? targetSession.label : 'none'})`)
+    this._hideMainForPlugin(targetSession)
     console.log(`[PluginManager] Showing plugin window: ${pluginId}`)
     pluginWindow.show()
     pluginWindow.focus()
     
-    this.activePluginId = pluginId
+    if (targetSession) targetSession.activePluginId = pluginId
     console.log(`[PluginManager] ✅ Plugin window shown successfully: ${pluginId}`)
     
     return { success: true }
   }
 
   /**
-   * 返回母程序（带过渡动画）
+   * 返回母程序（带过渡动画, 只作用于归属会话）
    * @param {string} pluginId - 插件ID
    */
   async returnToParent(pluginId) {
+    const session = this.pluginOwner.get(pluginId) || this.primarySession
+    const sessionMain = session && session.main && !session.main.isDestroyed() ? session.main : null
     const pluginWindow = this.windows.get(pluginId)
     if (!pluginWindow || pluginWindow.isDestroyed()) {
-      // 直接显示母程序 (互斥: 先隐藏所有可见插件窗口)
-      this._hideAllPluginWindows()
-      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-        this.mainWindow.show()
+      // 直接显示本会话母程序 (互斥: 先隐藏本会话所有可见插件窗口)
+      this._hideAllPluginWindows(session)
+      if (sessionMain) {
+        sessionMain.show()
         // 重新应用置顶状态（show() 会重置 always-on-top）
-        if (this._mainWindowPinned) {
-          this.mainWindow.setAlwaysOnTop(true, 'screen-saver')
+        if (session.pinnedMain) {
+          sessionMain.setAlwaysOnTop(true, 'screen-saver')
         }
       }
       return
@@ -532,27 +672,28 @@ class PluginManager {
     // 等待插件蒙版覆盖 (900ms)
     await this._sleep(900)
     
-    // 隐藏插件，显示母程序
-    // 互斥: 隐藏**所有**插件窗口 (历史 Bug: 只隐藏活动插件, 其他插件窗口仍可见 → 母子同屏)
-    this._hideAllPluginWindows()
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.show()
+    // 隐藏插件，显示本会话母程序
+    // 互斥(会话内): 隐藏**本会话所有**插件窗口 (历史 Bug: 只隐藏活动插件, 其他插件窗口仍可见 → 母子同屏)
+    // 跨会话不受影响 — 镜像会话的窗口原样保留
+    this._hideAllPluginWindows(session)
+    if (sessionMain) {
+      sessionMain.show()
       // 重新应用置顶状态（show() 会重置 always-on-top）
-      if (this._mainWindowPinned) {
-        this.mainWindow.setAlwaysOnTop(true, 'screen-saver')
+      if (session.pinnedMain) {
+        sessionMain.setAlwaysOnTop(true, 'screen-saver')
       }
-      this.mainWindow.focus()
+      sessionMain.focus()
       
-      // 通知母程序播放退出动画
-      this.mainWindow.webContents.send('transition:exit')
+      // 通知本会话母程序播放退出动画
+      sessionMain.webContents.send('transition:exit')
     }
     
     // 等待母程序蒙版退出 (900ms)
     await this._sleep(900)
     
-    // 通知母程序过渡完成
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.send('transition:done')
+    // 通知本会话母程序过渡完成
+    if (sessionMain) {
+      sessionMain.webContents.send('transition:done')
     }
   }
 
@@ -569,8 +710,8 @@ class PluginManager {
       plugin.state = PluginState.SUSPENDED
       this._emit('plugin-suspended', { pluginId })
       console.log(`[PluginManager] Plugin suspended: ${pluginId}`)
-      // 互斥: 隐藏后若无任何可见插件窗口, 恢复母程序 (保证始终有窗口在运行)
-      this._recoverMainWindowIfIdle()
+      // 互斥(会话内): 隐藏后本会话无任何可见插件窗口, 恢复本会话母程序 (保证该会话始终有窗口在运行)
+      this._recoverMainWindowIfIdle(this.pluginOwner.get(pluginId))
     }
   }
 
@@ -583,8 +724,8 @@ class PluginManager {
     const pluginWindow = this.windows.get(pluginId)
     
     if (plugin && plugin.state === PluginState.SUSPENDED && pluginWindow && !pluginWindow.isDestroyed()) {
-      // 互斥: 先藏母程序再显示插件
-      this._hideMainForPlugin()
+      // 互斥(会话内): 先藏本会话母程序再显示插件
+      this._hideMainForPlugin(this.pluginOwner.get(pluginId))
       pluginWindow.show()
       // 重新应用置顶状态（show() 会重置 always-on-top）
       if (this.pluginPinStates.get(pluginId)) {
@@ -604,6 +745,7 @@ class PluginManager {
   async closePlugin(pluginId) {
     const pluginWindow = this.windows.get(pluginId)
     const plugin = this.plugins.get(pluginId)
+    const ownerSession = this.pluginOwner.get(pluginId) || null
     
     if (pluginWindow) {
       // 调用插件清理函数
@@ -623,8 +765,8 @@ class PluginManager {
         plugin.state = PluginState.UNLOADED
       }
       
-      if (this.activePluginId === pluginId) {
-        this.activePluginId = null
+      if (ownerSession && ownerSession.activePluginId === pluginId) {
+        ownerSession.activePluginId = null
       }
       
       // 清理追踪的置顶状态
@@ -632,6 +774,7 @@ class PluginManager {
       
       this._emit('plugin-closed', { pluginId })
       console.log(`[PluginManager] Plugin closed: ${pluginId}`)
+      this._broadcastPluginState()
     }
   }
 
@@ -790,67 +933,79 @@ class PluginManager {
   }
 
   /**
-   * 获取当前活动插件ID
+   * 获取当前活动插件ID (缺省主会话)
+   * @param {Object|null} session - 会话 (缺省 = 主会话)
    * @returns {string|null}
    */
-  getActivePluginId() {
-    return this.activePluginId
+  getActivePluginId(session = null) {
+    const s = session || this.primarySession
+    return s ? s.activePluginId : null
   }
 
   /**
    * 获取当前可见的插件窗口列表
+   * @param {Object|null} session - 限定会话 (缺省 = 全部会话)
    * @returns {BrowserWindow[]}
    */
-  getVisiblePluginWindows() {
+  getVisiblePluginWindows(session = null) {
     const visible = []
-    for (const win of this.windows.values()) {
-      if (win && !win.isDestroyed() && win.isVisible()) visible.push(win)
+    for (const [pluginId, win] of this.windows) {
+      if (!win || win.isDestroyed() || !win.isVisible()) continue
+      if (session && this.pluginOwner.get(pluginId) !== session) continue
+      visible.push(win)
     }
     return visible
   }
 
   /**
-   * 是否存在可见的插件窗口 (互斥不变式的判定依据)
+   * 是否存在可见的插件窗口 (会话内互斥不变式的判定依据)
+   * @param {Object|null} session - 限定会话 (缺省 = 全部会话)
    * @returns {boolean}
    */
-  hasVisiblePluginWindow() {
-    return this.getVisiblePluginWindows().length > 0
+  hasVisiblePluginWindow(session = null) {
+    return this.getVisiblePluginWindows(session).length > 0
   }
 
   /**
-   * 显示插件窗口前隐藏母程序 (互斥: 先藏母, 再显子, 避免任何重叠窗口)
-   * 同时保存母程序置顶状态供 returnToParent 恢复
+   * 显示插件窗口前隐藏本会话母程序 (互斥: 先藏母, 再显子, 避免任何重叠窗口)
+   * 同时保存该会话母窗口置顶状态供 returnToParent/_recover 恢复
+   * @param {Object|null} session - 会话 (缺省 = 主会话)
    */
-  _hideMainForPlugin() {
-    if (this.mainWindow && !this.mainWindow.isDestroyed() && this.mainWindow.isVisible()) {
-      this._mainWindowPinned = this.mainWindow.isAlwaysOnTop()
-      this.mainWindow.hide()
+  _hideMainForPlugin(session = null) {
+    const s = session || this.primarySession
+    if (!s || !s.main || s.main.isDestroyed()) return
+    if (s.main.isVisible()) {
+      s.pinnedMain = s.main.isAlwaysOnTop()
+      s.main.hide()
     }
   }
 
   /**
-   * 隐藏所有插件窗口 (返回母程序 / 启动新插件时保证只留一个可见窗口)
+   * 隐藏某会话的所有插件窗口 (返回母程序 / 启动新插件时保证该会话只留一个可见窗口)
+   * @param {Object|null} session - 会话 (缺省 = 全部会话, 兼容旧语义)
    * @param {string} [exceptPluginId] - 保留显示的插件
    */
-  _hideAllPluginWindows(exceptPluginId = null) {
+  _hideAllPluginWindows(session = null, exceptPluginId = null) {
     for (const [pluginId, win] of this.windows) {
       if (pluginId === exceptPluginId) continue
+      if (session && this.pluginOwner.get(pluginId) !== session) continue
       if (win && !win.isDestroyed() && win.isVisible()) win.hide()
     }
   }
 
   /**
-   * 插件窗口消失后的母程序恢复 (互斥的另一半: 保证始终有一个窗口在运行)
+   * 插件窗口消失后的本会话母程序恢复 (互斥的另一半: 保证该会话始终有一个窗口在运行)
+   * @param {Object|null} session - 会话; 为空(会话已注销)则跳过
    */
-  _recoverMainWindowIfIdle() {
-    if (!this.mainWindow || this.mainWindow.isDestroyed()) return
-    if (this.hasVisiblePluginWindow()) return
-    if (this.mainWindow.isVisible()) return
-    console.log('[PluginManager] Plugin gone, restoring main window')
-    this.mainWindow.show()
+  _recoverMainWindowIfIdle(session = null) {
+    if (!session || !session.main || session.main.isDestroyed()) return
+    if (this.hasVisiblePluginWindow(session)) return
+    if (session.main.isVisible()) return
+    console.log(`[PluginManager] Plugin gone, restoring main window (${session.label})`)
+    session.main.show()
     // show() 会重置 always-on-top, 按保存的置顶状态恢复
-    if (this._mainWindowPinned) {
-      this.mainWindow.setAlwaysOnTop(true, 'screen-saver')
+    if (session.pinnedMain) {
+      session.main.setAlwaysOnTop(true, 'screen-saver')
     }
   }
 

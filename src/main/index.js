@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, protocol, shell } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const { PluginManager } = require('./plugin-manager')
+const { MirrorManager } = require('./mirror-manager')
 const { pickZipFile, installFromZip } = require('./plugin-installer')
 const { registerSoundSettingsIPC } = require('./sound-settings')
 
@@ -34,13 +35,24 @@ if (!gotTheLock) {
   app.quit()
 } else {
   app.on('second-instance', () => {
-    // 再次启动应用时的聚焦策略 (互斥):
-    //   有可见子程序窗口 → 聚焦子程序 (绝不能把隐藏的母程序带出来)
-    //   否则 → 恢复并聚焦母程序 (兼作"子程序已关闭但母程序仍隐藏"的兜底恢复)
-    if (pluginManager && pluginManager.hasVisiblePluginWindow()) {
-      const visible = pluginManager.getVisiblePluginWindows()
-      if (visible.length) {
-        visible[visible.length - 1].focus()
+    // 再次启动应用时的聚焦策略 (会话内互斥, 决策45):
+    //   优先主会话: 有可见子程序窗口 → 聚焦子程序 (绝不能把隐藏的母程序带出来)
+    //   否则 → 恢复并聚焦主会话母窗口 (兼作"子程序已关闭但母程序仍隐藏"的兜底恢复)
+    if (pluginManager) {
+      const session = pluginManager.primarySession ||
+        (pluginManager.sessions.size ? [...pluginManager.sessions.values()][0] : null)
+      if (session) {
+        const visible = pluginManager.getVisiblePluginWindows(session)
+        if (visible.length) {
+          visible[visible.length - 1].focus()
+          return
+        }
+        const main = session.main
+        if (main && !main.isDestroyed()) {
+          if (main.isMinimized()) main.restore()
+          if (!main.isVisible()) main.show()
+          main.focus()
+        }
         return
       }
     }
@@ -52,7 +64,8 @@ if (!gotTheLock) {
   })
 }
 
-let mainWindow
+let mainWindow      // 主窗口 (原进程 A; A 关闭后镜像 B 升格接管)
+let mirrorManager = null // 镜像窗口管理器 (whenReady 中创建)
 
 // preload 脚本路径:
 //   electron-vite 统一输出到 out/preload/preload.js (开发与打包一致);
@@ -70,9 +83,11 @@ function resolvePreloadPath () {
   return candidates[0]
 }
 
-function createWindow () {
+function createWindow (label = 'main') {
   // 创建浏览器窗口（比 console 大一圈，透明背景露出桌面）
-  mainWindow = new BrowserWindow({
+  // label 传给渲染进程 (preload 解析 --hundun-window → window.nodeInfo.windowRole):
+  //   'main' = 主窗口(完整权限) | 'mirror' = 镜像窗口(仅允许运行子程序)
+  const win = new BrowserWindow({
     width: 820,
     height: 580,
     minWidth: 820,
@@ -86,7 +101,8 @@ function createWindow () {
       nodeIntegration: true,
       contextIsolation: false,
       preload: resolvePreloadPath(),
-      autoplayPolicy: 'no-user-gesture-required'
+      autoplayPolicy: 'no-user-gesture-required',
+      additionalArguments: [`--hundun-window=${label}`]
     },
     icon: path.join(__dirname, '../renderer/assets/icon.png'),
     show: false // 先隐藏，等加载完成后再显示
@@ -94,52 +110,93 @@ function createWindow () {
 
   // 开发模式加载 Vite 开发服务器，生产模式加载打包文件
   if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
-    mainWindow.loadURL('http://localhost:5173')
+    win.loadURL('http://localhost:5173')
     // 注意：透明窗口下不要自动打开 DevTools，会导致透明失效
     // 需要调试时按 F12 或 Ctrl+Shift+I 手动打开
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
+    win.loadFile(path.join(__dirname, '../renderer/index.html'))
   }
 
-  // 窗口关闭事件
-  mainWindow.on('closed', () => {
-    mainWindow = null
+  // 注册会话 (幂等; 主窗口在 PluginManager 构造时也会注册)
+  if (pluginManager) {
+    pluginManager.addSession(win, label)
+  }
+
+  // 窗口关闭事件 → 会话注销 / 镜像升格 (镜像管理器统一处理)
+  win.on('closed', () => {
+    if (mirrorManager) {
+      mirrorManager.handleWindowClosed(win)
+    }
+    if (win === mainWindow) mainWindow = null
   })
 
   // 窗口准备就绪后显示
-  mainWindow.once('ready-to-show', () => {
-    maybeShowMainWindow('ready-to-show')
+  win.once('ready-to-show', () => {
+    maybeShowMainWindow('ready-to-show', win)
   })
 
   // 页面加载完成后再显示（防止白屏闪烁）
   // 注意: 页面重载 (dev 下 Vite HMR 全量刷新、生产下任何 reload) 都会再次触发本事件,
-  // 若此时子程序窗口可见, 直接 show() 会造成"母程序和子程序同时运行"
-  mainWindow.webContents.on('did-finish-load', () => {
-    if (mainWindow && !mainWindow.isVisible()) {
-      maybeShowMainWindow('did-finish-load')
+  // 若此时本会话子程序窗口可见, 直接 show() 会造成"母程序和子程序同时运行"
+  win.webContents.on('did-finish-load', () => {
+    if (win && !win.isVisible()) {
+      maybeShowMainWindow('did-finish-load', win)
     }
   })
+
+  return win
 }
 
-// 显示母程序窗口的唯一入口: 有可见子程序窗口时跳过显示 (互斥不变式)
-function maybeShowMainWindow (reason) {
-  if (!mainWindow || mainWindow.isDestroyed()) return
-  if (pluginManager && pluginManager.hasVisiblePluginWindow()) {
-    console.log(`[Main] skip main window show (${reason}): plugin window visible`)
-    return
+// 显示母程序窗口的唯一入口: 本会话有可见子程序窗口时跳过显示 (会话内互斥不变式)
+function maybeShowMainWindow (reason, win = mainWindow) {
+  if (!win || win.isDestroyed()) return
+  if (pluginManager) {
+    const session = pluginManager.sessions.get(win)
+    if (session && pluginManager.hasVisiblePluginWindow(session)) {
+      console.log(`[Main] skip main window show (${reason}): session plugin window visible`)
+      return
+    }
   }
-  mainWindow.show()
+  win.show()
 }
 
 // ========== 插件管理器实例 ==========
 let pluginManager = null
 
+// 向所有母窗口广播镜像开合状态 (镜像按钮高亮等)
+function broadcastMirrorState () {
+  if (!mirrorManager) return
+  const open = mirrorManager.hasMirror()
+  const wins = [mirrorManager.getPrimary(), mirrorManager.getMirror()].filter(w => w && !w.isDestroyed())
+  for (const w of wins) {
+    w.webContents.send('mirror:state-changed', { open })
+  }
+}
+
 // 应用准备就绪
 app.whenReady().then(() => {
-  createWindow()
+  mainWindow = createWindow('main')
   
-  // 初始化插件管理器（使用主窗口引用）
+  // 初始化插件管理器（使用主窗口引用；构造时注册主会话）
   pluginManager = new PluginManager(mainWindow)
+
+  // 镜像窗口管理器 (创建/单例/升格/会话注销)
+  mirrorManager = new MirrorManager({
+    pluginManager,
+    createWindow: (label) => createWindow(label),
+    onPromoted: (win) => {
+      // 留下的镜像窗口变成主窗口: 更新指针 + 会话角色 + 通知渲染进程恢复完整权限
+      mainWindow = win
+      const session = pluginManager.sessions.get(win)
+      if (session) pluginManager.setPrimarySession(session)
+      if (!win.isDestroyed()) {
+        win.webContents.send('window-role-changed', 'main')
+      }
+      console.log('[Main] mirror promoted, primary window updated')
+    },
+    onStateChanged: () => broadcastMirrorState()
+  })
+  mirrorManager.setPrimary(mainWindow)
   
   // 注册插件管理器 IPC 处理器
   registerPluginManagerIPC()
@@ -155,7 +212,11 @@ app.whenReady().then(() => {
   // macOS 点击 dock 图标时重新创建窗口
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow()
+      const win = createWindow('main')
+      mainWindow = win
+      const session = pluginManager.addSession(win, 'main')
+      if (!pluginManager.primarySession) pluginManager.setPrimarySession(session)
+      if (mirrorManager) mirrorManager.setPrimary(win)
     }
   })
 })
@@ -174,32 +235,44 @@ app.on('window-all-closed', async () => {
 
 // ========== IPC 通信处理 ==========
 
+// 由 IPC 发送方反查母窗口 (镜像模式: 窗口控制必须作用于发起窗口, 而非固定 mainWindow)
+function mainWinOfSender (sender) {
+  try {
+    const w = BrowserWindow.fromWebContents(sender)
+    return w && !w.isDestroyed() ? w : null
+  } catch (_) {
+    return null
+  }
+}
+
 // 窗口控制
-ipcMain.on('window-minimize', () => {
-  if (mainWindow) mainWindow.minimize()
+ipcMain.on('window-minimize', (event) => {
+  const w = mainWinOfSender(event.sender)
+  if (w) w.minimize()
 })
 
-ipcMain.on('window-maximize', () => {
-  if (mainWindow) {
-    if (mainWindow.isMaximized()) {
-      mainWindow.unmaximize()
+ipcMain.on('window-maximize', (event) => {
+  const w = mainWinOfSender(event.sender)
+  if (w) {
+    if (w.isMaximized()) {
+      w.unmaximize()
     } else {
-      mainWindow.maximize()
+      w.maximize()
     }
   }
 })
 
-ipcMain.on('window-close', () => {
-  if (mainWindow) mainWindow.close()
+ipcMain.on('window-close', (event) => {
+  const w = mainWinOfSender(event.sender)
+  if (w) w.close()
 })
 
-// 追踪母程序窗口置顶状态（show() 后需要重新应用）
-let mainPinned = false
-
 ipcMain.on('window-pin', (event, pinned) => {
-  if (mainWindow) {
-    mainPinned = pinned
-    mainWindow.setAlwaysOnTop(pinned, 'screen-saver')
+  const w = mainWinOfSender(event.sender)
+  if (w) {
+    w.setAlwaysOnTop(pinned, 'screen-saver')
+    const session = pluginManager ? pluginManager.sessions.get(w) : null
+    if (session) session.pinnedMain = pinned
     event.sender.send('window-pin-response', pinned)
   }
 })
@@ -210,15 +283,16 @@ ipcMain.handle('plugin:setAlwaysOnTop', async (event, pluginId, flag) => {
 
 // 窗口拖动（自定义标题栏用）
 ipcMain.on('window-start-drag', (event, mousePosition) => {
-  if (mainWindow) {
-    const winBounds = mainWindow.getBounds()
-    const currentPos = mainWindow.getPosition()
+  const dragWin = mainWinOfSender(event.sender)
+  if (dragWin) {
+    const winBounds = dragWin.getBounds()
+    const currentPos = dragWin.getPosition()
     
     const moveWindow = (e) => {
       // 计算新位置
       const x = currentPos[0] + (e.screenX - mousePosition.x)
       const y = currentPos[1] + (e.screenY - mousePosition.y)
-      mainWindow.setPosition(x, y)
+      dragWin.setPosition(x, y)
     }
     
     const stopMove = () => {
@@ -241,20 +315,22 @@ app.whenReady().then(() => {
 // 窗口尺寸调整（子程序切换用）- 带过渡动画
 let resizeAnimToken = 0 // 防重入：新动画启动时使旧动画立即失效
 ipcMain.on('window-resize', (event, { width, height }) => {
-  if (!mainWindow) return
+  const w = mainWinOfSender(event.sender)
+  if (!w) return
+  const session = pluginManager ? pluginManager.sessions.get(w) : null
   const token = ++resizeAnimToken // 旧动画的 token 不再匹配，会被取消
 
   const targetW = width + 20
   const targetH = height + 20
 
   // 先解除尺寸限制
-  mainWindow.setResizable(true)
-  mainWindow.setMinimumSize(100, 100)
-  mainWindow.setMaximumSize(9999, 9999)
+  w.setResizable(true)
+  w.setMinimumSize(100, 100)
+  w.setMaximumSize(9999, 9999)
 
   // 获取当前窗口大小和位置
-  const [currentW, currentH] = mainWindow.getSize()
-  const [currentX, currentY] = mainWindow.getPosition()
+  const [currentW, currentH] = w.getSize()
+  const [currentX, currentY] = w.getPosition()
   // 计算窗口中心点（缩放过程中保持不变）
   const centerX = currentX + currentW / 2
   const centerY = currentY + currentH / 2
@@ -271,7 +347,7 @@ ipcMain.on('window-resize', (event, { width, height }) => {
 
   const animate = () => {
     // 新动画已启动，或窗口已销毁 → 取消本次动画
-    if (token !== resizeAnimToken || !mainWindow) return
+    if (token !== resizeAnimToken || w.isDestroyed()) return
 
     const elapsed = Date.now() - startTime
     const progress = Math.min(elapsed / duration, 1)
@@ -283,17 +359,17 @@ ipcMain.on('window-resize', (event, { width, height }) => {
     const newX = Math.round(centerX - newW / 2)
     const newY = Math.round(centerY - newH / 2)
 
-    mainWindow.setBounds({ x: newX, y: newY, width: newW, height: newH })
+    w.setBounds({ x: newX, y: newY, width: newW, height: newH })
 
     if (progress < 1) {
       setTimeout(animate, frameInterval)
     } else {
       // 动画结束，锁定尺寸（中心点已保持不变，无需再居中）
-      mainWindow.setMinimumSize(targetW, targetH)
-      mainWindow.setMaximumSize(targetW, targetH)
+      w.setMinimumSize(targetW, targetH)
+      w.setMaximumSize(targetW, targetH)
       // 重新应用置顶状态（setBounds 会重置 always-on-top）
-      if (mainPinned) {
-        mainWindow.setAlwaysOnTop(true, 'screen-saver')
+      if (session && session.pinnedMain) {
+        w.setAlwaysOnTop(true, 'screen-saver')
       }
     }
   }
@@ -315,7 +391,8 @@ function registerPluginManagerIPC() {
 
   ipcMain.handle('plugin-manager:start', async (event, pluginId, options) => {
     try {
-      await pluginManager.startPlugin(pluginId, options)
+      const session = pluginManager.sessionForSender(event.sender)
+      await pluginManager.startPlugin(pluginId, options, session)
       return { success: true }
     } catch (error) {
       return { success: false, error: error.message }
@@ -324,7 +401,9 @@ function registerPluginManagerIPC() {
 
   ipcMain.handle('plugin-manager:launch', async (event, pluginId, options) => {
     try {
-      const result = await pluginManager.launchPluginWithTransition(pluginId, options)
+      // 会话归属: 发起 launch 的母窗口属于哪个会话, 插件就归属哪个会话 (镜像互斥, 决策45)
+      const session = pluginManager.sessionForSender(event.sender)
+      const result = await pluginManager.launchPluginWithTransition(pluginId, options, session)
       return result || { success: true }
     } catch (error) {
       return { success: false, error: error.message }
@@ -402,12 +481,18 @@ function registerPluginManagerIPC() {
     return pluginManager.getRunningPlugins()
   })
 
-  ipcMain.handle('plugin-manager:getActive', async () => {
-    return pluginManager.getActivePluginId()
+  // 相对发送方会话"在别处运行"的插件 (徽章 + 冲突拦截用, 决策45)
+  ipcMain.handle('plugin-manager:getForeign', async (event) => {
+    return pluginManager.getForeignPlugins(pluginManager.sessionForSender(event.sender))
+  })
+
+  ipcMain.handle('plugin-manager:getActive', async (event) => {
+    return pluginManager.getActivePluginId(pluginManager.sessionForSender(event.sender))
   })
 
   ipcMain.handle('plugin-manager:returnToParent', async (event) => {
-    const pluginId = pluginManager.getActivePluginId()
+    const session = pluginManager.sessionForSender(event.sender)
+    const pluginId = session ? session.activePluginId : null
     if (pluginId) {
       try {
         await pluginManager.returnToParent(pluginId)
@@ -445,6 +530,22 @@ function registerPluginManagerIPC() {
     } catch (error) {
       return { success: false, error: error.message }
     }
+  })
+
+  // ========== 镜像模式 (决策45) ==========
+  // 打开镜像窗口; 已存在则聚焦 (全局至多一个镜像)
+  ipcMain.handle('mirror:open', async () => {
+    try {
+      return mirrorManager.open()
+    } catch (error) {
+      console.error('[Main] mirror:open failed:', error)
+      return { success: false, error: error.message }
+    }
+  })
+
+  // 查询镜像开合状态 (渲染进程挂载时初始化)
+  ipcMain.handle('mirror:state', async () => {
+    return { open: mirrorManager ? mirrorManager.hasMirror() : false }
   })
 }
 
@@ -634,9 +735,10 @@ function getFastTXTBasePath(pluginId) {
 
 // ========== 插件本地安装 IPC ==========
 // ADD 按钮 → 本地安装(.zip): 打开文件资源管理器选择插件包
-ipcMain.handle('plugin-install:pick', async () => {
+ipcMain.handle('plugin-install:pick', async (event) => {
   try {
-    return await pickZipFile(mainWindow)
+    const parent = mainWinOfSender(event.sender) || mainWindow
+    return await pickZipFile(parent)
   } catch (error) {
     console.error('[PluginInstaller] pick failed:', error)
     return null
@@ -670,20 +772,23 @@ ipcMain.handle('app:openExternal', async (event, url) => {
 // 追踪主题请求来源
 let themeRequestSender = null
 
-// 子程序请求当前主题
+// 子程序请求当前主题 → 转发给**归属会话**的母程序 (镜像模式: A/B 各自应答自己的插件)
 ipcMain.on('theme:get-request', (event) => {
   // 记录是哪个窗口请求的
   themeRequestSender = event.sender
-  // 转发给母程序获取主题状态
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('theme:get-request')
+  if (!pluginManager) return
+  const session = pluginManager.sessionForSender(event.sender)
+  if (session && session.main && !session.main.isDestroyed()) {
+    session.main.webContents.send('theme:get-request')
   }
 })
 
-// 母程序回复主题状态
+// 母程序回复主题状态 → 任一母窗口的回复都受理, 转发给请求的子程序
 ipcMain.on('theme:get-response', (event, theme) => {
-  // 如果是母程序回复的，转发给请求的子程序
-  if (event.sender === mainWindow?.webContents && themeRequestSender) {
+  const fromMain = pluginManager
+    ? [...pluginManager.sessions.keys()].some(win => !win.isDestroyed() && win.webContents === event.sender)
+    : event.sender === mainWindow?.webContents
+  if (fromMain && themeRequestSender) {
     themeRequestSender.send('theme:get-response', theme)
     themeRequestSender = null
   }

@@ -15,6 +15,7 @@ export default {
     switchTitle: '切换卡带',
     switchMsg: '当前运行: <strong>{current}</strong><br><br>切换到: <strong>{target}</strong>',
     switchBtn: '🔌 弹出并切换',
+    busyOtherMsg: '<strong>{name}</strong> 正在另一个窗口中运行<br>同一子程序同一时间只能在一个窗口打开。',
     slotEmpty: '拖拽卡带到这里或按 Enter 插入',
     slotRunning: '● 运行中',
     continue: '✓ 继续',
@@ -27,7 +28,14 @@ export default {
   bottom: {
     add: '添加应用',
     settings: '设置',
+    mirror: '镜像模式',
     slot: '卡带插槽',
+  },
+
+  // 镜像模式 (决策45)
+  mirror: {
+    title: '镜像模式',
+    notice: '当前程序为镜像程序 不能修改配置',
   },
 
   // 添加应用

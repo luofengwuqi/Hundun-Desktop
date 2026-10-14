@@ -15,6 +15,7 @@ export default {
     switchTitle: 'SWITCH CARTRIDGE',
     switchMsg: 'Running: <strong>{current}</strong><br><br>Switch to: <strong>{target}</strong>',
     switchBtn: '🔌 Eject & Switch',
+    busyOtherMsg: '<strong>{name}</strong> is running in another window.<br>A plugin can only be open in one window at a time.',
     slotEmpty: 'Drag a cartridge here or press Enter',
     slotRunning: '● RUNNING',
     continue: '✓ Continue',
@@ -27,7 +28,14 @@ export default {
   bottom: {
     add: 'ADD',
     settings: 'SETTINGS',
+    mirror: 'MIRROR',
     slot: 'SLOT',
+  },
+
+  // 镜像模式 (决策45)
+  mirror: {
+    title: 'MIRROR MODE',
+    notice: 'This is a mirror window: settings cannot be changed',
   },
 
   // 添加应用

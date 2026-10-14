@@ -36,6 +36,30 @@ window.electronAPI = {
   isPluginRunning: (pluginId) => ipcRenderer.invoke('plugin-manager:isRunning', pluginId),
   getRunningPlugins: () => ipcRenderer.invoke('plugin-manager:getRunning'),
   getActivePlugin: () => ipcRenderer.invoke('plugin-manager:getActive'),
+  // 相对本窗口会话"在别处运行"的插件 (镜像徽章/冲突拦截, 决策45)
+  getForeignPlugins: () => ipcRenderer.invoke('plugin-manager:getForeign'),
+
+  // ========== 镜像模式 (决策45) ==========
+  // 打开镜像窗口; 已存在则聚焦 → { success, status: 'created'|'exists' }
+  mirrorOpen: () => ipcRenderer.invoke('mirror:open'),
+  getMirrorState: () => ipcRenderer.invoke('mirror:state'),
+  onMirrorStateChanged: (callback) => {
+    const handler = (event, state) => callback(state)
+    ipcRenderer.on('mirror:state-changed', handler)
+    return () => ipcRenderer.removeListener('mirror:state-changed', handler)
+  },
+  // 本窗口角色变更 (镜像 B 在 A 关闭后升格为主窗口 → 恢复完整权限)
+  onWindowRoleChanged: (callback) => {
+    const handler = (event, role) => callback(role)
+    ipcRenderer.on('window-role-changed', handler)
+    return () => ipcRenderer.removeListener('window-role-changed', handler)
+  },
+  // "在别处运行的插件"列表变化推送
+  onPluginStateChanged: (callback) => {
+    const handler = (event, foreignIds) => callback(foreignIds)
+    ipcRenderer.on('plugin-state-changed', handler)
+    return () => ipcRenderer.removeListener('plugin-state-changed', handler)
+  },
   
   // 插件启动（带过渡动画）
   launchPlugin: (pluginId, options) => ipcRenderer.invoke('plugin-manager:launch', pluginId, options),
@@ -142,9 +166,13 @@ window.electronAPI = {
 }
 
 // 暴露 Node.js 环境信息
+// windowRole: 窗口角色 ('main' 完整权限 | 'mirror' 镜像受限), 由创建时
+// additionalArguments --hundun-window=<label> 注入; 升格后经 window-role-changed 事件更新
+const windowRoleArg = (process.argv || []).find(a => typeof a === 'string' && a.startsWith('--hundun-window='))
 window.nodeInfo = {
   platform: process.platform,
   arch: process.arch,
+  windowRole: windowRoleArg ? windowRoleArg.split('=')[1] : 'main',
   versions: {
     node: process.versions.node,
     electron: process.versions.electron,

@@ -1,7 +1,7 @@
 # Hundun Lite - 项目进度文档
 
 > 最后更新: 2026-10-14
-> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 新增 Markdown 实时渲染浏览模式 (markdown-it, Typora 式, 单换行直接渲染为换行)；修复"进入子程序后音效音量异常变大"（插件直放无视音量设置 + 主窗口 preload 因 contextBridge 长期失效一并修复）；修复"子程序启动时母程序意外出现"（母子窗口可见性互斥不变式）；修复 FastCmd 脚本从未真实执行（相对路径 + 假成功 toast），改为绝对路径 + start /wait 可见控制台 + 退出码回报；FastCmd 移植底部刷新按钮；旧数据目录 plugins/fast-cmd/file/ 迁移至 user-data；修复中文 .ps1 执行报"意外的标记"（UTF-8 无 BOM 被 PowerShell 5.1 按 GBK 读取 → ensurePs1Bom 就地补 BOM）；**FastCmd 交互简化：点击脚本即运行（操作弹窗移除，结果走 toast）、移除编辑功能、移除文件夹（脚本仅一级目录）**；**FastCmd 平台感知：打开前按 manifest.platforms 检查系统状态（支持 Windows/Linux），不支持的脚本文件不显示，Linux 新增 .sh 可见终端执行链（决策42）**；**timer-manager 全量重构为 TASK 任务清单（纵向 400×520、状态徽章/排序/提醒弹窗/深浅色/键盘导航，旧进度不保留）；持久化 = hundun.storage JSON，SQLite 审核否决（决策43、44）**
+> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 新增 Markdown 实时渲染浏览模式 (markdown-it, Typora 式, 单换行直接渲染为换行)；修复"进入子程序后音效音量异常变大"（插件直放无视音量设置 + 主窗口 preload 因 contextBridge 长期失效一并修复）；修复"子程序启动时母程序意外出现"（母子窗口可见性互斥不变式）；修复 FastCmd 脚本从未真实执行（相对路径 + 假成功 toast），改为绝对路径 + start /wait 可见控制台 + 退出码回报；FastCmd 移植底部刷新按钮；旧数据目录 plugins/fast-cmd/file/ 迁移至 user-data；修复中文 .ps1 执行报"意外的标记"（UTF-8 无 BOM 被 PowerShell 5.1 按 GBK 读取 → ensurePs1Bom 就地补 BOM）；**FastCmd 交互简化：点击脚本即运行（操作弹窗移除，结果走 toast）、移除编辑功能、移除文件夹（脚本仅一级目录）**；**FastCmd 平台感知：打开前按 manifest.platforms 检查系统状态（支持 Windows/Linux），不支持的脚本文件不显示，Linux 新增 .sh 可见终端执行链（决策42）**；**timer-manager 全量重构为 TASK 任务清单（纵向 400×520、状态徽章/排序/提醒弹窗/深浅色/键盘导航，旧进度不保留）；持久化 = hundun.storage JSON，SQLite 审核否决（决策43、44）**；**镜像模式：底部新增「镜像模式」按钮开启并行镜像窗口（会话内母子互斥、A/B 可同屏；同一子程序同时只归属一个会话；镜像仅允许运行子程序、禁改配置，A 关闭后镜像升格恢复完整权限，全局仅一个镜像 — 决策45）**
 
 ---
 
@@ -146,9 +146,10 @@ case 'Enter':
 ```
 src/
 ├── main/
-│   ├── index.js              # 主进程入口 (IPC handlers + 窗口管理)
+│   ├── index.js              # 主进程入口 (IPC handlers + 窗口管理 + 镜像 IPC)
 │   ├── database.js           # 数据存储管理器 (JSON 文件)
-│   ├── plugin-manager.js     # 插件管理器 (BrowserWindow 创建)
+│   ├── plugin-manager.js     # 插件管理器 (BrowserWindow 创建, 会话化互斥/归属, 决策45)
+│   ├── mirror-manager.js     # 镜像窗口管理器 (单镜像/升格/会话注销, 依赖注入可单测, 决策45)
 │   ├── plugin-installer.js   # 本地插件安装器 (.zip 审核 + 解压 + 落盘)
 │   ├── plugin-preload.js     # 插件窗口预加载脚本 (window.hundun, 含 hundun.sound)
 │   ├── preload.js            # 主窗口预加载脚本 (window.electronAPI 直挂, onPlaySound/syncSoundSettings)
@@ -287,24 +288,34 @@ FastTXT 数据   userData/plugins/fast-txt/  (统一, 不写 asar)
 ### 核心组件说明
 
 #### 1. 主进程 IPC (index.js)
-- **plugin-manager:launch** — 启动插件，返回 `{success, windowId}`
-- **plugin-manager:returnToParent** — 插件关闭，触发 loading mask 过渡
-- **plugin:minimize/maximize/close** — 窗口控制
-- **plugin:setAlwaysOnTop** — 设置插件窗口置顶
-- **window-pin** — 母程序窗口置顶
-- **plugin:getTheme** — 主题查询 (路由到 themeRequestSender)
-- **plugin:playSound** — 音效播放 (转发到主窗口 → App.vue → audio.js)
+- **plugin-manager:launch** — 启动插件，返回 `{success, windowId}`；经 `sessionForSender(event.sender)` 会话化（插件归属发起窗口所在会话，决策45）
+- **plugin-manager:returnToParent** — 插件关闭，触发 loading mask 过渡（按发送方会话的 activePluginId）
+- **plugin:getTheme / themeRequestSender** — 主题查询 (路由到**归属会话**的母窗口)
+- **plugin:playSound** — 音效播放 (转发到**归属会话**母窗口 → App.vue → audio.js)
 - **sound:sync / sound:get-sync / sound:get** — 音效设置镜像同步/读取，变更后 `sound:settings-changed` 广播所有窗口
 - **scanAll** — 扫描所有可用插件
+- **mirror:open / mirror:state** — 打开镜像（已存在→聚焦返回 `exists`，否则创建 `created`）/ 查询镜像开合（决策45）
+- **plugin-manager:getForeign** — 相对发送方会话"在别处运行"的插件列表（徽章/冲突拦截）
+- **window-minimize/maximize/close/pin/resize/start-drag** — 按 `event.sender` 反查窗口（不再硬编码 mainWindow，镜像窗口各自独立）
+- 广播出站: `mirror:state-changed`（镜像开合）、`plugin-state-changed`（按会话视角的外部占用列表）、`window-role-changed`（镜像升格恢复完整权限）
 
-#### 2. 插件管理器 (plugin-manager.js v2.0)
-- **职责**: BrowserWindow 创建、生命周期管理
+#### 2. 插件管理器 (plugin-manager.js v3.0, 会话化)
+- **职责**: BrowserWindow 创建、生命周期管理、**会话归属与互斥**
+- **会话模型 (决策45)**: `sessions = Map<母窗口, {label, main, activePluginId, pinnedMain}>`; `pluginOwner = Map<pluginId, 归属会话>`; `primarySession` = 主会话（原进程 A，镜像升格后指向 B）; `addSession/removeSession/setPrimarySession/sessionForSender/getPluginOwner/getOccupiedPlugins/getForeignPlugins`
+- **互斥不变式**: 每会话内"母窗口 XOR 其子程序窗口"恰一可见（跨会话可同屏并行）；中央 show 拦截在 `addSession` 中按会话挂载；`_hideMainForPlugin/_hideAllPluginWindows(session, except)/_recoverMainWindowIfIdle(session)` 全部会话作用域
+- **归属校验**: `startPlugin()` 开头，插件已被其他会话持有 → 抛 `插件 "x" 正在另一个窗口中运行`（拦截在藏母之前）
 - **插件目录**: `resolvePluginsDirs()` = 内置插件目录 + 用户安装目录（开发态两者同为 `项目根/plugins`）
 - **startPlugin()**: 创建窗口 + 加载 entry + 显示 loading mask
 - **launchPluginWithTransition()**: 关闭当前插件 → loading mask → 启动新插件
 - **getAllScannedPlugins()**: 扫描 plugins/ 目录获取全部插件信息
 - **setAlwaysOnTop()**: 设置插件窗口置顶状态
-- **窗口互斥 (2026-10-03)**: `hasVisiblePluginWindow()` / `getVisiblePluginWindows()` 判定可见性；`_hideMainForPlugin()` 先藏母再显子；`_hideAllPluginWindows(except)` 保证单子程序；`_recoverMainWindowIfIdle()` 插件消失后恢复母程序；主窗口 `show` 事件中央拦截
+- **窗口互斥 (2026-10-03, 2026-10-14 会话化)**: `hasVisiblePluginWindow(session)` / `getVisiblePluginWindows(session)` 判定可见性；`_hideMainForPlugin(session)` 先藏母再显子；`_hideAllPluginWindows(session, except)` 保证单子程序；`_recoverMainWindowIfIdle(session)` 插件消失后恢复母程序；主窗口 `show` 事件中央拦截（每会话）
+
+#### 2.1 镜像窗口管理器 (mirror-manager.js, 决策45)
+- **职责**: 全局至多一个镜像窗口；镜像开合/升格/会话注销
+- **依赖注入**: `{ pluginManager, createWindow, onPromoted, onStateChanged }`（index.js 注入，scripts/test-mirror.js 可直接驱动）
+- **open()**: 镜像已存在 → 聚焦其会话（可见子程序优先）返回 `exists`；否则 `createWindow('mirror')` + 级联偏移 (+48,+48) 返回 `created`
+- **handleWindowClosed(win)**: ① `pluginManager.removeSession(win)` 关闭该会话全部子程序窗口；② 主窗口关闭且镜像存在 → 镜像升格为主窗口（`onPromoted` → index.js 更新 mainWindow 指针 + `setPrimarySession` + 发 `window-role-changed`，镜像槽释放可再开）；③ 镜像关闭 → 释放槽位
 
 #### 3. 插件预加载脚本 (plugin-preload.js v2.0)
 - **兼容性**: 直接挂载 `window.hundun = {...}` (兼容 `contextIsolation: false`)
@@ -439,7 +450,7 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 37. **preload 直接挂载（纠正历史偏差）**: `contextIsolation: false` 时 `contextBridge.exposeInMainWorld` 会抛错导致**整个 preload 静默失效**——主窗口 preload 改为直接 `window.electronAPI = {...}`（与 plugin-preload.js 的 `window.hundun` 一致）；preload 路径由 `resolvePreloadPath()` 候选解析（`out/preload/preload.js` 优先，兼容旧 `out/main/preload.js` 布局）
 
 ### 已决策 (2026-10-03, 窗口互斥)
-38. **母程序/子程序可见性互斥不变式**: 任意时刻有且仅有一个窗口可见。实现三层防护:
+38. **母程序/子程序可见性互斥不变式**: 任意时刻有且仅有一个窗口可见。~~实现三层防护:~~ **2026-10-14 决策45 起降维为"会话内不变式": 每个会话（A组/B组）内部有且仅有一个窗口可见，跨会话可同屏并行**（实现仍为下列三层防护，但均按会话作用域执行）:
    - **中央防护**: `PluginManager` 构造时给主窗口挂 `show` 监听，有可见插件窗口时立即重新隐藏（覆盖页面重载 `did-finish-load`、`ready-to-show`、`second-instance` 等一切 show 路径）
    - **顺序防护**: 一切"显子"操作前先 `_hideMainForPlugin()`（先藏母再显子）；`launchPluginWithTransition` 先 `_hideAllPluginWindows(新插件)` 再显示新插件；`returnToParent` 隐藏**所有**插件窗口后再 show 母
    - **恢复防护**: 插件窗口 `closed` / `suspendPlugin` → `_recoverMainWindowIfIdle()` 恢复母程序（含置顶状态），保证"不会两个都没了"
@@ -462,6 +473,9 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 
 ### 已决策 (2026-10-14, TASK 状态/排序/提醒语义)
 44. **TASK 状态为计算值 + 固定排序 + 提醒防重放**: ①状态不落库: `completed ? 已完成 : (deadline != null && now >= deadline ? 已过期 : 未完成)`, 1s tick 按状态签名 (`id:status`) 比对决定是否重绘 (签名不变不重建 DOM, 避免卡片入场动画每秒重放); ②排序: **未完成 (有截止按截止升序, 无截止排未完成末尾, 同组 createdAt 升序) > 已过期 (deadline 降序, 最近过期在前) > 已完成 (completedAt 降序)**; ③提醒: 每任务 `fired[]` 持久化已触发记录防重启重弹; 到点后 ≤2min 窗口内触发 — **窗口可见→应用内弹窗 + bengbeng 音效, 隐藏→HTML5 Notification 系统通知** (多条排队逐个弹); 超窗视为"应用未运行时错过"静默补记; 已完成任务的提醒直接抑制; ④提醒方式字段仅在提醒时间非空时可填 (默认"弹窗提醒", 其他方式待补充)
+
+### 已决策 (2026-10-14, 镜像模式)
+45. **镜像模式 = 会话化母子架构**: 母程序底部新增「镜像模式」按钮，开启与原进程 A 并行的镜像窗口 B（**同一 Electron 应用内第二个母窗口，独立渲染进程，共用主进程协调**）。①**可见性**: 会话内互斥、A/B 可同屏 — 决策38 的"全局单窗口可见"降维为"每会话单窗口可见"，A组(A母 XOR A子)/B组(B母 XOR B子)各自成立；②**归属**: 同一子程序同时只归属一个会话（`pluginOwner`），A 运行的 a 则 B 启动 a 被 `startPlugin()` 拒绝（拦截在藏母前，错误弹窗「插件 x 正在另一个窗口中运行」），插件音效/主题查询路由到归属会话母窗口；③**单镜像**: `MirrorManager.open()` 已存在则聚焦返回 `exists`；④**镜像权限**: B 仅允许运行子程序 — `+ / ⚙ / 🪞 / 主题开关`保留但变灰，按钮群右侧提示「当前程序为镜像程序 不能修改配置」（配置经 localStorage/IPC 跨窗口共享，禁改避免污染 A）；⑤**关闭语义**: 关 B → 其会话子程序一并关闭（`removeSession`）；关 A → **B 升格为主窗口**（`onPromoted` 更新指针+主会话+发 `window-role-changed`，B 恢复完整权限，镜像槽释放可再开）；最后一个母窗口关闭才退出应用；⑥**推送**: `plugin-state-changed`（按会话视角的外部占用列表 → 卡带「运行中」徽章+冲突早拦截）、`mirror:state-changed`（🪞按钮高亮）、`window-role-changed`；⑦窗口控制 IPC 一律按 `event.sender` 反查窗口；⑧渲染层角色 = `--hundun-window=<label>` 注入 `window.nodeInfo.windowRole`；⑨**持久化**: 镜像为纯运行期状态，不落盘。测试 `scripts/test-mirror.js` 61/61
 
 ### 待定
 1. 插件市场实现方案
@@ -529,6 +543,7 @@ chore: 构建/工具链更新
 2. 插件社区/插件市场对接（ADD 菜单"逛逛社区"目前跳转 Gitee 仓库，待官网完成后切换）
 3. ~~清理旧 Vue 组件文件 (CalculatorApp.vue, FastTXTApp.vue, TestApp.vue)~~ ✅ 2026-09-25 已完成
 4. 音效架构后续整改 (可选): 音效文件清单由主进程统一下发（现存母程序 `audio.js` 与插件 sdk 两份）、清理无引用死代码 `src/renderer/services/plugin-service.js`、插件窗口统一配置 `autoplayPolicy`
+5. ~~镜像模式~~ ✅ 2026-10-14 已完成 (决策45, `scripts/test-mirror.js` 61/61); 日常回归请一并跑 `npx electron --no-sandbox scripts/test-mirror.js` 与 `test-window-lifecycle`。后续可选: 双开时母程序 CPU/GPU 占用观察、镜像窗口独立窗口位置记忆
 
 ---
 

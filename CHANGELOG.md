@@ -6,6 +6,33 @@
 
 ## 2026-10-14
 
+### 镜像模式: 底部新增「镜像模式」按钮, 开启与原进程并行的镜像窗口 (决策45)
+- [x] **需求**: 母程序底部新增「镜像模式」按钮 — 点击开启与原进程(A)并行的新窗口(B), 用户对 B 与 A 的体验完全一致; 约束: A 正在运行的子程序 a, B 不允许运行 (对称: 同一子程序同时只归属一个会话); 全局只允许一个镜像窗口
+- [x] **可见性模型 (拍板)**: **会话内互斥, A/B 可同屏** — A组(A母 XOR A子)与 B组(B母 XOR B子)各自维持决策38 的母子互斥不变式, 跨组不受限 (真·并行分屏); 决策38 由"全局单窗口可见"降维为"每会话单窗口可见"
+- [x] **PluginManager 会话化重构** (`src/main/plugin-manager.js`):
+  - `this.mainWindow` 单引用 → **会话注册表** `sessions = Map<母窗口, {label, main, activePluginId, pinnedMain}>` + `pluginOwner = Map<pluginId, 归属会话>`; `addSession / removeSession / setPrimarySession / sessionForSender / getPluginOwner`
+  - 中央 show 拦截 (原构造函数内) 移入 `addSession`, 按会话判定 `hasVisiblePluginWindow(session)`; `_hideMainForPlugin / _hideAllPluginWindows(session, except) / _recoverMainWindowIfIdle(session)` 全部会话化; `returnToParent` 只藏**本会话**插件 (原: 全部); 插件窗口居中用**归属会话**母窗口坐标
+  - **归属校验**: `startPlugin()` 开头发现 `pluginOwner` 已被其他会话持有 → 抛 `插件 "x" 正在另一个窗口中运行` → `launchPluginWithTransition` 返回 `{success:false}` → 母程序弹错误弹窗 (拦截发生在藏母之前, 两窗口状态均不被污染)
+  - `plugin:playSound` / `plugin:getTheme` 转发到**归属会话**的母窗口 (原: 固定 this.mainWindow)
+  - 新增 `getOccupiedPlugins()` (存在未销毁插件窗口=被占用) / `getForeignPlugins(session)` (相对某会话"在别处运行"的插件) / `_broadcastPluginState()` — 按会话视角逐窗口推送 `plugin-state-changed` (各窗口收到的列表不同)
+- [x] **镜像窗口管理器** (`src/main/mirror-manager.js`, 依赖注入可单测): `open()` 已存在→聚焦所在会话窗口(可见子程序优先)返回 `exists`, 否则创建返回 `created` (级联偏移 +48,+48); `handleWindowClosed(win)` = 注销会话(其名下子程序一并关闭) + 主窗口关闭且镜像在→**镜像升格** (镜像槽释放, 可再开新镜像); `createWindow` 统一接线 closed → handleWindowClosed
+- [x] **index.js 会话化**:
+  - `createWindow(label)` 参数化: `additionalArguments: ['--hundun-window=main|mirror']` 注入渲染进程角色; 会话注册、closed 接线、ready-to-show/did-finish-load 按窗口显示 (`maybeShowMainWindow(reason, win)` 按该窗口会话判定互斥)
+  - 窗口控制 IPC 按 `event.sender` 反查窗口 (原 `window-minimize/maximize/close/pin/start-drag/resize` 全部硬编码 mainWindow → 镜像窗口点✕会关错窗口)
+  - 新 IPC: `mirror:open` / `mirror:state`; 镜像开合向两窗口广播 `mirror:state-changed`; 升格向被升格窗口发 `window-role-changed`
+  - `plugin-manager:launch/start/returnToParent/getActive` 经 `sessionForSender(event.sender)` 会话化; 新增 `plugin-manager:getForeign`; `second-instance` 聚焦主会话 (主会话没了则首个会话); `theme:get-request` 转发归属会话母窗口, `theme:get-response` 任一母窗口回复均受理
+- [x] **preload.js**: `window.nodeInfo.windowRole` ('main'|'mirror') + `mirrorOpen / getMirrorState / onMirrorStateChanged / onWindowRoleChanged / getForeignPlugins / onPluginStateChanged`
+- [x] **母程序 UI (App.vue + main.css + i18n)**:
+  - 底部按钮行扩为 4 列: `+ / ⚙ / 🪞 / 插槽` (col0-3); `bottomRowNames` 改 i18n 计算属性 `['添加应用','设置','镜像模式','卡带插槽']`; 键盘右移钳制 2→3, Enter 分发补 case2(镜像)/case3(插槽)
+  - **镜像受限 (拍板: 按钮保留变灰)**: `isMirror` 时 `+ / ⚙ / 🪞 / 顶部主题开关` 加 disabled + 灰度样式 (含浅色模式覆盖), 按钮群右侧显示提示「当前程序为镜像程序 不能修改配置」(i18n `mirror.notice`); 键盘/点击被禁用项 → 弹该提示; 插槽/卡带/置顶/✕ 正常
+  - **升格恢复权限 (拍板)**: 收到 `window-role-changed` → `windowRole='main'`, 按钮/提示即时恢复
+  - 🪞 按钮 `mirrorActive` 高亮跟随 `mirror:state-changed`; 点击 → `mirror:open` (created 播 OK / exists 主进程已聚焦); 图标为**内联 SVG「双镜方块」** (左右两块 6×11 竖长方形镜面, 中缝留 2px 反射轴间隙, 16% currentColor 玻璃底色; 线性描边 stroke=currentColor 内联, 与 fast-cmd 刷新按钮同风格 — 默认 `--accent-primary`、激活 `--accent-secondary`、禁用灰度自动生效, 替代原 emoji 🪞)
+  - **运行中徽章**: 卡带右上角显示「运行中」(仅**别处**运行的插件, `getForeignPlugins` 初始 + `plugin-state-changed` 推送); `insertSelectedToSlot` / `handleDrop` 早拦截 → 弹 `cartridge.busyOtherMsg` 冲突弹窗, 不动插槽 (主进程归属校验兜底)
+  - **launch 失败回滚**: `launchApp` 失败分支 `rollbackSlot()` — 卡带放回货架、清空插槽 (修掉原失败后插槽残留假"运行中"的隐患, 镜像互斥/决策42 平台拦截路径同收益); `continueToChild` 失败改为弹错误弹窗 (原静默)
+- [x] **测试** `scripts/test-mirror.js` (Electron 冒烟, `npx electron --no-sandbox scripts/test-mirror.js`): 打开镜像同屏 / 重复 open→exists 单镜像 / A 跑 fast-txt 时 B 仍可见 / B 跑 fast-txt 被拒且归属不变 / B 跑 task 成功两子程序同屏并行 / getForeign 会话视角 / 关镜像连带关 task、A 不受影响 / 再开镜像 / 关 A 镜像升格 (onPromoted/主会话指针/槽位释放) / 升格后可再开镜像; 每步断言**会话内**母子互斥不变式 → **61/61 通过**
+- [x] 回归: `test-window-lifecycle` **32/32 通过** (构造签名兼容, 单会话语义与原全局一致); `npm run build` 通过, `out/main/mirror-manager.js` 经 copyMainModules 复制落盘 (index.js 对其为 external require)
+- [x] **已知取舍**: A/B 同源共享 localStorage (主题/语言/插件配置天然一致, 镜像禁改配置正好规避交叉污染); `slotPlugin`/选中态为各窗口本地状态天然独立; 镜像窗口 ✕/Esc 仅关闭镜像本身 (主窗口 ✕ 由升格规则兜底)
+
 ### TASK 子程序: timer-manager 全量重构为任务清单 (旧进度不保留, 程序名更改为 TASK)
 - [x] **需求**: 原 Timer 定时任务占位插件整体废弃重写 → `plugins/task/` (id `task`, 显示名 `TASK`); 帮助用户记录任务内容/完成情况并提供必要提醒
 - [x] **外观 (复古掌机风格, 与 fast-cmd 同构)**:
