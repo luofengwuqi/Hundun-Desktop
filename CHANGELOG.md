@@ -19,6 +19,7 @@
   - 排序: **未完成且截止近的优先 > 未完成 > 已过期 > 已完成** (无截止的未完成排该组末尾; 过期按最近过期在前; 完成按最近完成在前)
   - 提醒引擎: 1s tick; 窗口可见 → 应用内弹窗 + bengbeng 音效, 隐藏 → HTML5 Notification 系统通知; `fired[]` 持久化防重启重弹, 到点 >2min 视为错过静默补记, 已完成任务的提醒抑制
 - [x] **架构 — 持久化审核: SQLite 不合适, 采用 `hundun.storage` JSON (决策43)**: ①`build.files` 排除 node_modules → 原生模块无法随包分发; ②决策8 规避原生编译 (electron-rebuild/ABI); ③插件层无 DB 通道, 新增主进程依赖违背零第三方依赖原则; ④百行级单写入数据 JSON 原子写 (tmp+rename/防抖/退出 flush) 已覆盖 SQLite 收益。单键 `tasks={version,tasks:[...]}` → `userData/huntun-lite-data/task.json`, localStorage 镜像兜底; 状态/排序语义见决策44; 附带修复 `__PLUGIN_ID__` 注入竞态 (did-finish-load 晚于 DOMContentLoaded → init 从入口路径解析兜底, 避免写 null.json)
+- [x] **表单排版优化 (2026-10-14 二次迭代)**: 纵向堆叠标签/输入改为**行式面板排版** — 左列「像素序号章 01/02/03 (Press Start 2P) + 标签」, 右列控件, 行间虚线分隔, 提醒方式以 `└` 子行附着于提醒时间 (无分隔线); 聚焦任一控件整行序号点亮; 添加提醒改左对齐虚线空槽按钮, 提醒方式改紧凑宽度 (非通栏); 清除/移除钮与输入等高贴合; 输入启用 tabular-nums (时间不跳字) + accent caret + accent 选区; header 标题旁新增 NEW/EDIT 像素徽章; 底部新增像素键帽提示 `Esc 取消 · Enter 保存` (i18n); 行入场 40ms 阶梯微动画; 标签列 96px 防中英文截断
 - [x] **配套**: 母程序 `stores/plugin.js` DEFAULT_PLUGINS 的 timer-manager 条目替换为 task (400×520); README / QUICKSTART / PLUGIN_DEVELOPMENT 引用同步
 - [x] **测试**:
   - 新增 `scripts/test-task-preload.js` (mock hundun.storage 落盘 + Notification 打桩 + document.hidden 强制隐藏) 与 `scripts/test-task.js` (Electron 冒烟): 空态/自动命名/状态计算/排序/徽章切换/编辑预填与保存/表单内删除/提醒触发与错过静默补记/提醒方式门槛/放弃确认/表单等大/持久化重载存活/全套键盘导航 → **64/64 通过** (连跑两次稳定)

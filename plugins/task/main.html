@@ -46,36 +46,58 @@
     <!-- ===== Form View: 创建 / 编辑任务 (与子程序等大) ===== -->
     <div id="view-form" style="display:none;">
       <div class="form-body">
-        <div class="form-group">
-          <label class="form-label" for="fName" id="lblName">任务名</label>
-          <input class="form-input" id="fName" type="text" maxlength="60" autocomplete="off" />
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" id="lblReminders">提醒时间</label>
-          <div class="reminder-rows" id="reminderRows"></div>
-          <button type="button" class="mini-btn" id="addReminderBtn">＋ 添加提醒</button>
-        </div>
-
-        <div class="form-group disabled" id="methodGroup">
-          <label class="form-label" for="fMethod" id="lblMethod">提醒方式</label>
-          <select class="form-input" id="fMethod" disabled>
-            <option value="popup" id="optPopup">弹窗提醒</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="fDeadline" id="lblDeadline">截止时间</label>
-          <div class="deadline-row">
-            <input class="form-input" id="fDeadline" type="datetime-local" />
-            <button type="button" class="mini-btn danger" id="clearDeadlineBtn" title="清除">×</button>
+        <!-- 行式表单: 像素序号 + 标签 左列 | 控件右列, 虚线分隔 (设备设置面板) -->
+        <div class="form-row">
+          <div class="row-label">
+            <span class="row-index">01</span>
+            <label class="row-name" for="fName" id="lblName">任务名</label>
           </div>
-          <div class="form-hint" id="deadlineHint">到期后自动标记为已过期</div>
+          <div class="row-control">
+            <input class="form-input" id="fName" type="text" maxlength="60" autocomplete="off" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="row-label">
+            <span class="row-index">02</span>
+            <label class="row-name" id="lblReminders">提醒时间</label>
+          </div>
+          <div class="row-control">
+            <div class="reminder-rows" id="reminderRows"></div>
+            <button type="button" class="mini-btn add-reminder" id="addReminderBtn">＋ 添加提醒</button>
+          </div>
+        </div>
+
+        <div class="form-row sub disabled" id="methodGroup">
+          <div class="row-label">
+            <span class="connector">└</span>
+            <label class="row-name sub-name" for="fMethod" id="lblMethod">提醒方式</label>
+          </div>
+          <div class="row-control">
+            <select class="form-input select-compact" id="fMethod" disabled>
+              <option value="popup" id="optPopup">弹窗提醒</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="row-label">
+            <span class="row-index">03</span>
+            <label class="row-name" for="fDeadline" id="lblDeadline">截止时间</label>
+          </div>
+          <div class="row-control">
+            <div class="deadline-row">
+              <input class="form-input" id="fDeadline" type="datetime-local" />
+              <button type="button" class="mini-btn danger row-btn" id="clearDeadlineBtn" title="清除截止时间">×</button>
+            </div>
+            <div class="form-hint" id="deadlineHint">到期后自动标记为已过期</div>
+          </div>
         </div>
       </div>
       <footer class="form-footer">
         <button type="button" class="form-btn primary" id="saveBtn">保存</button>
         <button type="button" class="form-btn secondary" id="cancelBtn">取消</button>
+        <span class="kbd-hint" id="formKbdHint"><span class="kbd">Esc</span><span id="kbdCancel">取消</span><span class="kbd-sep">·</span><span class="kbd">Enter</span><span id="kbdSave">保存</span></span>
         <button type="button" class="form-btn danger" id="deleteBtn" style="display:none;">删除</button>
       </footer>
     </div>

@@ -17,7 +17,7 @@
       row.className = 'reminder-row';
       row.innerHTML = `
         <input type="datetime-local" class="form-input reminder-input" />
-        <button type="button" class="mini-btn danger reminder-remove" title="${escapeHtml(TaskI18n.t('form.remove'))}">×</button>
+        <button type="button" class="mini-btn danger row-btn reminder-remove" title="${escapeHtml(TaskI18n.t('form.remove'))}">×</button>
       `;
       const input = row.querySelector('.reminder-input');
       if (value) input.value = value;

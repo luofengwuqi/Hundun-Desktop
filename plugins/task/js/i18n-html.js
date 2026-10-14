@@ -42,4 +42,10 @@
   if (cancelBtn) cancelBtn.textContent = t('form.cancel');
   const deleteBtn = document.getElementById('deleteBtn');
   if (deleteBtn) deleteBtn.textContent = t('form.delete');
+
+  // 底部键位提示 (键帽文字为像素字体, 动作文案走翻译)
+  const kbdCancel = document.getElementById('kbdCancel');
+  if (kbdCancel) kbdCancel.textContent = t('form.cancel');
+  const kbdSave = document.getElementById('kbdSave');
+  if (kbdSave) kbdSave.textContent = t('form.save');
 })();

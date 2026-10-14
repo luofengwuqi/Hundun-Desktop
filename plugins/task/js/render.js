@@ -145,7 +145,8 @@
     const setHeaderTitle = () => {
       if (currentView === 'form') {
         const title = formMode === 'edit' ? TaskI18n.t('form.editTitle') : TaskI18n.t('form.createTitle');
-        headerTitle.innerHTML = `<span class="form-header-title">${escapeHtml(title)}</span>`;
+        const chip = formMode === 'edit' ? 'EDIT' : 'NEW';
+        headerTitle.innerHTML = `<span class="form-header-title">${escapeHtml(title)}</span><span class="logo-chip">${chip}</span>`;
       } else {
         headerTitle.innerHTML = `
           <span class="logo-icon">📋</span>
