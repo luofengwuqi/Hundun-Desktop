@@ -1,7 +1,7 @@
 # Hundun Lite - 项目进度文档
 
 > 最后更新: 2026-10-15
-> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 新增 Markdown 实时渲染浏览模式 (markdown-it, Typora 式, 单换行直接渲染为换行)；修复"进入子程序后音效音量异常变大"（插件直放无视音量设置 + 主窗口 preload 因 contextBridge 长期失效一并修复）；修复"子程序启动时母程序意外出现"（母子窗口可见性互斥不变式）；修复 FastCmd 脚本从未真实执行（相对路径 + 假成功 toast），改为绝对路径 + start /wait 可见控制台 + 退出码回报；FastCmd 移植底部刷新按钮；旧数据目录 plugins/fast-cmd/file/ 迁移至 user-data；修复中文 .ps1 执行报"意外的标记"（UTF-8 无 BOM 被 PowerShell 5.1 按 GBK 读取 → ensurePs1Bom 就地补 BOM）；**FastCmd 交互简化：点击脚本即运行（操作弹窗移除，结果走 toast）、移除编辑功能、移除文件夹（脚本仅一级目录）**；**FastCmd 平台感知：打开前按 manifest.platforms 检查系统状态（支持 Windows/Linux），不支持的脚本文件不显示，Linux 新增 .sh 可见终端执行链（决策42）**；**timer-manager 全量重构为 TASK 任务清单（纵向 400×520、状态徽章/排序/提醒弹窗/深浅色/键盘导航，旧进度不保留）；持久化 = hundun.storage JSON，SQLite 审核否决（决策43、44）**；**镜像模式：底部新增「镜像模式」按钮开启并行镜像窗口（会话内母子互斥、A/B 可同屏；同一子程序同时只归属一个会话；镜像仅允许运行子程序、禁改配置，A 关闭后镜像升格恢复完整权限，全局仅一个镜像 — 决策45）**；**设置·插件页管理：实时运行状态（occupied + plugin-started/closed 转发）+ 左侧拖拽柄/Ctrl+↑↓ 排序持久化（货架 watch 同步、跨窗口 config-changed 广播）+ 右侧删除（运行中拦截、userdata 保留询问、内置=已移除名单可恢复/安装=删目录）— 决策46）**；**跨平台打包三件套完成（Windows NSIS Setup.exe + Linux AppImage/deb）：可写根回退（Program Files//opt/AppImage 只读时 userData 落系统目录）+ 零依赖图标生成 + 构建镜像/wine 环境 — 决策47）**
+> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 新增 Markdown 实时渲染浏览模式 (markdown-it, Typora 式, 单换行直接渲染为换行)；修复"进入子程序后音效音量异常变大"（插件直放无视音量设置 + 主窗口 preload 因 contextBridge 长期失效一并修复）；修复"子程序启动时母程序意外出现"（母子窗口可见性互斥不变式）；修复 FastCmd 脚本从未真实执行（相对路径 + 假成功 toast），改为绝对路径 + start /wait 可见控制台 + 退出码回报；FastCmd 移植底部刷新按钮；旧数据目录 plugins/fast-cmd/file/ 迁移至 user-data；修复中文 .ps1 执行报"意外的标记"（UTF-8 无 BOM 被 PowerShell 5.1 按 GBK 读取 → ensurePs1Bom 就地补 BOM）；**FastCmd 交互简化：点击脚本即运行（操作弹窗移除，结果走 toast）、移除编辑功能、移除文件夹（脚本仅一级目录）**；**FastCmd 平台感知：打开前按 manifest.platforms 检查系统状态（支持 Windows/Linux），不支持的脚本文件不显示，Linux 新增 .sh 可见终端执行链（决策42）**；**timer-manager 全量重构为 TASK 任务清单（纵向 400×520、状态徽章/排序/提醒弹窗/深浅色/键盘导航，旧进度不保留）；持久化 = hundun.storage JSON，SQLite 审核否决（决策43、44）**；**镜像模式：底部新增「镜像模式」按钮开启并行镜像窗口（会话内母子互斥、A/B 可同屏；同一子程序同时只归属一个会话；镜像仅允许运行子程序、禁改配置，A 关闭后镜像升格恢复完整权限，全局仅一个镜像 — 决策45）**；**设置·插件页管理：实时运行状态（occupied + plugin-started/closed 转发）+ 左侧拖拽柄/Ctrl+↑↓ 排序持久化（货架 watch 同步、跨窗口 config-changed 广播）+ 右侧删除（运行中拦截、userdata 保留询问、内置=已移除名单可恢复/安装=删目录）— 决策46）**；**子程序头部字体一律默认字体（fast-txt/fast-cmd/task 的 .logo-text/.logo-chip 与 calculator 头部标题/徽章均改 Noto Sans SC，不再用 Press Start 2P；正文弹窗标签的像素字体保留 — 2026-10-15）**；**跨平台打包三件套完成（Windows NSIS Setup.exe + Linux AppImage/deb）：可写根回退（Program Files//opt/AppImage 只读时 userData 落系统目录）+ 零依赖图标生成 + 构建镜像/wine 环境 — 决策47）**
 
 ---
 
@@ -188,7 +188,7 @@ plugins/                       # 插件目录 (每个插件一个子目录)
 │   ├── assets/               # 备用图标源文件 (refresh.svg, refresh-pixel.svg)
 │   ├── css/                  # 样式文件夹 (12个)
 │   │   ├── base.css          # 全局样式 (普通字体)
-│   │   ├── header.css        # 头部 (标题用像素字体)
+│   │   ├── header.css        # 头部 (标题/版本徽章一律默认字体, 2026-10-15)
 │   │   ├── footer.css        # 页脚 (普通字体)
 │   │   ├── editor.css        # 编辑器 (普通字体)
 │   │   ├── md-preview.css    # Markdown 浏览模式 (预览排版 + 浏览/编辑滑块)
@@ -435,7 +435,7 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 14. **多语言方案**: 轻量级 i18n 模块 (无第三方依赖)，Pinia store 响应式管理
 15. **翻译文件结构**: `src/renderer/i18n/{lang}.js`，支持嵌套键和参数替换
 16. **语言持久化**: localStorage 存储，自动检测浏览器语言作为默认值
-17. **FastTXT 字体策略**: 仅标题保留像素字体 (Press Start 2P)，内容使用普通字体 (Noto Sans SC / Microsoft YaHei)
+17. **FastTXT 字体策略**: 仅标题保留像素字体 (Press Start 2P)，内容使用普通字体 (Noto Sans SC / Microsoft YaHei)。~~仅标题保留像素字体~~ **2026-10-15 起子程序头部一律默认字体** (`plugins/*/css/header.css` 的 `.logo-text`/`.logo-chip`、calculator `.calc-title`/`.calc-chip` 均改 `'Noto Sans SC', 'Microsoft YaHei', sans-serif`)；像素字体仅保留在子程序正文/弹窗/标签 (overlays 弹窗标题、drop-zones 标签、fast-cmd 扩展名徽章、TASK 序号/键位帽、计算器按键)
 18. **FastTXT i18n**: 独立多语言模块，支持中英文切换，68 个翻译字符串
 19. **音效开关实现**: 通过全局音量控制 (masterVolume)，关闭时设为0，开启时恢复原值
 20. **设置页面键盘导航**: 左箭头键直接返回左侧栏，切换标签页时重置 detailIndex

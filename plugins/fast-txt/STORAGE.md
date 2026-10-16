@@ -74,7 +74,7 @@ plugins/fast-txt/
 ├── css/                  # 12 个文件
 │   ├── base.css          # 全局样式 / CSS 变量 / 深浅主题
 │   ├── deco-screws.css   # 装饰螺丝
-│   ├── header.css        # 头部（标题用像素字体 Press Start 2P）
+│   ├── header.css        # 头部（标题/版本徽章一律用默认字体, 不用像素字体）
 │   ├── content.css       # 主内容区
 │   ├── file-list.css     # 文件卡片网格（3 列）
 │   ├── drop-zones.css    # 垃圾桶 / 碎纸机 / 清空按钮区域

@@ -24,7 +24,7 @@
     }
 
     .logo-text {
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
       font-size: 14px;
       color: var(--accent-primary);
       letter-spacing: 3px;
@@ -32,7 +32,7 @@
     }
 
     .logo-chip {
-      font-family: 'Press Start 2P', monospace;
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
       font-size: 6px;
       color: var(--text-muted);
       border: 1px solid var(--border-color);

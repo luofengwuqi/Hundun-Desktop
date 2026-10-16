@@ -23,6 +23,13 @@
 - [x] **验证**: 重新构建后无参运行 AppImage → `[Main] Non-portable install detected` / `[PluginManager] Session added` 正常；解包确认 AppRun 两处 exec 与 .desktop Exec 均含 `--no-sandbox`
 - [x] **运行端依赖**: AppImage 需系统 libfuse2（`sudo apt install libfuse2t64`）
 
+### 子程序头部字体统一改用默认字体 (不再使用像素字体)
+- [x] **需求**: 子程序 (plugins 二级目录) 的**头部部分**字体一律使用默认字体
+- [x] `plugins/fast-txt/css/header.css` / `plugins/fast-cmd/css/header.css` / `plugins/task/css/header.css`: `.logo-text` (标题) 与 `.logo-chip` (版本徽章) 的 `font-family: 'Press Start 2P', monospace` → `'Noto Sans SC', 'Microsoft YaHei', sans-serif` (与 base.css body 默认字体一致)
+- [x] `plugins/calculator/index.html`: 头部 `.calc-header` 补默认字体 (覆盖 body 的 Press Start 2P，使头部内置顶/关闭按钮也走默认)，`.calc-title` / `.calc-chip` 同改
+- [x] **未改动 (非头部, 保留像素风)**: overlays 弹窗标题、drop-zones 碎纸机/垃圾桶标签、fast-cmd 扩展名徽章、TASK 表单序号/键位帽、计算器正文与按键；各插件 main.html 的 Google Fonts `Press Start 2P` 引入保留 (上述区域仍需)
+- [x] **文档同步**: AGENTS.md (文件结构注释 + 决策17 追加 2026-10-15 说明)、plugins/fast-txt/STORAGE.md
+
 ## 2026-10-14
 
 ### 设置·插件页管理: 实时状态 / 拖拽排序持久化 / 移除+userdata 询问+可恢复 (决策46)
