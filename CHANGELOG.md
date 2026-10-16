@@ -1,8 +1,27 @@
 # Hundun Lite - 更新日志
 
-> 最后更新: 2026-10-14
+> 最后更新: 2026-10-15
 
 ---
+
+## 2026-10-15
+
+### 跨平台打包三件套: Windows NSIS + Linux AppImage/deb (决策47)
+- [x] **架构修复 (阻断点)**: 打包态原一律 `exe目录/user-data`，装进 Program Files / /opt / AppImage 只读位置会启动即写失败 — `src/main/paths.js` 新增 `isPackagedPortableMode()` (APPIMAGE 环境或 exe 目录 mkdir+探针文件试写失败 → 回退) + `resolveUserDataDir()` (便携 = `<可写根>/user-data` 原行为; 回退 = `app.getPath('userData')` 默认值, 取值在 `setPath` 之前) + `resolveInstallPluginsDir()` 回退 `<userData>/installed-plugins` (**不能用 `<userData>/plugins`** — 与插件数据目录 `<userData>/plugins/<id>/file` 同名, 卸载删数据会误删代码); `index.js` 顶部改 `resolveUserDataDir()` 单点决策 + 回退模式启动日志 + gpu-cache 建目录 try/catch; **开发态恒便携, `npm run dev` 零影响**
+- [x] **图标**: 零依赖 `scripts/gen-icon.js` (手写 PNG/ICO 编码 + 像素掌机图案) → `src/renderer/public/icon.png` (vite publicDir 拷入 `out/renderer/`, 修 `createWindow` icon 指向 — 原 `../renderer/assets/icon.png` 路径根本不存在) + `src/renderer/assets/icon.ico` (win.icon); 附 `npm run gen-icon` — ⚠️ 该像素图标已被**决策48 插画 logo** 取代 (见下方「应用 Logo 更换」, 勿再跑)
+- [x] **package.json build 配置**: 补 `homepage` (fpm/deb 必填, 缺失直接 `Please specify project homepage` 报错)、`linux` target `["AppImage","deb"]` + icon/category/description/maintainer/executableName `hundun-lite`、`deb.packageName`、`nsis.artifactName` `${productName} Setup ${version}.${ext}`; `build:win` 改 `--win nsis --x64` (原 `--universal` 无意义), 新增 `build:setup` 一次出三件套; `build.files` 白名单 `out/plugins/sounds` + `!node_modules` 不变 (零原生模块)
+- [x] **构建环境 (Linux 出 win 包)**: NSIS 的 rcedit 改 exe 图标/版本在 Linux 必须 wine → 装 `wine64` 10.0 + `wineboot --init`; apt 官方/TUNA 源被网关 403 → `/etc/apt/sources.list.d/ubuntu.sources` 切 `https://mirrors.aliyun.com/ubuntu/` (原文件备份 `.bak-MMDD`); GitHub 直连下载超时 (昨日断点) → `ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/` + `ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/`
+- [x] **产物 (`dist/`, 均已验证)**: `Hundun Lite Setup 1.0.0.exe` 76.7MB (Nullsoft 签名 + 内嵌 productName + exe 版本资源/图标 6 处 PNG) / `Hundun Lite-1.0.0.AppImage` 104.5MB (`--appimage-help` 正常) / `huntun-lite_1.0.0_amd64.deb` 72.7MB (control Depends/Homepage 正确); 打包版冒烟: 便携模式 user-data 正确落 exe 旁, 主进程日志正常
+- [x] 回归: `test-window-lifecycle` 32/32, `test-mirror` 61/61, `test-plugin-uninstall` 22/22, `npm run build` 通过
+- [x] **文档**: AGENTS.md 新增决策47 + 开发/打包路径表更新 (便携/回退) + 新增「打包构建」小节
+
+### AppImage 双击无法启动修复 (决策47⑥)
+- [x] **现象**: 双击 `Hundun Lite-1.0.0.AppImage` 无反应 (终端跑报 `dlopen(): error loading libfuse.so.2`)
+- [x] **原因1 (FUSE)**: 系统只有 fuse3，AppImage type2 runtime 需要 libfuse2 → 装 `libfuse2t64`
+- [x] **原因2 (沙箱)**: 装 fuse 后报 `FATAL:setuid_sandbox_host ... chrome-sandbox ... owned by root and has mode 4755` → `No usable sandbox!`。Ubuntu 24.04+ `kernel.apparmor_restrict_unprivileged_userns=1` 禁 user namespace，AppImage 只读挂载内 chrome-sandbox 无法 SUID；`app.commandLine.appendSwitch('no-sandbox')` 无效（JS 在沙箱初始化后才跑，实测主进程代码未执行，FATAL 先出）
+- [x] **修复**: 新增 `scripts/patch-appimage.js` 并挂 `build.afterAllArtifactBuild` — 解包 AppImage → AppRun 两处 `exec "$BIN"` 补 `--no-sandbox` → electron-builder 缓存 mksquashfs 重打包 → `--appimage-offset` 切原 runtime 拼接写回（幂等；菜单 .desktop 本就带 `--no-sandbox`，双击直跑 AppRun 不走它）；deb 不需补丁（postinst chmod 4755 + root 属主）
+- [x] **验证**: 重新构建后无参运行 AppImage → `[Main] Non-portable install detected` / `[PluginManager] Session added` 正常；解包确认 AppRun 两处 exec 与 .desktop Exec 均含 `--no-sandbox`
+- [x] **运行端依赖**: AppImage 需系统 libfuse2（`sudo apt install libfuse2t64`）
 
 ## 2026-10-14
 

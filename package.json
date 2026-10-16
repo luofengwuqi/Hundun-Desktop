@@ -2,16 +2,19 @@
   "name": "huntun-lite",
   "version": "1.0.0",
   "description": "Hundun Lite - 复古掌机风格的桌面效率工具",
+  "homepage": "https://gitee.com/luofengwuqi",
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "postinstall": "electron-builder install-app-deps",
+    "gen-icon": "node scripts/gen-icon.js",
     "build:unpack": "npm run build && electron-builder --dir",
-    "build:win": "npm run build && electron-builder --win --universal",
+    "build:win": "npm run build && electron-builder --win nsis --x64",
     "build:mac": "npm run build && electron-builder --mac",
-    "build:linux": "npm run build && electron-builder --linux"
+    "build:linux": "npm run build && electron-builder --linux AppImage deb --x64",
+    "build:setup": "npm run build && electron-builder --win nsis --linux AppImage deb --x64"
   },
   "dependencies": {
     "pinia": "^2.1.7",
@@ -39,6 +42,7 @@
     ],
     "extraResources": [],
     "asar": true,
+    "afterAllArtifactBuild": "./scripts/patch-appimage.js",
     "win": {
       "target": "nsis",
       "icon": "src/renderer/assets/icon.ico"
@@ -48,7 +52,19 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Hundun Lite"
+      "shortcutName": "Hundun Lite",
+      "artifactName": "${productName} Setup ${version}.${ext}"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "icon": "src/renderer/public/icon.png",
+      "category": "Utility",
+      "description": "Retro handheld style desktop efficiency tool",
+      "maintainer": "Hundun Lite Team <huntun-lite@example.com>",
+      "executableName": "hundun-lite"
+    },
+    "deb": {
+      "packageName": "hundun-lite"
     }
   },
   "keywords": [

@@ -1,7 +1,7 @@
 # Hundun Lite - 项目进度文档
 
-> 最后更新: 2026-10-14
-> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 新增 Markdown 实时渲染浏览模式 (markdown-it, Typora 式, 单换行直接渲染为换行)；修复"进入子程序后音效音量异常变大"（插件直放无视音量设置 + 主窗口 preload 因 contextBridge 长期失效一并修复）；修复"子程序启动时母程序意外出现"（母子窗口可见性互斥不变式）；修复 FastCmd 脚本从未真实执行（相对路径 + 假成功 toast），改为绝对路径 + start /wait 可见控制台 + 退出码回报；FastCmd 移植底部刷新按钮；旧数据目录 plugins/fast-cmd/file/ 迁移至 user-data；修复中文 .ps1 执行报"意外的标记"（UTF-8 无 BOM 被 PowerShell 5.1 按 GBK 读取 → ensurePs1Bom 就地补 BOM）；**FastCmd 交互简化：点击脚本即运行（操作弹窗移除，结果走 toast）、移除编辑功能、移除文件夹（脚本仅一级目录）**；**FastCmd 平台感知：打开前按 manifest.platforms 检查系统状态（支持 Windows/Linux），不支持的脚本文件不显示，Linux 新增 .sh 可见终端执行链（决策42）**；**timer-manager 全量重构为 TASK 任务清单（纵向 400×520、状态徽章/排序/提醒弹窗/深浅色/键盘导航，旧进度不保留）；持久化 = hundun.storage JSON，SQLite 审核否决（决策43、44）**；**镜像模式：底部新增「镜像模式」按钮开启并行镜像窗口（会话内母子互斥、A/B 可同屏；同一子程序同时只归属一个会话；镜像仅允许运行子程序、禁改配置，A 关闭后镜像升格恢复完整权限，全局仅一个镜像 — 决策45）**；**设置·插件页管理：实时运行状态（occupied + plugin-started/closed 转发）+ 左侧拖拽柄/Ctrl+↑↓ 排序持久化（货架 watch 同步、跨窗口 config-changed 广播）+ 右侧删除（运行中拦截、userdata 保留询问、内置=已移除名单可恢复/安装=删目录）— 决策46）**
+> 最后更新: 2026-10-15
+> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 新增 Markdown 实时渲染浏览模式 (markdown-it, Typora 式, 单换行直接渲染为换行)；修复"进入子程序后音效音量异常变大"（插件直放无视音量设置 + 主窗口 preload 因 contextBridge 长期失效一并修复）；修复"子程序启动时母程序意外出现"（母子窗口可见性互斥不变式）；修复 FastCmd 脚本从未真实执行（相对路径 + 假成功 toast），改为绝对路径 + start /wait 可见控制台 + 退出码回报；FastCmd 移植底部刷新按钮；旧数据目录 plugins/fast-cmd/file/ 迁移至 user-data；修复中文 .ps1 执行报"意外的标记"（UTF-8 无 BOM 被 PowerShell 5.1 按 GBK 读取 → ensurePs1Bom 就地补 BOM）；**FastCmd 交互简化：点击脚本即运行（操作弹窗移除，结果走 toast）、移除编辑功能、移除文件夹（脚本仅一级目录）**；**FastCmd 平台感知：打开前按 manifest.platforms 检查系统状态（支持 Windows/Linux），不支持的脚本文件不显示，Linux 新增 .sh 可见终端执行链（决策42）**；**timer-manager 全量重构为 TASK 任务清单（纵向 400×520、状态徽章/排序/提醒弹窗/深浅色/键盘导航，旧进度不保留）；持久化 = hundun.storage JSON，SQLite 审核否决（决策43、44）**；**镜像模式：底部新增「镜像模式」按钮开启并行镜像窗口（会话内母子互斥、A/B 可同屏；同一子程序同时只归属一个会话；镜像仅允许运行子程序、禁改配置，A 关闭后镜像升格恢复完整权限，全局仅一个镜像 — 决策45）**；**设置·插件页管理：实时运行状态（occupied + plugin-started/closed 转发）+ 左侧拖拽柄/Ctrl+↑↓ 排序持久化（货架 watch 同步、跨窗口 config-changed 广播）+ 右侧删除（运行中拦截、userdata 保留询问、内置=已移除名单可恢复/安装=删目录）— 决策46）**；**跨平台打包三件套完成（Windows NSIS Setup.exe + Linux AppImage/deb）：可写根回退（Program Files//opt/AppImage 只读时 userData 落系统目录）+ 零依赖图标生成 + 构建镜像/wine 环境 — 决策47）**
 
 ---
 
@@ -257,11 +257,30 @@ electron-vite build
                 开发模式 (dev)              打包模式 ( packaged )
 ─────────────────────────────────────────────────────────────────
 appRoot        项目根目录 (../..)          exe 所在目录
-userData       项目根/user-data/           exe目录/user-data/
+userData       项目根/user-data/           便携: exe目录/user-data/  |  回退: 系统默认 (决策47)
+插件安装目录    项目根/plugins/             便携: exe目录/plugins/    |  回退: <userData>/installed-plugins
 preload        out/main/preload.js         out/preload/preload.js
 plugin-loader  src/shared/plugin-loader.js (开发) 或 out/main/plugin-loader.js (打包后)
 FastTXT 数据   userData/plugins/fast-txt/  (统一, 不写 asar)
 ```
+> 便携/回退判定 = `isPackagedPortableMode()`（决策47）: `APPIMAGE` 环境或 exe 目录试写失败 → 回退（`npm run dev` 恒便携，行为不变）。
+
+### 打包构建 (2026-10-15, 决策47)
+```
+npm run build            # electron-vite → out/ (copyMainModules)
+# Linux (无需 wine):
+npx electron-builder --linux AppImage deb --x64
+# Windows (Linux 上需 wine10, rcedit 改 exe 资源):
+npx electron-builder --win nsis --x64
+# 三件套一把梭:
+npm run build:setup
+# 环境 (GitHub 直连超时, 必须走镜像):
+export ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/
+export ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/
+```
+产物 → `dist/`: `Hundun Lite Setup <ver>.exe` (NSIS, oneClick=false) / `<name>-<ver>.AppImage` / `<name>_<ver>_amd64.deb`
+
+> **AppImage 沙箱 (决策47⑥)**: `build.afterAllArtifactBuild = scripts/patch-appimage.js` 打包后自动给 AppImage 内 AppRun 补 `--no-sandbox`（Ubuntu 24.04+ AppArmor userns 限制 + AppImage 内 chrome-sandbox 无法 SUID），否则双击无反应/崩溃；运行端需系统 **libfuse2**（`sudo apt install libfuse2t64`）。菜单项 .desktop 原本就有 `--no-sandbox`，该补丁只补双击直跑 AppRun 的路径。
 
 ### 架构总览 (2026-08-28)
 ```
@@ -484,6 +503,9 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 
 ### 已决策 (2026-10-14, 设置·插件页管理)
 46. **设置·插件页 = 实时状态 + 排序 + 移除**: ①**实时状态** — 修复"永远空闲"（store.state 从未更新）: 状态语义 = 全局 occupied（存在插件窗口，含镜像另一窗口/returnToParent 隐藏窗口）；主进程 `plugin-manager:getOccupied` 初始拉取 + index.js 订阅 PluginManager `plugin-started/closed` 事件转发所有母窗口（复活 preload 死监听）；②**排序** — 卡片左侧拖拽柄 ⣿ HTML5 拖拽（目标上/下半区 = 前/后插入）+ 键盘 `Ctrl+↑/↓`（仅插件页）；`huntun-lite-plugins` **数组顺序即显示顺序**（`loadFromStorage` 按保存顺序重排，新插件追加尾部），`movePlugin` 后 `saveToStorage`；货架体现 = App.vue `watch(插件id序列)` → `syncShelfWithStore()`（同时兜删除/恢复/安装，并在插槽卡带已从 store 消失时清幽灵插槽）；③**移除** — 右侧 ✕ / `Delete/Backspace`；**运行中拦截**（occupied 命中弹提示）；确认弹窗三选一 `[保留数据] [删除数据] [取消]`；主进程 `uninstallPlugin`: registry 有记录 → 删安装目录+记录（ID_RE + 越界防护），**内置/手动放置 → 不删目录只隐藏**；`removeData` → 删 `user-data/plugins/<id>/` + `Database.deleteAll`；**配置汇总核心 = 已移除名单** `huntun-lite-plugins-removed`（记 `{id,name,icon,version,removedAt}`），`init/scanDiskPlugins` 合并时过滤 — 挡 DEFAULT_PLUGINS/磁盘扫描回灌；`trackRemoved=false` 用于目录已删的安装插件（不进名单，重装 zip 即回，重装成功自动 `clearRemovedId`）；④**已移除+恢复** — 插件页底部折叠区，恢复 = 清名单 + `refreshFromDisk`（文件已删则弹"需重新安装"）；⑤**跨窗口** — 排序/移除/恢复/安装后 `plugins:notify-changed` → 主进程向其他母窗口广播 `plugins:config-changed` → 各窗 `refreshFromDisk()`（localStorage 同源共享，内存 store 需 reload；修掉镜像模式下 A 装/删 B 不同步的缺口）。已知取舍: 插件自身 localStorage 键（*-theme/locale）无法按插件定位清理。测试 `scripts/test-plugin-uninstall.js` 22/22
+
+### 已决策 (2026-10-15, 跨平台打包)
+47. **打包三件套 + 安装位置自适应可写根回退**: ①**架构修复 (阻断点)** — 打包态原一律 `exe目录/user-data`，装到 Program Files / /opt / AppImage 只读挂载时启动即写失败；`src/main/paths.js` 新增 `isPackagedPortableMode()`（`app.isPackaged` 才探测：`APPIMAGE` 环境 → 回退模式；否则 `canWriteDir(exe目录)` mkdir+探针文件试写）+ `resolveUserDataDir()`（便携模式 = `<可写根>/user-data` 现行为不变；回退模式 = `app.getPath('userData')` 默认值，**取值在 `app.setPath` 之前**）+ `resolveInstallPluginsDir()` 回退到 `<userData>/installed-plugins`（**不能用 `<userData>/plugins`** — 与插件数据目录 `<userData>/plugins/<id>/file` 同名，卸载删数据会误删代码）；`index.js` 顶部改为 `resolveUserDataDir()` 单点决策 + 回退模式启动日志 + gpu-cache 建目录 try/catch；**开发态恒便携 → `npm run dev` 行为零变化**；②**图标** — 零依赖 `scripts/gen-icon.js`（手写 PNG/ICO 编码器 + 像素掌机图案；**2026-10-15 起该像素图标已被决策48 插画 logo 取代，`npm run gen-icon` 勿再跑**）产出 `src/renderer/public/icon.png`（vite publicDir 拷入 `out/renderer/`，`createWindow` icon 指向修正为 `../renderer/icon.png`，原路径 `../renderer/assets/icon.png` 根本不存在）+ `src/renderer/assets/icon.ico`（win.icon）；③**package.json** — `build.files` 保持白名单 `out/plugins/sounds` 且 `!node_modules`（零原生模块，无需 electron-rebuild/wine 以外工具链）；补 `homepage`（fpm/deb 必填，缺失直接报错）、`linux` target `["AppImage","deb"]` + icon/category/description/maintainer/executableName `hundun-lite`、`deb.packageName`、`nsis.artifactName`；脚本 `build:win` 改 `--win nsis --x64`（原 `--universal` 无意义且更重）、新增 `build:setup` 一次出三件套；④**构建环境**（Linux 出 win 包）— NSIS 的 rcedit 改 exe 图标/版本在 Linux 必须 wine（`winPackager` 走 `execWine`），装 `wine64` + `wineboot --init`；apt 官方/TUNA 源被网关 403 → 源切 `https://mirrors.aliyun.com/ubuntu/`；`ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/` + `ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/`（GitHub 直连超时是昨天断点）；⑤**产物**（均验证）— `Hundun Lite Setup 1.0.0.exe` 76.7MB（Nullsoft + 内嵌 productName + exe 版本资源/图标）、`Hundun Lite-1.0.0.AppImage` 104.5MB（`--appimage-help` 正常）、`huntun-lite_1.0.0_amd64.deb` 72.7MB（control Depends/Homepage 正确）；打包版冒烟：便携模式 user-data 正确落在 exe 旁；⑥**AppImage 双击沙箱修复 + libfuse2 依赖** — ①双击 `.AppImage` 静默无反应 = 系统只有 fuse3，AppImage type2 runtime 需 **libfuse2**（装 `libfuse2t64`）；②装完后仍崩 = Ubuntu 24.04+ `kernel.apparmor_restrict_unprivileged_userns=1` 禁用未配置的 user namespace，而 AppImage 只读挂载中 `chrome-sandbox` 无法 root+4755（SUID），Electron 报 `No usable sandbox!` FATAL — **`app.commandLine.appendSwitch('no-sandbox')` 无效**（JS 在沙箱初始化之后才执行，实测主进程代码根本没跑）；`ELECTRON_DISABLE_SANDBOX=1` 有效但双击无法注入；electron-builder 只把 `--no-sandbox` 写进 `.desktop` 的 Exec，而**双击 .AppImage 是 runtime 直接跑 AppRun（无参），不走该 Exec**；③修法 = `scripts/patch-appimage.js`（`build.afterAllArtifactBuild` 钩子，幂等）：解包 → AppRun 两处 `exec "$BIN"` 补 `--no-sandbox` → electron-builder 缓存版 `mksquashfs -comp gzip -b 131072` 重打包 → 用 `--appimage-offset` 切出原 runtime 拼接写回（deb 无需此补丁，postinst `chmod 4755` + root 属主 SUID 正常）
 
 ### 待定
 1. 插件市场实现方案

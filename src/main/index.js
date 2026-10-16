@@ -6,22 +6,30 @@ const { MirrorManager } = require('./mirror-manager')
 const { pickZipFile, installFromZip, uninstallPlugin } = require('./plugin-installer')
 const { registerSoundSettingsIPC } = require('./sound-settings')
 
-// ========== 根治 GPU 缓存权限问题 ==========
-// 所有应用数据统一放在可执行文件旁边，不依赖系统目录
-const appRoot = app.isPackaged
-  ? path.dirname(process.execPath)  // 打包后: exe 所在目录
-  : path.join(__dirname, '../..')   // 开发时: 项目根目录
-const userDataDir = path.join(appRoot, 'user-data')
-const gpuCacheDir = path.join(userDataDir, 'gpu-cache')
+// ========== 应用数据目录 (决策47: 安装位置自适应) ==========
+// 开发态/便携模式: exe (或项目根) 旁 user-data (原行为不变);
+// 回退模式 (AppImage / Program Files / /opt 等不可写安装位置): Electron 默认 userData
+//   (Linux ~/.config/<name>, Windows %APPDATA%\<name>)
+const { resolveUserDataDir, isPackagedPortableMode } = require('./paths')
+const userDataDir = resolveUserDataDir()
 
-// 覆盖 Electron 的默认 userData 路径到项目目录
+// 覆盖 Electron 的默认 userData 路径
 app.setPath('userData', userDataDir)
 
+const gpuCacheDir = path.join(userDataDir, 'gpu-cache')
 if (!fs.existsSync(gpuCacheDir)) {
-  fs.mkdirSync(gpuCacheDir, { recursive: true })
+  try {
+    fs.mkdirSync(gpuCacheDir, { recursive: true })
+  } catch (error) {
+    console.warn('[Main] Failed to create gpu-cache dir:', error.message)
+  }
 }
 app.commandLine.appendSwitch('disk-cache-dir', gpuCacheDir)
 app.commandLine.appendSwitch('gpu-cache-dir', gpuCacheDir)
+
+if (app.isPackaged && !isPackagedPortableMode()) {
+  console.log(`[Main] Non-portable install detected, userData fallback to: ${userDataDir}`)
+}
 
 // Windows 圆角窗口
 if (process.platform === 'win32') {
@@ -104,7 +112,7 @@ function createWindow (label = 'main') {
       autoplayPolicy: 'no-user-gesture-required',
       additionalArguments: [`--hundun-window=${label}`]
     },
-    icon: path.join(__dirname, '../renderer/assets/icon.png'),
+    icon: path.join(__dirname, '../renderer/icon.png'), // 决策47: vite publicDir 拷贝自 src/renderer/public/icon.png
     show: false // 先隐藏，等加载完成后再显示
   })
 

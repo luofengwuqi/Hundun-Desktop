@@ -38,16 +38,73 @@ function resolvePluginsDir () {
 }
 
 /**
- * 解析应用根目录（可写）
+ * 解析应用根目录
  *   - 开发态: 项目根目录
  *   - 打包态: exe 所在目录
- * 与 src/main/index.js 中的 appRoot 逻辑保持一致。
+ * 注: userData 目录请用 resolveUserDataDir (决策47, 含不可写回退), 本函数仅供便携模式参考。
  * @returns {string}
  */
 function resolveAppRoot () {
   return app.isPackaged
     ? path.dirname(process.execPath)
     : path.join(__dirname, '..', '..')
+}
+
+// ========== 可写根决策 (决策47: 打包安装位置自适应) ==========
+// 便携模式 = "exe 旁目录可写" (开发态恒为真 → 项目根/user-data 与项目根/plugins, 行为不变;
+//            Windows 默认 per-user 安装同样可写 → 维持 exe旁/user-data 便携语义)
+// 回退模式 = AppImage (execPath 是只读临时挂载) 或 exe 目录不可写 (Program Files / /opt deb):
+//            userData → Electron 默认 (~/.config/<name> / %APPDATA%);
+//            用户插件安装目录 → <userData>/installed-plugins
+//            (不能用 <userData>/plugins — 与插件数据目录 <userData>/plugins/<id>/file 同名冲突)
+let _portableMode = null
+function isPackagedPortableMode () {
+  if (_portableMode !== null) return _portableMode
+  if (!app.isPackaged) {
+    _portableMode = true
+    return _portableMode
+  }
+  if (process.env.APPIMAGE) {
+    _portableMode = false
+    return _portableMode
+  }
+  _portableMode = canWriteDir(path.dirname(process.execPath))
+  return _portableMode
+}
+
+/** 试写探测: mkdir + 写探针文件 + 删除 */
+function canWriteDir (dir) {
+  const probe = path.join(dir, `.write-probe-${process.pid}`)
+  try {
+    fs.mkdirSync(dir, { recursive: true })
+    fs.writeFileSync(probe, '1')
+    fs.unlinkSync(probe)
+    return true
+  } catch (_) {
+    return false
+  }
+}
+
+/**
+ * 解析应用可写根 (便携模式 = exe/项目目录; 回退模式 = Electron 默认 userData)
+ * @returns {string}
+ */
+function resolveWritableRoot () {
+  if (!app.isPackaged) return path.join(__dirname, '..', '..')
+  return path.dirname(process.execPath)
+}
+
+/**
+ * 解析 userData 目录 (决策47)
+ *   - 开发态/便携模式: <可写根>/user-data (现行为)
+ *   - 回退模式: Electron 默认 userData (Linux ~/.config/<name>, Windows %APPDATA%\<name>)
+ * @returns {string}
+ */
+function resolveUserDataDir () {
+  if (isPackagedPortableMode()) {
+    return path.join(resolveWritableRoot(), 'user-data')
+  }
+  return app.getPath('userData') // setPath 前即为默认值, 直接采用
 }
 
 /**
@@ -77,13 +134,17 @@ function resolvePluginsDirs () {
 }
 
 /**
- * 用户安装插件的落盘目录（可写）
- * 开发态: 项目根/plugins；打包态: exe 目录/plugins
+ * 用户安装插件的落盘目录（可写, 决策47）
+ *   - 开发态/便携模式: <可写根>/plugins (现行为)
+ *   - 回退模式: <Electron 默认 userData>/installed-plugins
+ *     (与插件数据目录 <userData>/plugins/<id>/file 分离, 避免卸载删数据时误删代码)
  * 目录不存在时自动创建（写入失败由调用方处理）。
  * @returns {string}
  */
 function resolveInstallPluginsDir () {
-  const dir = path.join(resolveAppRoot(), 'plugins')
+  const dir = isPackagedPortableMode()
+    ? path.join(resolveWritableRoot(), 'plugins')
+    : path.join(app.getPath('userData'), 'installed-plugins')
   try {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
   } catch (error) {
@@ -130,6 +191,10 @@ module.exports = {
   resolveInstallPluginsDir,
   resolvePluginDir,
   resolvePluginDataDir,
+  resolveUserDataDir,
+  resolveWritableRoot,
+  isPackagedPortableMode,
+  canWriteDir,
   MAIN_PRELOAD,
   PLUGIN_PRELOAD
 }
