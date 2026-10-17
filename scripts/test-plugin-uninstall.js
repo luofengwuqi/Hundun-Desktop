@@ -29,9 +29,9 @@ const projectRoot = path.join(__dirname, '..')
 const fakeDir = path.join(projectRoot, 'plugins', FAKE_ID)
 const registryPath = path.join(tmpUserData, 'installed-plugins.json')
 const dataDir = path.join(tmpUserData, 'plugins', FAKE_ID)
-const jsonPath = path.join(tmpUserData, 'huntun-lite-data', `${FAKE_ID}.json`)
+const jsonPath = path.join(tmpUserData, 'hundundesktop-data', `${FAKE_ID}.json`)
 const calcDataDir = path.join(tmpUserData, 'plugins', 'calculator')
-const calcJsonPath = path.join(tmpUserData, 'huntun-lite-data', 'calculator.json')
+const calcJsonPath = path.join(tmpUserData, 'hundundesktop-data', 'calculator.json')
 
 const results = []
 const check = (name, cond, detail = '') => {

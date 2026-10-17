@@ -28,7 +28,7 @@ let currentLocale = DEFAULT_LOCALE
 // 获取保存的语言
 export function getSavedLocale() {
   try {
-    const saved = localStorage.getItem('huntun-lite-locale')
+    const saved = localStorage.getItem('hundundesktop-locale')
     if (saved && locales[saved]) {
       return saved
     }
@@ -67,7 +67,7 @@ export function setLocale(locale) {
   if (locales[locale]) {
     currentLocale = locale
     try {
-      localStorage.setItem('huntun-lite-locale', locale)
+      localStorage.setItem('hundundesktop-locale', locale)
     } catch (e) {
       // ignore
     }

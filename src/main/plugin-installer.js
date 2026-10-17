@@ -1,5 +1,5 @@
 /**
- * Hundun Lite - 本地插件安装器
+ * HundunDesktop - 本地插件安装器
  *
  * 职责:
  *   1. pickZipFile()      — 打开系统文件资源管理器，让用户选择 .zip 插件包
@@ -437,7 +437,7 @@ async function installFromZip (zipPath) {
     }
 
     // 1. 解压到临时目录
-    stageDir = fs.mkdtempSync(path.join(os.tmpdir(), 'huntun-install-'))
+    stageDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hundundesktop-install-'))
     extractZipTo(zipPath, stageDir)
 
     // 2. 定位插件根目录
@@ -532,7 +532,7 @@ async function installFromZip (zipPath) {
  *   - 内置/手动放置 (无记录): **不删插件目录** (app 自带文件/源码), 返回 builtin=true,
  *     由渲染层"已移除名单"负责隐藏 (挡 DEFAULT_PLUGINS/磁盘扫描回灌)
  *   - removeData: 删除 userData 数据 — user-data/plugins/<id>/ 目录
- *     + user-data/huntun-lite-data/<id>.json (Database 清缓存+删文件)
+ *     + user-data/hundundesktop-data/<id>.json (Database 清缓存+删文件)
  *   - 插件自身 localStorage 键 (*-theme/locale) 无法按插件定位, 不处理 (文档已知取舍)
  *
  * @param {string} pluginId
@@ -571,7 +571,7 @@ function uninstallPlugin (pluginId, { removeData = false } = {}) {
       if (fs.existsSync(dataDir)) {
         fs.rmSync(dataDir, { recursive: true, force: true })
       }
-      // JSON 存储 (hundun.storage → huntun-lite-data/<id>.json): 清内存缓存 + 删文件
+      // JSON 存储 (hundun.storage → hundundesktop-data/<id>.json): 清内存缓存 + 删文件
       try {
         getDatabase().deleteAll(pluginId)
       } catch (e) {

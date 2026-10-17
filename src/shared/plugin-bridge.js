@@ -1,5 +1,5 @@
 /**
- * Hundun Lite - 插件通信桥接
+ * HundunDesktop - 插件通信桥接
  * 
  * 提供给渲染进程使用的插件通信接口
  * 通过 IPC 与主进程的 PluginManager 通信

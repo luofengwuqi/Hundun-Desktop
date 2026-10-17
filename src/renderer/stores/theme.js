@@ -8,7 +8,7 @@ export const useThemeStore = defineStore('theme', () => {
 
   // 从本地存储加载主题
   const loadTheme = () => {
-    const savedTheme = localStorage.getItem('huntun-lite-theme')
+    const savedTheme = localStorage.getItem('hundundesktop-theme')
     if (savedTheme) {
       isDarkMode.value = savedTheme === 'dark'
       theme.value = savedTheme
@@ -19,14 +19,14 @@ export const useThemeStore = defineStore('theme', () => {
   const toggleTheme = () => {
     isDarkMode.value = !isDarkMode.value
     theme.value = isDarkMode.value ? 'dark' : 'light'
-    localStorage.setItem('huntun-lite-theme', theme.value)
+    localStorage.setItem('hundundesktop-theme', theme.value)
   }
 
   // 设置主题
   const setTheme = (newTheme) => {
     isDarkMode.value = newTheme === 'dark'
     theme.value = newTheme
-    localStorage.setItem('huntun-lite-theme', theme.value)
+    localStorage.setItem('hundundesktop-theme', theme.value)
   }
 
   // 监听主题变化

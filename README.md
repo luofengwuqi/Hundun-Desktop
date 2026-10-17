@@ -1,8 +1,8 @@
-# Hundun Lite - 复古掌机效率工具
+# HundunDesktop - 复古掌机效率工具
 
 ## 📋 项目概述
 
-Hundun Lite是一个高度可扩展的桌面效率应用，采用"母程序+子程序"的插件架构。用户可以根据需要动态安装和定制各种功能模块。
+HundunDesktop是一个高度可扩展的桌面效率应用，采用"母程序+子程序"的插件架构。用户可以根据需要动态安装和定制各种功能模块。
 
 ### 技术栈
 - **框架**: Electron + Vue3
@@ -74,7 +74,7 @@ Hundun Lite是一个高度可扩展的桌面效率应用，采用"母程序+子�
 ## 📁 项目结构
 
 ```
-huntunLite/
+hundunDesktop/
 ├── sounds/                       # 音效资源
 │   ├── bengbeng.mp3
 │   ├── change.mp3
@@ -135,7 +135,7 @@ plugin-name/
   "version": "1.0.0",
   "description": "Task list with deadlines & reminders",
   "icon": "📋",
-  "author": "Hundun Lite",
+  "author": "HundunDesktop",
   "entry": "main.html",
   "permissions": ["storage", "notifications"]
 }
@@ -197,6 +197,6 @@ MIT License
 
 ---
 
-**开发者**: Hundun Lite Team
+**开发者**: HundunDesktop Team
 **版本**: 1.0.0-alpha
 **最后更新**: 2026-09-24

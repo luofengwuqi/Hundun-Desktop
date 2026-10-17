@@ -5,7 +5,7 @@
   "icon": "📋",
   "color": "#ff0080",
   "version": "1.0.0",
-  "author": "Hundun Lite",
+  "author": "HundunDesktop",
   "entry": "main.html",
   "windowSize": {
     "width": 400,

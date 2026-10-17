@@ -49,7 +49,7 @@ exports.default = async function afterAllArtifactBuild (buildResult) {
 
   const mksquashfs = findMksquashfs()
   for (const appImage of appImages) {
-    const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'huntun-appimage-'))
+    const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hundundesktop-appimage-'))
     try {
       const offset = parseInt(
         execFileSync(appImage, ['--appimage-offset'], { encoding: 'utf8' }).trim(),

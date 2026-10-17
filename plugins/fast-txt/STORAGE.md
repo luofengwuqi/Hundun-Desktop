@@ -14,7 +14,7 @@
 
 | 运行环境 | FastTXT 数据目录 |
 |----------|------------------|
-| 开发 (dev) | `E:\code2\huntunLite\user-data\plugins\fast-txt\file\` |
+| 开发 (dev) | `E:\code2\hundunDesktop\user-data\plugins\fast-txt\file\` |
 | 打包 (packaged) | `<exe所在目录>\user-data\plugins\fast-txt\file\` |
 
 > ⚠️ 2026-09-23 起数据目录已从插件目录迁出（见 AGENTS.md 决策 #22）。
@@ -318,9 +318,9 @@ NewFolder    → NewFolder1    → NewFolder2 ...
 | Key | 取值 | 作用 |
 |-----|------|------|
 | `fasttxt-theme` | `dark` / `light` | 深浅主题；**无值时**才跟随母程序主题（`hundun.host.getTheme` / `onThemeChange`） |
-| `fasttxt-locale` | `zh` / `en` | 界面语言；无值时回退读母程序的 `huntun-lite-locale`，再回退 `navigator.language` |
+| `fasttxt-locale` | `zh` / `en` | 界面语言；无值时回退读母程序的 `hundundesktop-locale`，再回退 `navigator.language` |
 
-（母程序自身设置存在 `huntun-lite-settings`，与插件无关。）
+（母程序自身设置存在 `hundundesktop-settings`，与插件无关。）
 
 ---
 

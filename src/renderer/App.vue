@@ -137,7 +137,7 @@
 
       <!-- 底部 -->
       <footer class="footer">
-        <span class="footer-info">HUNDUN LITE</span>
+        <span class="footer-info">HUNDUN DESKTOP</span>
       </footer>
     </div>
 

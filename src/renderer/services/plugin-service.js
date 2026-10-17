@@ -1,5 +1,5 @@
 /**
- * Hundun Lite - 渲染进程插件服务
+ * HundunDesktop - 渲染进程插件服务
  * 
  * 提供给 Vue 组件使用的插件系统接口
  * 封装了与主进程 PluginManager 的通信

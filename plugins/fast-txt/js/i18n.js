@@ -284,7 +284,7 @@ const FastTXTI18n = (() => {
 
     // 2. 尝试从母程序同步
     try {
-      const parentLocale = localStorage.getItem('huntun-lite-locale')
+      const parentLocale = localStorage.getItem('hundundesktop-locale')
       if (parentLocale && locales[parentLocale]) {
         currentLocale = parentLocale
         return

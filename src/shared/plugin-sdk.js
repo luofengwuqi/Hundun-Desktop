@@ -1,5 +1,5 @@
 /**
- * Hundun Lite - 插件开发 SDK
+ * HundunDesktop - 插件开发 SDK
  * 
  * 提供给插件开发者使用的工具和 API
  * 插件可以在其 HTML/JS 中引入此 SDK

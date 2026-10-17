@@ -1,5 +1,5 @@
 /**
- * Hundun Lite - 插件管理器 v2.0
+ * HundunDesktop - 插件管理器 v2.0
  * 
  * 核心职责：
  * 1. 扫描和注册插件 (自动发现 plugins/ 目录)

@@ -1,7 +1,7 @@
 export default {
   // 母程序
   app: {
-    title: 'HUNDUN LITE',
+    title: 'HUNDUN DESKTOP',
     selectHint: '← → 选择卡带',
     exit: '退出',
   },

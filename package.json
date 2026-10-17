@@ -1,7 +1,7 @@
 {
-  "name": "huntun-lite",
+  "name": "hundundesktop",
   "version": "1.0.0",
-  "description": "Hundun Lite - 复古掌机风格的桌面效率工具",
+  "description": "HundunDesktop - 复古掌机风格的桌面效率工具",
   "homepage": "https://gitee.com/luofengwuqi",
   "main": "out/main/index.js",
   "scripts": {
@@ -29,8 +29,8 @@
     "vite": "^5.0.0"
   },
   "build": {
-    "appId": "com.huntun.lite",
-    "productName": "Hundun Lite",
+    "appId": "com.hundun.desktop",
+    "productName": "HundunDesktop",
     "directories": {
       "output": "dist"
     },
@@ -52,7 +52,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Hundun Lite",
+      "shortcutName": "HundunDesktop",
       "artifactName": "${productName} Setup ${version}.${ext}"
     },
     "linux": {
@@ -60,11 +60,11 @@
       "icon": "src/renderer/public/icon.png",
       "category": "Utility",
       "description": "Retro handheld style desktop efficiency tool",
-      "maintainer": "Hundun Lite Team <huntun-lite@example.com>",
-      "executableName": "hundun-lite"
+      "maintainer": "HundunDesktop Team <hundundesktop@example.com>",
+      "executableName": "hundundesktop"
     },
     "deb": {
-      "packageName": "hundun-lite"
+      "packageName": "hundundesktop"
     }
   },
   "keywords": [
@@ -75,7 +75,7 @@
     "retro",
     "pixel-art"
   ],
-  "author": "Hundun Lite Team",
+  "author": "HundunDesktop Team",
   "license": "MIT",
   "allowScripts": {
     "electron@28.3.3": true

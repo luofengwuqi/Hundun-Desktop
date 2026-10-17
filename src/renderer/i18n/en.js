@@ -1,7 +1,7 @@
 export default {
   // 母程序
   app: {
-    title: 'HUNDUN LITE',
+    title: 'HUNDUN DESKTOP',
     selectHint: '← → Select cartridge',
     exit: 'Exit',
   },

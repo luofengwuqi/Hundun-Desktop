@@ -1,5 +1,5 @@
 /**
- * Hundun Lite - 主进程路径解析
+ * HundunDesktop - 主进程路径解析
  *
  * 开发态与打包态的项目根目录不同：
  *   - 开发态: __dirname === <root>/out/main  → 根目录 = __dirname/../..

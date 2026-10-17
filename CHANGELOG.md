@@ -1,6 +1,19 @@
-# Hundun Lite - 更新日志
+# HundunDesktop - 更新日志
 
-> 最后更新: 2026-10-15
+> 最后更新: 2026-10-16
+
+---
+
+## 2026-10-16
+
+### 全面改名: Hundun Lite → HundunDesktop (决策49)
+- [x] **UI 显示名**: 页脚 / 设置·关于页 / i18n `app.title` 大写标题 `HUNDUN LITE` → `HUNDUN DESKTOP`；`index.html` `<title>`、start.sh 注释、各文件头注释 `Hundun Lite` → `HundunDesktop`；4 个插件 manifest 与 4 个默认插件 author 同步
+- [x] **打包标识 (package.json + package-lock)**: `name: hundundesktop`、`appId: com.hundun.desktop`、`productName`/`nsis.shortcutName: HundunDesktop`、`linux.executableName` 与 `deb.packageName: hundundesktop`、maintainer/author/description 同步 → 产物变为 `HundunDesktop Setup 1.0.0.exe` / `HundunDesktop-1.0.0.AppImage` / `hundundesktop_1.0.0_amd64.deb`（**deb 包名变化，旧 hundun-lite 包不会被自动升级覆盖，需手动卸载**）
+- [x] **数据键 (改名不迁移)**: localStorage `hundundesktop-settings` / `hundundesktop-theme` / `hundundesktop-locale` / `hundundesktop-plugins` / `hundundesktop-plugins-removed`；数据目录 `hundundesktop-data/`（database.js + 测试同步）；插件 fast-txt/fast-cmd/task 的 i18n 读 `hundundesktop-locale` 同步 — **旧键/旧目录直接丢弃，无迁移代码**
+- [x] **连带改名**: `huntun-lite-prototype.html` → `hundundesktop-prototype.html`（内部标题/页脚文字同步）；`.opencode/skill/hundun-lite-packaging/` → `hundundesktop-packaging/`（SKILL name/description 同步）；临时目录前缀 `hundundesktop-install-` / `hundundesktop-appimage-`；调试句柄 `__huntunAudio` → `__hundunAudio`；删除误操作残留文件 `et --hard HEAD~1`
+- [x] **文档**: AGENTS.md（新增决策49 + 全量替换）、README / QUICKSTART / DEVELOPMENT_REPORT / PLUGIN_SPEC / PLUGIN_DEVELOPMENT / fast-txt STORAGE.md、本 CHANGELOG 历史条目旧名回溯改写
+- [x] **刻意保留**: `window.hundun.*` 插件 API 命名空间 / `--hundun-window` 参数 / `hundun-notification` CSS 类（插件兼容面，本就不含 lite）、git remote `chaos-lite.git`、`user-data/` 用户数据
+- [x] **回归**: `npm run build` 通过；`test-mirror` 61/61、`test-window-lifecycle` 32/32、`test-plugin-uninstall` 22/22、`test-sound-settings` 9/9、`test-task` 64/64、`test-platform-support` 21/21、`test-fastcmd-platform` 32/32、`test-md-scroll` 12/12、`test-md-preview` 48/48（`test-safe-resolve` 为改名前既有的失效测试 — `safeResolve` 早在 20aba2e 已从 index.js 移除，与本次无关）
 
 ---
 
@@ -9,14 +22,14 @@
 ### 跨平台打包三件套: Windows NSIS + Linux AppImage/deb (决策47)
 - [x] **架构修复 (阻断点)**: 打包态原一律 `exe目录/user-data`，装进 Program Files / /opt / AppImage 只读位置会启动即写失败 — `src/main/paths.js` 新增 `isPackagedPortableMode()` (APPIMAGE 环境或 exe 目录 mkdir+探针文件试写失败 → 回退) + `resolveUserDataDir()` (便携 = `<可写根>/user-data` 原行为; 回退 = `app.getPath('userData')` 默认值, 取值在 `setPath` 之前) + `resolveInstallPluginsDir()` 回退 `<userData>/installed-plugins` (**不能用 `<userData>/plugins`** — 与插件数据目录 `<userData>/plugins/<id>/file` 同名, 卸载删数据会误删代码); `index.js` 顶部改 `resolveUserDataDir()` 单点决策 + 回退模式启动日志 + gpu-cache 建目录 try/catch; **开发态恒便携, `npm run dev` 零影响**
 - [x] **图标**: 零依赖 `scripts/gen-icon.js` (手写 PNG/ICO 编码 + 像素掌机图案) → `src/renderer/public/icon.png` (vite publicDir 拷入 `out/renderer/`, 修 `createWindow` icon 指向 — 原 `../renderer/assets/icon.png` 路径根本不存在) + `src/renderer/assets/icon.ico` (win.icon); 附 `npm run gen-icon` — ⚠️ 该像素图标已被**决策48 插画 logo** 取代 (见下方「应用 Logo 更换」, 勿再跑)
-- [x] **package.json build 配置**: 补 `homepage` (fpm/deb 必填, 缺失直接 `Please specify project homepage` 报错)、`linux` target `["AppImage","deb"]` + icon/category/description/maintainer/executableName `hundun-lite`、`deb.packageName`、`nsis.artifactName` `${productName} Setup ${version}.${ext}`; `build:win` 改 `--win nsis --x64` (原 `--universal` 无意义), 新增 `build:setup` 一次出三件套; `build.files` 白名单 `out/plugins/sounds` + `!node_modules` 不变 (零原生模块)
+- [x] **package.json build 配置**: 补 `homepage` (fpm/deb 必填, 缺失直接 `Please specify project homepage` 报错)、`linux` target `["AppImage","deb"]` + icon/category/description/maintainer/executableName `hundundesktop`、`deb.packageName`、`nsis.artifactName` `${productName} Setup ${version}.${ext}`; `build:win` 改 `--win nsis --x64` (原 `--universal` 无意义), 新增 `build:setup` 一次出三件套; `build.files` 白名单 `out/plugins/sounds` + `!node_modules` 不变 (零原生模块)
 - [x] **构建环境 (Linux 出 win 包)**: NSIS 的 rcedit 改 exe 图标/版本在 Linux 必须 wine → 装 `wine64` 10.0 + `wineboot --init`; apt 官方/TUNA 源被网关 403 → `/etc/apt/sources.list.d/ubuntu.sources` 切 `https://mirrors.aliyun.com/ubuntu/` (原文件备份 `.bak-MMDD`); GitHub 直连下载超时 (昨日断点) → `ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/` + `ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/`
-- [x] **产物 (`dist/`, 均已验证)**: `Hundun Lite Setup 1.0.0.exe` 76.7MB (Nullsoft 签名 + 内嵌 productName + exe 版本资源/图标 6 处 PNG) / `Hundun Lite-1.0.0.AppImage` 104.5MB (`--appimage-help` 正常) / `huntun-lite_1.0.0_amd64.deb` 72.7MB (control Depends/Homepage 正确); 打包版冒烟: 便携模式 user-data 正确落 exe 旁, 主进程日志正常
+- [x] **产物 (`dist/`, 均已验证)**: `HundunDesktop Setup 1.0.0.exe` 76.7MB (Nullsoft 签名 + 内嵌 productName + exe 版本资源/图标 6 处 PNG) / `HundunDesktop-1.0.0.AppImage` 104.5MB (`--appimage-help` 正常) / `hundundesktop_1.0.0_amd64.deb` 72.7MB (control Depends/Homepage 正确); 打包版冒烟: 便携模式 user-data 正确落 exe 旁, 主进程日志正常
 - [x] 回归: `test-window-lifecycle` 32/32, `test-mirror` 61/61, `test-plugin-uninstall` 22/22, `npm run build` 通过
 - [x] **文档**: AGENTS.md 新增决策47 + 开发/打包路径表更新 (便携/回退) + 新增「打包构建」小节
 
 ### AppImage 双击无法启动修复 (决策47⑥)
-- [x] **现象**: 双击 `Hundun Lite-1.0.0.AppImage` 无反应 (终端跑报 `dlopen(): error loading libfuse.so.2`)
+- [x] **现象**: 双击 `HundunDesktop-1.0.0.AppImage` 无反应 (终端跑报 `dlopen(): error loading libfuse.so.2`)
 - [x] **原因1 (FUSE)**: 系统只有 fuse3，AppImage type2 runtime 需要 libfuse2 → 装 `libfuse2t64`
 - [x] **原因2 (沙箱)**: 装 fuse 后报 `FATAL:setuid_sandbox_host ... chrome-sandbox ... owned by root and has mode 4755` → `No usable sandbox!`。Ubuntu 24.04+ `kernel.apparmor_restrict_unprivileged_userns=1` 禁 user namespace，AppImage 只读挂载内 chrome-sandbox 无法 SUID；`app.commandLine.appendSwitch('no-sandbox')` 无效（JS 在沙箱初始化后才跑，实测主进程代码未执行，FATAL 先出）
 - [x] **修复**: 新增 `scripts/patch-appimage.js` 并挂 `build.afterAllArtifactBuild` — 解包 AppImage → AppRun 两处 `exec "$BIN"` 补 `--no-sandbox` → electron-builder 缓存 mksquashfs 重打包 → `--appimage-offset` 切原 runtime 拼接写回（幂等；菜单 .desktop 本就带 `--no-sandbox`，双击直跑 AppRun 不走它）；deb 不需补丁（postinst chmod 4755 + root 属主）
@@ -52,13 +65,13 @@
 - [x] **排序 (拖拽 + 键盘 + 持久化 + 货架体现)**:
   - 卡片**左侧拖拽柄 ⣿** (整卡 HTML5 拖拽): dragover 按指针上/下半区显示插入指示线 (drop-before/drop-after), drop 计算最终下标 (源在前左移补偿), 选中跟随被移动项; 卡片本身可点击选中 (原 div 点不中, 顺带修)
   - **键盘 `Ctrl+↑/↓`** (仅插件页右侧栏): 上下移动并持久化, detailIndex 同步; 普通 ↑/↓ 导航不变
-  - **持久化**: `huntun-lite-plugins` **数组顺序即显示顺序** — `saveToStorage` 本就全量按序写, `loadFromStorage` 新增按保存顺序重排 (保存后新装的插件自动追加尾部)
+  - **持久化**: `hundundesktop-plugins` **数组顺序即显示顺序** — `saveToStorage` 本就全量按序写, `loadFromStorage` 新增按保存顺序重排 (保存后新装的插件自动追加尾部)
   - **货架体现**: App.vue 新增 `watch(插件 id 序列)` → `syncShelfWithStore()` (同时兜住移除/恢复/安装的货架同步; 插槽中卡带已从 store 消失 → 清幽灵插槽)
 - [x] **移除 (全可移除 + 数据保留询问 + 已移除/恢复)**:
   - 入口: 卡片**右侧 ✕ 按钮** + 键盘 `Delete/Backspace` (原全仓空闲键位); **运行中拦截** (occupied 命中 → 弹「正在运行 (含其他镜像窗口), 无法移除」)
   - 确认弹窗 (Settings 内嵌 Modal, 三按钮): 「是否保留 \<name\> 在 user-data 中的数据?」→ `[保留数据]` `[删除数据]` `[取消]`; 弹窗打开时设置页键盘让路 (Modal 自带 document 监听)
-  - 主进程 `plugin-installer.js uninstallPlugin(id, {removeData})`: **ID_RE 校验 (拒绝路径穿越) + 安装目录越界防护**; registry (`installed-plugins.json`) 有记录 → **删安装目录 + 删记录** (真卸载); **内置/手动放置 → 不删目录** 返回 `builtin:true` (app 文件/源码安全); `removeData` → 删 `user-data/plugins/<id>/` + `Database.deleteAll(id)` (清缓存删 huntun-lite-data/<id>.json)
-  - **配置汇总核心 — 已移除名单** `huntun-lite-plugins-removed` (`{id,name,icon,version,removedAt}`): `init` 默认插件与 `scanDiskPlugins` 合并后过滤 → **挡 DEFAULT_PLUGINS/磁盘扫描回灌** (原 removePlugin 只改内存, 重启即复活); 目录已删的安装插件 `trackRemoved:false` 不进名单 (重装 zip 即回), 重装成功自动 `clearRemovedId`
+  - 主进程 `plugin-installer.js uninstallPlugin(id, {removeData})`: **ID_RE 校验 (拒绝路径穿越) + 安装目录越界防护**; registry (`installed-plugins.json`) 有记录 → **删安装目录 + 删记录** (真卸载); **内置/手动放置 → 不删目录** 返回 `builtin:true` (app 文件/源码安全); `removeData` → 删 `user-data/plugins/<id>/` + `Database.deleteAll(id)` (清缓存删 hundundesktop-data/<id>.json)
+  - **配置汇总核心 — 已移除名单** `hundundesktop-plugins-removed` (`{id,name,icon,version,removedAt}`): `init` 默认插件与 `scanDiskPlugins` 合并后过滤 → **挡 DEFAULT_PLUGINS/磁盘扫描回灌** (原 removePlugin 只改内存, 重启即复活); 目录已删的安装插件 `trackRemoved:false` 不进名单 (重装 zip 即回), 重装成功自动 `clearRemovedId`
   - **已移除+恢复区**: 插件页底部折叠「已移除 (N)」逐条 + `恢复` 按钮 (清名单 + refreshFromDisk; 文件已删弹「请重新安装 (.zip)」)
 - [x] **跨窗口同步 (镜像模式联动)**: 排序/移除/恢复/安装 → `plugins:notify-changed` → 主进程向**其他**母窗口广播 `plugins:config-changed` → 各窗 `refreshFromDisk()` + `syncShelfWithStore()` (localStorage 同源共享, 内存 store 需 reload; 顺带修掉镜像下 A 装插件 B 不更新的既有缺口)
 - [x] **i18n**: `settings.remove*/keepData/dataKept/dataDeleted/removedSection/restore*` 中英文 16 键
@@ -105,7 +118,7 @@
   - 2.2 卡片 ✎ → 同款表单预填编辑 + **删除** (确认弹窗); 状态徽章点击切换 未完成↔已完成; `🧹` 批量清理已完成 (确认弹窗)
   - 排序: **未完成且截止近的优先 > 未完成 > 已过期 > 已完成** (无截止的未完成排该组末尾; 过期按最近过期在前; 完成按最近完成在前)
   - 提醒引擎: 1s tick; 窗口可见 → 应用内弹窗 + bengbeng 音效, 隐藏 → HTML5 Notification 系统通知; `fired[]` 持久化防重启重弹, 到点 >2min 视为错过静默补记, 已完成任务的提醒抑制
-- [x] **架构 — 持久化审核: SQLite 不合适, 采用 `hundun.storage` JSON (决策43)**: ①`build.files` 排除 node_modules → 原生模块无法随包分发; ②决策8 规避原生编译 (electron-rebuild/ABI); ③插件层无 DB 通道, 新增主进程依赖违背零第三方依赖原则; ④百行级单写入数据 JSON 原子写 (tmp+rename/防抖/退出 flush) 已覆盖 SQLite 收益。单键 `tasks={version,tasks:[...]}` → `userData/huntun-lite-data/task.json`, localStorage 镜像兜底; 状态/排序语义见决策44; 附带修复 `__PLUGIN_ID__` 注入竞态 (did-finish-load 晚于 DOMContentLoaded → init 从入口路径解析兜底, 避免写 null.json)
+- [x] **架构 — 持久化审核: SQLite 不合适, 采用 `hundun.storage` JSON (决策43)**: ①`build.files` 排除 node_modules → 原生模块无法随包分发; ②决策8 规避原生编译 (electron-rebuild/ABI); ③插件层无 DB 通道, 新增主进程依赖违背零第三方依赖原则; ④百行级单写入数据 JSON 原子写 (tmp+rename/防抖/退出 flush) 已覆盖 SQLite 收益。单键 `tasks={version,tasks:[...]}` → `userData/hundundesktop-data/task.json`, localStorage 镜像兜底; 状态/排序语义见决策44; 附带修复 `__PLUGIN_ID__` 注入竞态 (did-finish-load 晚于 DOMContentLoaded → init 从入口路径解析兜底, 避免写 null.json)
 - [x] **表单排版优化 (2026-10-14 二次迭代)**: 纵向堆叠标签/输入改为**行式面板排版** — 左列「像素序号章 01/02/03 (Press Start 2P) + 标签」, 右列控件, 行间虚线分隔, 提醒方式以 `└` 子行附着于提醒时间 (无分隔线); 聚焦任一控件整行序号点亮; 添加提醒改左对齐虚线空槽按钮, 提醒方式改紧凑宽度 (非通栏); 清除/移除钮与输入等高贴合; 输入启用 tabular-nums (时间不跳字) + accent caret + accent 选区; header 标题旁新增 NEW/EDIT 像素徽章; 底部新增像素键帽提示 `Esc 取消 · Enter 保存` (i18n); 行入场 40ms 阶梯微动画; 标签列 96px 防中英文截断
 - [x] **配套**: 母程序 `stores/plugin.js` DEFAULT_PLUGINS 的 timer-manager 条目替换为 task (400×520); README / QUICKSTART / PLUGIN_DEVELOPMENT 引用同步
 - [x] **测试**:
@@ -323,10 +336,10 @@
 - [x] **重写过时的 Setup 章节**：改为当前打包实际情况（数据随 `user-data/` 落在 exe 同级，不受 asar 只读限制）+ 旧数据迁移方法
 - [x] **补全遗漏内容**：`window.hundun.fs` 10 个方法与 `fasttxt:*` IPC 通道表（`writeFile` 原子写 / `writeFileSync` 非原子）、保存时机表（关闭 / 5 秒自动 / Ctrl+S / beforeunload 双保险）、三处删除入口、两套防重名规则（`pickFreeName` 的 `file→file1→file11` vs `getUniqueName` 的 `new_file→new_file1`）
 - [x] **标注实际限制**：文件夹仅支持一层（`enterFolder` 只存文件夹名 + 读盘只递归一层）；拖拽导入同名直接覆盖（不防重名）；默认文件内容硬编码英文（`i18n.js` 的 `defaults.*` 未被调用）
-- [x] 新增 localStorage 偏好表（`fasttxt-theme` / `fasttxt-locale`，回退母程序 `huntun-lite-locale`）
+- [x] 新增 localStorage 偏好表（`fasttxt-theme` / `fasttxt-locale`，回退母程序 `hundundesktop-locale`）
 
 ### 同步修复
-- [x] `src/main/plugin-preload.js`：`fs.getBasePath()` 的 JSDoc 示例路径 `E:\code2\huntunLite\plugins\fast-txt` 已过时 → 改为 `user-data\plugins\<pluginId>\file`（开发/打包两种形态），并修正缩进
+- [x] `src/main/plugin-preload.js`：`fs.getBasePath()` 的 JSDoc 示例路径 `E:\code2\hundunDesktop\plugins\fast-txt` 已过时 → 改为 `user-data\plugins\<pluginId>\file`（开发/打包两种形态），并修正缩进
 - [x] 删除迁移前旧数据目录 `plugins/fast-txt/file/`（该路径本就在 `.gitignore` 中，非用户真实数据）；真实数据 `user-data/plugins/fast-txt/file/` 已确认完好（`.order.json` / `.trash/` / 用户文件）
 - [x] 删除 `plugins/fast-txt/index.html`（97KB 旧版单文件备份）：`manifest.json` entry 已是 `main.html`，全仓库无引用（仅 `plugin-manager` 在 entry 缺失时的通用兜底字符串），随包分发造成冗余
   - 恢复方式: `git checkout -- plugins/fast-txt/index.html`
@@ -411,7 +424,7 @@
 ### 母程序音效音量启动 Bug 修复
 - [x] **Bug**: 刚进入程序时音效为满格音量 (100%)，只有打开设置页面后才读取已保存的音量
 - [x] **根因**: `utils/audio.js` 初始化 `masterVolume = 1`，且从不读取 localStorage；`Settings.vue` 的 `loadSettings()` 仅在设置页挂载时才调用 `setGlobalVolume()`
-- [x] 新增 `utils/sound-settings.js`: 音效设置的统一读写模块 (key `huntun-lite-settings`、默认值 `{soundEnabled:true, volume:50}`、数值校验/越界 clamp)
+- [x] 新增 `utils/sound-settings.js`: 音效设置的统一读写模块 (key `hundundesktop-settings`、默认值 `{soundEnabled:true, volume:50}`、数值校验/越界 clamp)
 - [x] `audio.js` 模块加载时执行 `applySavedVolume()`: 启动即读取一次保存的音效开关+音量并应用到所有预加载音效 (顺序: `initSounds()` → `applySavedVolume()`)
 - [x] 无历史设置时默认 50% (与设置页滑块默认值一致，不再满格)
 - [x] `Settings.vue` 改用 `sound-settings.js` 读写 (单一数据源，移除重复的 key/默认值逻辑)
@@ -433,7 +446,7 @@
   - `audio.error` 存在时自动 `load()` 重载恢复
   - 同一音效排队去重，快速连点不再叠加监听器
 - [x] 验证 (独立 Electron 实例)：9 个音效强制标记为"未加载"后逐个播放 → 9/9 立即出声；正常/排队/连点场景全部通过
-- [x] 新增调试句柄 `window.__huntunAudio` (sounds / soundLoaded / getMasterVolume / playSound / setGlobalVolume)
+- [x] 新增调试句柄 `window.__hundunAudio` (sounds / soundLoaded / getMasterVolume / playSound / setGlobalVolume)
 
 ---
 

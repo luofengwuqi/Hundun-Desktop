@@ -17,7 +17,7 @@ const fs = require('fs')
 const { PluginManager } = require('../src/main/plugin-manager')
 const { registerSoundSettingsIPC } = require('../src/main/sound-settings')
 
-// 隔离 userData: 插件真实 storage (huntun-lite-data/*.json) 不写用户真实数据
+// 隔离 userData: 插件真实 storage (hundundesktop-data/*.json) 不写用户真实数据
 app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'winlife-')))
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))
@@ -155,7 +155,7 @@ app.whenReady().then(async () => {
   ).catch(() => false)
   check('I. 真实 storage.set 可用', wOk === true)
   await sleep(300)
-  const dbPath = path.join(app.getPath('userData'), 'huntun-lite-data', 'task.json')
+  const dbPath = path.join(app.getPath('userData'), 'hundundesktop-data', 'task.json')
   check('I. 数据落盘 task.json', fs.existsSync(dbPath), dbPath)
   await pm.returnToParent('task')
   await sleep(300)

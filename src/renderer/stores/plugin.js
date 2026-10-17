@@ -2,11 +2,11 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
 // ========== 本地配置 keys (决策46) ==========
-// huntun-lite-plugins:          [{id, enabled, customSettings}, ...] — 数组顺序即显示顺序
-// huntun-lite-plugins-removed:  [{id, name, icon, version, removedAt}, ...] — 已移除名单
+// hundundesktop-plugins:          [{id, enabled, customSettings}, ...] — 数组顺序即显示顺序
+// hundundesktop-plugins-removed:  [{id, name, icon, version, removedAt}, ...] — 已移除名单
 //   (挡 DEFAULT_PLUGINS/磁盘扫描把已移除插件回灌; 文件已删的安装插件不进名单, 见决策46)
-const CONFIG_KEY = 'huntun-lite-plugins'
-const REMOVED_KEY = 'huntun-lite-plugins-removed'
+const CONFIG_KEY = 'hundundesktop-plugins'
+const REMOVED_KEY = 'hundundesktop-plugins-removed'
 
 export const usePluginStore = defineStore('plugin', () => {
   // 插件列表（从磁盘加载或动态添加）
@@ -29,7 +29,7 @@ export const usePluginStore = defineStore('plugin', () => {
       description: 'Retro pocket calculator',
       icon: '🔢',
       version: '1.0.0',
-      author: 'Hundun Lite',
+      author: 'HundunDesktop',
       enabled: true,
       color: '#88ff00',
       windowSize: { width: 400, height: 540 },
@@ -41,7 +41,7 @@ export const usePluginStore = defineStore('plugin', () => {
       description: 'Text file manager & editor',
       icon: '📄',
       version: '1.0.0',
-      author: 'Hundun Lite',
+      author: 'HundunDesktop',
       enabled: true,
       color: '#00d4ff',
       windowSize: { width: 800, height: 540 },
@@ -53,7 +53,7 @@ export const usePluginStore = defineStore('plugin', () => {
       description: 'Task list with deadlines & reminders',
       icon: '📋',
       version: '1.0.0',
-      author: 'Hundun Lite',
+      author: 'HundunDesktop',
       enabled: true,
       color: '#ff0080',
       windowSize: { width: 400, height: 520 },
@@ -65,7 +65,7 @@ export const usePluginStore = defineStore('plugin', () => {
       description: 'Script manager & executor',
       icon: '⚡',
       version: '1.0.0',
-      author: 'Hundun Lite',
+      author: 'HundunDesktop',
       enabled: true,
       color: '#ff9900',
       windowSize: { width: 800, height: 540 },

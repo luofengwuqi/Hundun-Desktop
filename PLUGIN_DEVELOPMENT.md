@@ -2,7 +2,7 @@
 
 ## 概述
 
-Hundun Lite采用插件化架构，允许用户动态加载和使用各种功能模块。本指南将帮助开发者创建自己的插件。
+HundunDesktop采用插件化架构，允许用户动态加载和使用各种功能模块。本指南将帮助开发者创建自己的插件。
 
 ## 插件结构
 
@@ -161,12 +161,12 @@ cd my-plugin
 </html>
 ```
 
-### 4. 添加到Hundun Lite
+### 4. 添加到HundunDesktop
 
 将插件目录复制到 `plugins/` 目录下：
 
 ```bash
-cp -r my-plugin /path/to/huntunLite/plugins/
+cp -r my-plugin /path/to/hundunDesktop/plugins/
 ```
 
 ## 插件 API
@@ -250,7 +250,7 @@ console.error('错误信息')
 
 ### 2. 热重载
 
-修改插件文件后，重启Hundun Lite即可看到变化。
+修改插件文件后，重启HundunDesktop即可看到变化。
 
 ### 3. 错误追踪
 
@@ -283,7 +283,7 @@ A: 检查以下几点：
 
 ### Q: 如何访问系统资源？
 
-A: 插件运行在浏览器环境中，无法直接访问系统资源。需要通过Hundun Lite提供的API。
+A: 插件运行在浏览器环境中，无法直接访问系统资源。需要通过HundunDesktop提供的API。
 
 ### Q: 如何更新插件？
 
@@ -291,7 +291,7 @@ A: 直接替换插件目录中的文件，重启应用即可。
 
 ## 贡献
 
-欢迎提交插件到Hundun Lite插件市场！
+欢迎提交插件到HundunDesktop插件市场！
 
 1. Fork 项目
 2. 创建插件

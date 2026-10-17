@@ -143,7 +143,7 @@ const FastCmdI18n = (() => {
     const saved = localStorage.getItem('fastcmd-locale');
     if (saved && locales[saved]) { currentLocale = saved; return; }
     try {
-      const parentLocale = localStorage.getItem('huntun-lite-locale');
+      const parentLocale = localStorage.getItem('hundundesktop-locale');
       if (parentLocale && locales[parentLocale]) { currentLocale = parentLocale; return; }
     } catch (e) {}
     const lang = navigator.language || navigator.userLanguage || '';

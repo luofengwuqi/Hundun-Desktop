@@ -3,7 +3,7 @@
   "name": "CALC",
   "description": "Retro pocket calculator",
   "version": "1.0.0",
-  "author": "Hundun Lite",
+  "author": "HundunDesktop",
   "icon": "🔢",
   "color": "#88ff00",
   "entry": "index.html",

@@ -1,5 +1,5 @@
 /**
- * Hundun Lite - 数据库管理器
+ * HundunDesktop - 数据库管理器
  * 使用 JSON 文件存储插件数据（避免 SQLite 原生模块编译问题）
  * 
  * 设计理念：
@@ -15,8 +15,8 @@ const { app } = require('electron')
 
 class Database {
   constructor() {
-    // 数据存储目录：用户数据目录下的 huntun-lite-data
-    this.dataDir = path.join(app.getPath('userData'), 'huntun-lite-data')
+    // 数据存储目录：用户数据目录下的 hundundesktop-data
+    this.dataDir = path.join(app.getPath('userData'), 'hundundesktop-data')
     this.cache = new Map() // 内存缓存
     this.dirtyKeys = new Set() // 脏数据标记（延迟写入）
     this.writeTimer = null

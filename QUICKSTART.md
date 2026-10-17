@@ -2,17 +2,17 @@
 
 ## 1. 预览原型
 
-直接在浏览器中打开 `huntun-lite-prototype.html` 文件，查看完整的交互效果：
+直接在浏览器中打开 `hundundesktop-prototype.html` 文件，查看完整的交互效果：
 
 ```bash
 # Windows
-start huntun-lite-prototype.html
+start hundundesktop-prototype.html
 
 # macOS
-open huntun-lite-prototype.html
+open hundundesktop-prototype.html
 
 # Linux
-xdg-open huntun-lite-prototype.html
+xdg-open hundundesktop-prototype.html
 ```
 
 ## 2. 项目安装
@@ -40,7 +40,7 @@ npm run dev
 ## 3. 项目结构
 
 ```
-huntunLite/
+hundunDesktop/
 ├── sounds/                       # 音效资源
 ├── src/                          # 源代码
 │   ├── main/                     # Electron 主进程

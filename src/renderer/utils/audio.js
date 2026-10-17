@@ -145,9 +145,9 @@ applySavedVolume()
 // 把同一份设置镜像到主进程 (插件窗口直放音效读取该镜像)
 syncSoundSettingsToMain(loadSoundSettings())
 
-// 调试句柄: 便于排查音效问题 (控制台查看 window.__huntunAudio)
+// 调试句柄: 便于排查音效问题 (控制台查看 window.__hundunAudio)
 if (typeof window !== 'undefined') {
-  window.__huntunAudio = {
+  window.__hundunAudio = {
     sounds,
     soundLoaded,
     getMasterVolume,

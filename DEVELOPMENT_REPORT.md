@@ -1,11 +1,11 @@
-# Hundun Lite 开发完成报告
+# HundunDesktop 开发完成报告
 
 ## 📋 项目完成情况
 
 ### ✅ 已完成任务
 
 #### 1. 前端视觉原型
-- **文件**: `huntun-lite-prototype.html`
+- **文件**: `hundundesktop-prototype.html`
 - **大小**: 27.35 KB
 - **功能**:
   - 完整的复古掌机风格界面
@@ -108,7 +108,7 @@ chaos-lite/
 ## 🚀 使用方法
 
 ### 1. 预览原型
-直接在浏览器中打开 `huntun-lite-prototype.html` 即可查看完整效果。
+直接在浏览器中打开 `hundundesktop-prototype.html` 即可查看完整效果。
 
 ### 2. 启动开发
 ```bash
@@ -193,7 +193,7 @@ npm run build:win
 
 ## 🎉 总结
 
-Hundun Lite项目已完成第一阶段开发，创建了一个具有以下特色的原型：
+HundunDesktop项目已完成第一阶段开发，创建了一个具有以下特色的原型：
 
 ✅ **独特的视觉设计**: 复古掌机 × 像素艺术风格
 ✅ **完整的交互原型**: 卡带动画 + 主题切换 + 音效反馈

@@ -1,11 +1,11 @@
 ---
-name: hundun-lite-packaging
-description: Use when building, rebuilding, or debugging installers for Hundun Lite (a.k.a. chaos-lite / hundunDesktop — the Electron + Vue3 retro-handheld app) — producing the Windows NSIS "Hundun Lite Setup" exe, the Linux AppImage and deb, or changing the app logo/icon. Trigger on any mention of packaging Hundun Lite, electron-builder for this repo, AppImage/deb/NSIS outputs, wine/rcedit, "no usable sandbox" or libfuse2 on AppImage, or portable userData issues.
+name: hundundesktop-packaging
+description: Use when building, rebuilding, or debugging installers for HundunDesktop (a.k.a. chaos-lite / hundunDesktop — the Electron + Vue3 retro-handheld app) — producing the Windows NSIS "HundunDesktop Setup" exe, the Linux AppImage and deb, or changing the app logo/icon. Trigger on any mention of packaging HundunDesktop, electron-builder for this repo, AppImage/deb/NSIS outputs, wine/rcedit, "no usable sandbox" or libfuse2 on AppImage, or portable userData issues.
 ---
 
-# Hundun Lite — cross-platform packaging
+# HundunDesktop — cross-platform packaging
 
-Hundun Lite is an **Electron + Vue3** app (`/home/wuqi/code/hundunDesktop`, git remote
+HundunDesktop is an **Electron + Vue3** app (`/home/wuqi/code/hundunDesktop`, git remote
 `gitee.com/luofengwuqi/chaos-lite`). Packaging is one `electron-builder` run that yields
 three installers. This skill captures the traps that cost real debugging time so the next
 build is boring.
@@ -18,9 +18,9 @@ detail here is insufficient.
 
 | Artifact (`dist/`) | Target | Notes |
 |---|---|---|
-| `Hundun Lite Setup <ver>.exe` | Windows `nsis` (x64) | one-click=false, changes install dir, desktop+start-menu shortcut |
-| `Hundun Lite-<ver>.AppImage` | Linux AppImage | double-clickable; patched post-build (see below) |
-| `huntun-lite_<ver>_amd64.deb` | Linux deb | packageName `hundun-lite` |
+| `HundunDesktop Setup <ver>.exe` | Windows `nsis` (x64) | one-click=false, changes install dir, desktop+start-menu shortcut |
+| `HundunDesktop-<ver>.AppImage` | Linux AppImage | double-clickable; patched post-build (see below) |
+| `hundundesktop_<ver>_amd64.deb` | Linux deb | packageName `hundundesktop` |
 
 All three are configured in `package.json` → `build`. `electron-builder` stamps the version
 from `package.json` `version`.
@@ -139,11 +139,11 @@ NEW=$(md5sum src/renderer/public/icon.png | cut -d' ' -f1)
 
 # AppImage: extract and compare icon(s)
 ./dist/*.AppImage --appimage-extract '*.png' >/dev/null 2>&1
-md5sum squashfs-root/hundun-lite.png squashfs-root/.DirIcon     # both == $NEW
+md5sum squashfs-root/hundundesktop.png squashfs-root/.DirIcon     # both == $NEW
 ./dist/*.AppImage --appimage-help >/dev/null && echo runtime-ok
 
 # deb: extract and compare, then inspect control
-dpkg-deb -x dist/*.deb /tmp/debx && md5sum /tmp/debx/usr/share/icons/hicolor/*/apps/hundun-lite.png
+dpkg-deb -x dist/*.deb /tmp/debx && md5sum /tmp/debx/usr/share/icons/hicolor/*/apps/hundundesktop.png
 dpkg-deb -I dist/*.deb | grep -E 'Package|Version|Depends|Homepage'
 
 # exe: confirm the new logo PNG is embedded (rcedit stored it verbatim)
@@ -156,7 +156,7 @@ for exe in glob.glob('dist/win-unpacked/*.exe') + glob.glob('dist/*Setup*.exe'):
 PY
 
 # Smoke test the app (briefly opens a window, then timeout kills it)
-timeout 8 ./dist/linux-unpacked/hundun-lite --no-sandbox 2>&1 \
+timeout 8 ./dist/linux-unpacked/hundundesktop --no-sandbox 2>&1 \
   | grep -E '\[Main\]|\[PluginManager\]'    # expect "Plugin manager initialized"
 # (GPU process errors under this shell are non-fatal; clean up any dist/linux-unpacked/user-data)
 ```

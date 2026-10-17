@@ -1,6 +1,6 @@
-# Hundun Lite - 子程序开发规范 v2.0
+# HundunDesktop - 子程序开发规范 v2.0
 
-> 本文档定义了 Hundun Lite 子程序（插件）的完整开发规范。
+> 本文档定义了 HundunDesktop 子程序（插件）的完整开发规范。
 > 所有子程序必须遵循本规范，以便母程序能够自动发现、加载和管理。
 
 ---
@@ -118,7 +118,7 @@ plugins/
   "version": "1.0.0",
   "description": "Retro pocket calculator",
   "icon": "🔢",
-  "author": "Hundun Lite",
+  "author": "HundunDesktop",
   "entry": "index.html",
   "color": "#88ff00",
   "windowSize": {
@@ -714,12 +714,12 @@ my-plugin-v1.0.0.zip
 
 将插件目录复制到 `plugins/` 下:
 ```bash
-cp -r my-plugin /path/to/huntunLite/plugins/
+cp -r my-plugin /path/to/hundunDesktop/plugins/
 ```
 
 或解压:
 ```bash
-unzip my-plugin-v1.0.0.zip -d /path/to/huntunLite/plugins/my-plugin/
+unzip my-plugin-v1.0.0.zip -d /path/to/hundunDesktop/plugins/my-plugin/
 ```
 
 ---
@@ -816,4 +816,4 @@ unzip my-plugin-v1.0.0.zip -d /path/to/huntunLite/plugins/my-plugin/
 
 **文档版本**: 2.0
 **最后更新**: 2026-09-07
-**适用版本**: Hundun Lite 2.0+
+**适用版本**: HundunDesktop 2.0+

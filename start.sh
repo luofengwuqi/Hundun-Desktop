@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Hundun Lite 启动脚本 (Linux / macOS)
+# HundunDesktop 启动脚本 (Linux / macOS)
 # 用法: ./start.sh
 set -euo pipefail
 

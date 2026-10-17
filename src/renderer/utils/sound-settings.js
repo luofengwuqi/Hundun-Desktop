@@ -5,7 +5,7 @@
 //   主进程缓存后广播给插件窗口, 插件直放音效按同一份设置播放
 //   (修复: 插件曾硬编码 0.5 音量, 无视音量滑块与静音开关)
 
-const STORAGE_KEY = 'huntun-lite-settings'
+const STORAGE_KEY = 'hundundesktop-settings'
 
 // 默认值 (与 Settings 页面默认一致: 开启音效, 音量 50%)
 export const DEFAULT_SOUND_SETTINGS = Object.freeze({

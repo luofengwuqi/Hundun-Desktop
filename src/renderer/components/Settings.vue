@@ -198,7 +198,7 @@
         <div v-if="selectedTab === 4" class="tab-content">
           <div class="setting-group about-section">
             <div class="about-logo">🎮</div>
-            <div class="about-title">HUNDUN LITE</div>
+            <div class="about-title">HUNDUN DESKTOP</div>
             <div class="about-version">v1.0.0-alpha</div>
             <div class="about-desc">
               {{ t('settings.desc') }}

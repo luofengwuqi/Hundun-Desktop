@@ -1,5 +1,5 @@
 /**
- * Hundun Lite - 插件预加载脚本
+ * HundunDesktop - 插件预加载脚本
  * 
  * 在每个插件的 BrowserWindow 中运行
  * 为插件提供安全的 API 接口
