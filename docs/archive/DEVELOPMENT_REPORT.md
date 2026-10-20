@@ -1,4 +1,7 @@
-# HundunDesktop 开发完成报告
+# HundunDesktop 开发完成报告（2026-08，历史存档）
+
+> [!WARNING]
+> 本文是 2026-08 阶段的开发快照，仅作历史记录。其中的窗口尺寸、插件列表（如 `timer-manager`）、API 与项目结构均已过时，请以根目录 [README](../../README.md)、[AGENTS.md](../../AGENTS.md) 和 `docs/` 下的最新文档为准。
 
 ## 📋 项目完成情况
 

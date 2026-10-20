@@ -1,7 +1,8 @@
-# HundunDesktop - 子程序开发规范 v2.0
+# HundunDesktop - 子程序开发规范 v2.1
 
 > 本文档定义了 HundunDesktop 子程序（插件）的完整开发规范。
 > 所有子程序必须遵循本规范，以便母程序能够自动发现、加载和管理。
+> 面向开发者的实践指南见 [PLUGIN_DEVELOPMENT.md](PLUGIN_DEVELOPMENT.md)。
 
 ---
 
@@ -137,15 +138,15 @@ plugins/
 
 | 字段 | 类型 | 必须 | 默认值 | 说明 |
 |------|------|------|--------|------|
-| `id` | string | ✅ | - | 插件唯一标识符 (仅允许小写字母、数字、连字符) |
-| `name` | string | ✅ | - | 显示名称 (卡带上显示，建议 ≤8 字符) |
+| `id` | string | ✅ | - | 插件唯一标识符 (小写字母、数字、连字符，以字母或数字开头，≤64 字符) |
+| `name` | string | ✅ | - | 显示名称 (卡带上显示，≤32 字符，建议 ≤8 字符) |
 | `version` | string | ✅ | - | 语义化版本号 (x.y.z) |
 | `description` | string | ❌ | `""` | 插件描述 |
 | `icon` | string | ❌ | `"📦"` | 卡带图标 (emoji 或路径) |
 | `author` | string | ❌ | `"Unknown"` | 作者名称 |
-| `entry` | string | ❌ | `"index.html"` | 入口文件路径 (相对于插件目录) |
+| `entry` | string | ❌ | `"index.html"` | 入口文件路径 (相对插件目录，仅支持 `.html` / `.js`，且必须真实存在) |
 | `color` | string | ❌ | `"#00ff88"` | 卡带颜色 (hex，用于卡带边框和高亮) |
-| `windowSize` | object | ❌ | `{width:400,height:400}` | 子程序窗口尺寸 |
+| `windowSize` | object | ❌ | `{width:400,height:400}` | 子程序窗口尺寸 (宽高 200~4000) |
 | `permissions` | string[] | ❌ | `[]` | 所需权限列表 |
 | `minAppVersion` | string | ❌ | `"1.0.0"` | 最低母程序版本 |
 | `platforms` | string[] | ❌ | 不限制 | 支持的平台列表 (如 `["win32","linux"]`)，允许值 `win32`/`darwin`/`linux`；**打开前**主进程校验，不含当前系统则拒绝创建窗口并由母程序弹提示 (见 `src/main/platform-support.js`) |
@@ -162,8 +163,10 @@ plugins/
 |------|------|-------------|
 | `storage` | 访问插件专属数据存储 | ❌ |
 | `messaging` | 与其他插件通信 | ❌ |
-| `notifications` | 发送系统通知 | ✅ |
+| `notifications` | 发送系统通知 | ❌ |
 | `clipboard` | 访问剪贴板 | ❌ |
+
+当前 `hundun.permissions.check(permission)` 仅校验 manifest 声明，不会弹出授权对话框。
 
 ---
 
@@ -178,8 +181,7 @@ plugins/
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>My Plugin</title>
-  <!-- 引入 PluginSDK (推荐) -->
-  <script src="path/to/plugin-sdk.js"></script>
+  <!-- window.hundun 已由 preload 自动注入，无需额外引入脚本 -->
   <style>
     /* 使用母程序提供的 CSS 变量 */
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -248,17 +250,17 @@ var(--scanline-opacity) /* 扫描线透明度 */
 
 ---
 
-## 五、PluginSDK API
+## 五、插件 API
 
-### 5.1 引入方式
+### 5.1 使用方式
 
-```html
-<!-- 方式1: 通过 script 标签引入 (推荐) -->
-<script src="path/to/plugin-sdk.js"></script>
+插件窗口加载时，preload 已自动注入 `window.hundun`，无需引入任何脚本：
 
-<!-- 方式2: 在 plugin.js 中使用 -->
-const sdk = window.HundunSDK
+```javascript
+const value = await window.hundun.storage.get('key', defaultValue)
 ```
+
+`src/shared/plugin-sdk.js` 另外提供了一层可选的 `window.HundunSDK` 封装（含少量工具函数），内置插件均直接使用 `window.hundun`。新插件推荐以 `window.hundun` 为准。
 
 ### 5.2 API 列表
 
@@ -266,34 +268,57 @@ const sdk = window.HundunSDK
 
 ```javascript
 // 获取数据
-const value = await sdk.storage.get('key', defaultValue)
+const value = await window.hundun.storage.get('key', defaultValue)
 
 // 设置数据
-await sdk.storage.set('key', value)
+await window.hundun.storage.set('key', value)
 
 // 删除数据
-await sdk.storage.remove('key')
+await window.hundun.storage.remove('key')
 
 // 获取所有数据
-const allData = await sdk.storage.getAll()
+const allData = await window.hundun.storage.getAll()
 ```
+
+数据由主进程写入 `user-data/hundundesktop-data/<plugin-id>.json`，采用临时文件 + rename 原子落盘。
+
+#### 文件 API
+
+文件 API 仅挂在 `window.hundun.fs` 上，路径一律相对于插件自己的数据目录 `user-data/plugins/<plugin-id>/file/`：
+
+```javascript
+// 数据根目录绝对路径
+const base = await window.hundun.fs.getBasePath()
+
+// 列出目录 [{ name, isDirectory, mtime, size }]
+const entries = await window.hundun.fs.readDir('')
+
+// 读写 / 删除 / 重命名 / 存在性
+const text = await window.hundun.fs.readFile('note.md')
+await window.hundun.fs.writeFile('note.md', '# Hello')
+await window.hundun.fs.rename('note.md', 'archive.md')
+await window.hundun.fs.deleteFile('archive.md')
+const exists = await window.hundun.fs.exists('note.md')
+```
+
+主进程会做路径穿越防护，插件无法读写数据目录之外的文件。
 
 #### 消息 API
 
 ```javascript
 // 发送消息到其他插件
-await sdk.messaging.sendTo('target-plugin-id', { type: 'hello' })
+await window.hundun.messaging.sendTo('target-plugin-id', { type: 'hello' })
 
 // 广播消息给所有插件
-await sdk.messaging.broadcast({ type: 'update' })
+await window.hundun.messaging.broadcast({ type: 'update' })
 
 // 监听消息
-const unsubscribe = sdk.messaging.onMessage((message) => {
+const offMessage = window.hundun.messaging.onMessage((message) => {
   console.log('Received:', message)
 })
 
 // 监听广播
-const unsubscribe = sdk.messaging.onBroadcast((message) => {
+const offBroadcast = window.hundun.messaging.onBroadcast((message) => {
   console.log('Broadcast:', message)
 })
 ```
@@ -302,27 +327,28 @@ const unsubscribe = sdk.messaging.onBroadcast((message) => {
 
 ```javascript
 // 最小化窗口
-await sdk.window.minimize()
+await window.hundun.window.minimize()
 
 // 最大化/还原
-await sdk.window.maximize()
+await window.hundun.window.maximize()
 
 // 关闭窗口 (返回母程序)
-await sdk.window.close()
+await window.hundun.window.close()
 
 // 设置窗口置顶
-await sdk.window.setAlwaysOnTop(true)  // 置顶
-await sdk.window.setAlwaysOnTop(false) // 取消置顶
+await window.hundun.window.setAlwaysOnTop(true)  // 置顶
+await window.hundun.window.setAlwaysOnTop(false) // 取消置顶
 
 // 设置标题
-sdk.window.setTitle('My Plugin v2.0')
+window.hundun.window.setTitle('My Plugin v2.0')
 
-// 获取窗口尺寸
-const { width, height } = sdk.window.getSize()
+// 获取视口尺寸
+const width = window.innerWidth
+const height = window.innerHeight
 
 // 监听窗口大小变化
-sdk.window.onResize(({ width, height }) => {
-  console.log('Resized:', width, height)
+window.addEventListener('resize', () => {
+  console.log('Resized:', window.innerWidth, window.innerHeight)
 })
 ```
 
@@ -330,53 +356,95 @@ sdk.window.onResize(({ width, height }) => {
 
 ```javascript
 // 返回母程序 (带过渡动画)
-await sdk.host.returnToParent()
+await window.hundun.host.returnToParent()
 
-// 获取当前主题
-const theme = sdk.host.getTheme() // 'dark' | 'light'
+// 获取当前主题 (异步)
+const theme = await window.hundun.host.getTheme() // 'dark' | 'light'
 
 // 监听主题变更
-sdk.host.onThemeChange((theme) => {
+const offTheme = window.hundun.host.onThemeChange((theme) => {
   console.log('Theme changed to:', theme)
 })
 
 // 播放音效 —— 音量与静音状态自动跟随母程序设置页 (2026-10-03 起)
-sdk.host.playSound('click') // click | change | OK | exit | error | ...
+window.hundun.host.playSound('click') // click | change | OK | exit | error | ...
 // 插件若自行直放 (new Audio)，必须读取同一份设置:
 //   const s = window.hundun.sound.getSettings()          // {soundEnabled, volume(0-100)}
 //   window.hundun.sound.onSettingsChanged(cb)            // 设置变更时刷新
 //   静音 (soundEnabled === false) 时不要播放
 
 // 显示通知
-sdk.host.notify('Hello!', 'success')
+window.hundun.host.notify('Hello!', 'success')
 ```
 
-#### 工具 API
+#### 音效设置 API
 
 ```javascript
-// 延迟
+// 同步读取当前音效设置 {soundEnabled, volume(0-100)}
+const { soundEnabled, volume } = window.hundun.sound.getSettings()
+
+// 订阅设置变更，返回取消订阅函数
+const off = window.hundun.sound.onSettingsChanged((settings) => {
+  console.log('sound settings changed:', settings)
+})
+```
+
+直接使用 `new Audio()` 播放音效时必须遵循该设置：静音时音量为 0，否则使用 `volume / 100`。禁止硬编码音量。
+
+#### 插件信息 API
+
+```javascript
+// 当前插件信息
+const self = await window.hundun.info.getSelf()
+
+// 已安装插件列表
+const installed = await window.hundun.info.getInstalled()
+```
+
+#### 工具方法（可选 SDK）
+
+`src/shared/plugin-sdk.js` 提供少量工具方法，需要以 `<script>` 引入后才能使用 `window.HundunSDK.utils`：
+
+```javascript
+const sdk = window.HundunSDK
+
 await sdk.utils.sleep(1000)
-
-// 生成唯一ID
 const id = sdk.utils.generateId()
-
-// 深拷贝
 const copy = sdk.utils.deepClone(obj)
-
-// 格式化日期
 const str = sdk.utils.formatDate(new Date(), 'YYYY-MM-DD HH:mm:ss')
 ```
 
 ### 5.3 事件系统
 
+`window.hundun` 不提供通用事件总线。常用事件通过各自的 API 订阅：
+
 ```javascript
-// 监听事件
+// 主题变更
+const offTheme = window.hundun.host.onThemeChange((theme) => {
+  console.log('theme:', theme)
+})
+
+// 插件消息 / 广播
+const offMessage = window.hundun.messaging.onMessage((message) => {
+  console.log('message:', message)
+})
+const offBroadcast = window.hundun.messaging.onBroadcast((message) => {
+  console.log('broadcast:', message)
+})
+
+// 音效设置变更
+const offSound = window.hundun.sound.onSettingsChanged((settings) => {
+  console.log('sound:', settings)
+})
+```
+
+可选 SDK 加载后会额外触发一次 `ready` 事件：
+
+```javascript
+const sdk = window.HundunSDK
 sdk.on('ready', (data) => {
   console.log('Plugin ready:', data.pluginId)
 })
-
-// 移除监听
-sdk.off('ready', handler)
 ```
 
 ---
@@ -433,48 +501,46 @@ sdk.off('ready', handler)
 **优点**: 完整的 Vue 生态、SFC、热更新
 **缺点**: 需要构建步骤
 
-### 6.3 快速创建脚本 (未来)
+### 6.3 安装与分发
 
-```bash
-# 创建 HTML 模式插件
-npx huntun create-plugin my-plugin --template html
+开发阶段把插件目录放进 `plugins/` 并重启应用即可。分发给用户时，将目录打包为 `.zip`（压缩包根目录直接包含 `manifest.json`），由母程序 `+` 按钮安装。
 
-# 创建 Vue 模式插件
-npx huntun create-plugin my-plugin --template vue
-```
+安装器会校验 manifest 字段、入口文件存在性、ID 规则与路径穿越，并限制条目数量、单文件大小与解压总量。内置插件 ID 不允许被覆盖；通过安装器安装的同 ID 插件允许覆盖升级。
 
 ---
 
-## 七、生命周期钩子
+## 七、生命周期与可见性
 
-子程序可以通过 PluginSDK 监听生命周期事件：
+当前版本没有 `activate` / `deactivate` 钩子。插件生命周期由窗口本身管理：
+
+- 打开：母程序创建 `BrowserWindow`，加载 `entry`，注入 `window.__PLUGIN_ID__` 与 `window.__PLUGIN_MANIFEST__`
+- 关闭：窗口销毁，母程序恢复可见；再次打开会重新加载页面
+- 返回母程序：调用 `window.hundun.host.returnToParent()`
+
+可监听的事件：
 
 ```javascript
-sdk.on('ready', (data) => {
-  // 插件已加载，可以初始化
-  console.log('Plugin ID:', data.pluginId)
+// 主题变更
+window.hundun.host.onThemeChange((theme) => {
+  // theme: 'dark' | 'light'
 })
 
-sdk.on('activate', () => {
-  // 插件窗口从隐藏变为可见
-  // 适合恢复定时器、重新连接等
-})
-
-sdk.on('deactivate', () => {
-  // 插件窗口变为隐藏
-  // 适合暂停定时器、断开连接等
-})
-
-sdk.on('theme-change', (data) => {
-  // 主题变更
-  // data.theme: 'dark' | 'light'
-  // data.isDarkMode: boolean
-})
-
-sdk.on('message', (message) => {
+// 插件消息
+window.hundun.messaging.onMessage((message) => {
   // 收到其他插件或母程序的消息
 })
+
+window.hundun.messaging.onBroadcast((message) => {
+  // 收到广播
+})
+
+// 音效设置变更
+window.hundun.sound.onSettingsChanged((settings) => {
+  // { soundEnabled, volume }
+})
 ```
+
+定时器、轮询等资源在 `window.addEventListener('beforeunload', ...)` 中清理。插件窗口关闭后页面会销毁，无需额外处理隐藏状态。
 
 ---
 
@@ -508,12 +574,12 @@ sdk.on('message', (message) => {
 
 ```javascript
 // 监听主题变更
-sdk.host.onThemeChange((theme) => {
+window.hundun.host.onThemeChange((theme) => {
   document.body.classList.toggle('light-mode', theme === 'light')
 })
 
 // 初始化时设置
-const currentTheme = sdk.host.getTheme()
+const currentTheme = await window.hundun.host.getTheme()
 document.body.classList.toggle('light-mode', currentTheme === 'light')
 ```
 
@@ -575,23 +641,15 @@ document.body.classList.toggle('light-mode', currentTheme === 'light')
 
 ## 十一、关闭/返回母程序
 
-子程序提供两种方式返回母程序：
-
-### 方式1: 通过 PluginSDK (推荐)
+推荐统一使用 `host.returnToParent()`，由母程序处理过渡动画与窗口恢复：
 
 ```javascript
-// 用户点击关闭按钮
 document.getElementById('close-btn').addEventListener('click', () => {
-  sdk.window.close()  // 带过渡动画关闭
+  window.hundun.host.returnToParent()
 })
 ```
 
-### 方式2: 直接关闭窗口
-
-```javascript
-// 直接关闭 (无过渡动画)
-window.close()
-```
+`window.hundun.window.close()` 会直接关闭插件窗口，母程序在窗口 `closed` 后恢复，但不会走返回过渡动画。
 
 ### 键盘 Esc 返回
 
@@ -599,7 +657,7 @@ window.close()
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     e.preventDefault()
-    sdk.window.close()
+    window.hundun.host.returnToParent()
   }
 })
 ```
@@ -627,18 +685,18 @@ try {
   // 插件逻辑
 } catch (error) {
   console.error('[MyPlugin] Error:', error)
-  sdk.host.notify('操作失败: ' + error.message, 'error')
+  window.hundun.host.notify('操作失败: ' + error.message, 'error')
 }
 ```
 
 ### 12.4 数据持久化
 
 ```javascript
-// 使用 PluginSDK 存储 (推荐，跨进程安全)
-await sdk.storage.set('settings', { theme: 'dark' })
-const settings = await sdk.storage.get('settings', {})
+// 使用宿主存储 API (推荐，跨进程安全)
+await window.hundun.storage.set('settings', { theme: 'dark' })
+const settings = await window.hundun.storage.get('settings', {})
 
-// 不要使用 localStorage (子程序独立进程，localStorage 不共享)
+// 不要使用 localStorage 存业务数据 (子程序独立进程，与其他窗口不共享)
 ```
 
 ### 12.5 键盘导航
@@ -647,7 +705,7 @@ const settings = await sdk.storage.get('settings', {})
 document.addEventListener('keydown', (e) => {
   // Esc: 返回母程序
   if (e.key === 'Escape') {
-    sdk.window.close()
+    window.hundun.host.returnToParent()
     return
   }
   
@@ -712,14 +770,16 @@ my-plugin-v1.0.0.zip
 
 ### 14.3 安装方式
 
-将插件目录复制到 `plugins/` 下:
+开发阶段，将插件目录复制到 `plugins/` 下:
 ```bash
-cp -r my-plugin /path/to/hundunDesktop/plugins/
+cp -r my-plugin /path/to/HundunDesktop/plugins/
 ```
 
-或解压:
+分发给用户时，直接通过母程序 `+` 按钮选择 `.zip` 安装（推荐），或手动解压到用户插件目录。
+注意压缩包根目录直接包含 `manifest.json`，不要再套一层文件夹:
 ```bash
-unzip my-plugin-v1.0.0.zip -d /path/to/hundunDesktop/plugins/my-plugin/
+# 正确
+cd my-plugin && zip -r ../my-plugin-v1.0.0.zip .
 ```
 
 ---
@@ -814,6 +874,6 @@ unzip my-plugin-v1.0.0.zip -d /path/to/hundunDesktop/plugins/my-plugin/
 
 ---
 
-**文档版本**: 2.0
-**最后更新**: 2026-09-07
-**适用版本**: HundunDesktop 2.0+
+**文档版本**: 2.1
+**最后更新**: 2026-10-20
+**适用版本**: HundunDesktop 1.0+

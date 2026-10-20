@@ -8,7 +8,7 @@
  * 设计要点:
  *   - 不依赖任何第三方解压库 (生产包 files 不含 node_modules，运行时 require 不到第三方包)，
  *     因此基于 Node 内置 zlib 自行解析 ZIP 中央目录。
- *   - 校验规则对齐 PLUGIN_SPEC.md 第三章 manifest.json 规范。
+ *   - 校验规则对齐 docs/PLUGIN_SPEC.md 第三章 manifest.json 规范。
  *   - 安全防护: zip slip 路径穿越 / 加密包 / ZIP64 / 解压炸弹(体积与条目上限) / CRC32 校验。
  *   - 落盘目录: 开发态 = 项目根/plugins, 打包态 = exe 目录/plugins (asar 只读，不能写入内置目录)。
  *   - 已安装记录: userData/installed-plugins.json，用于区分"内置插件(不可覆盖)"与
@@ -29,7 +29,7 @@ const MAX_ENTRIES = 5000              // 最大文件数
 const MAX_ENTRY_SIZE = 64 * 1024 * 1024      // 单文件最大 64MB
 const MAX_TOTAL_SIZE = 200 * 1024 * 1024     // 解压后总大小最大 200MB
 
-// ========== 校验规则 (对齐 PLUGIN_SPEC.md) ==========
+// ========== 校验规则 (对齐 docs/PLUGIN_SPEC.md) ==========
 const ID_RE = /^[a-z0-9][a-z0-9-]{0,63}$/     // 小写字母 / 数字 / 连字符
 const SEMVER_RE = /^\d+\.\d+\.\d+$/
 const COLOR_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/

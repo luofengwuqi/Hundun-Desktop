@@ -341,6 +341,6 @@ NewFolder    → NewFolder1    → NewFolder2 ...
 ## 14. 相关文档
 
 - 本文档：`plugins/fast-txt/STORAGE.md`
-- 插件规范：`PLUGIN_SPEC.md` / `PLUGIN_DEVELOPMENT.md`（项目根）
+- 插件规范：`docs/PLUGIN_SPEC.md` / `docs/PLUGIN_DEVELOPMENT.md`
 - 项目进度与技术决策：`AGENTS.md`（项目根）
 - 变更历史：`CHANGELOG.md`（项目根，2026-09-07 删除逻辑简化、2026-09-23 数据目录迁移、2026-09-24 刷新按钮、2026-09-29 本文档对齐）

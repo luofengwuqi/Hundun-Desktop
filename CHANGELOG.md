@@ -1,6 +1,15 @@
 # HundunDesktop - 更新日志
 
-> 最后更新: 2026-10-16
+> 最后更新: 2026-10-20
+
+---
+
+## 2026-10-20
+
+### 文档整理与 README 重写
+- [x] **目录整理**: `QUICKSTART.md` / `PLUGIN_DEVELOPMENT.md` / `PLUGIN_SPEC.md` 移入 `docs/`；`DEVELOPMENT_REPORT.md` 归入 `docs/archive/` 并标注历史存档
+- [x] **README 重写**: 更新窗口尺寸（800×540）、内置四张卡带、镜像模式、插件安装与管理、数据目录、跨平台打包与测试命令；加入 Logo、技术栈徽章、GitHub 告警块与文档导航
+- [x] **文档同步**: 快速开始 / 插件开发指南按当前 `window.hundun` API 重写；插件规范补充 `fs` / `sound` / `info` API、平台校验、zip 安装与解压限制；修正 STORAGE.md、plugin-installer.js、AGENTS.md 中的文档路径引用
 
 ---
 
