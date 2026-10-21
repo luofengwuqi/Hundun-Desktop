@@ -202,15 +202,25 @@ app.whenReady().then(async () => {
     checkInvariant(`J.${pluginId}`, mainWindow)
 
     // 模拟任务栏恢复子程序 → 母程序必须再次隐藏 (会话内互斥)
+    // 轮询: 窗口管理器的 restore/show/focus 事件有延迟, 固定 sleep 会偶发失败
     pWin.restore()
-    await sleep(600)
-    check(`J. ${pluginId} 恢复后母程序重新隐藏 (互斥保持)`, mainWindow.isVisible() === false,
-      `mainVisible=${mainWindow.isVisible()}`)
+    let hiddenAfterRestore = false
+    for (let i = 0; i < 30 && !hiddenAfterRestore; i++) {
+      await sleep(200)
+      hiddenAfterRestore = !mainWindow.isVisible() && pWin.isVisible()
+    }
+    check(`J. ${pluginId} 恢复后母程序重新隐藏 (互斥保持)`, hiddenAfterRestore,
+      `mainVisible=${mainWindow.isVisible()}, pluginVisible=${pWin.isVisible()}`)
     checkInvariant(`J.${pluginId} restored`, mainWindow)
     await pm.returnToParent(pluginId)
     await sleep(300)
   }
-  check('J. 全部子程序最小化/恢复后母程序可见', mainWindow.isVisible() === true,
+  let mainBackVisible = false
+  for (let i = 0; i < 30 && !mainBackVisible; i++) {
+    await sleep(200)
+    mainBackVisible = mainWindow.isVisible() === true
+  }
+  check('J. 全部子程序最小化/恢复后母程序可见', mainBackVisible,
     `mainVisible=${mainWindow.isVisible()}`)
   checkInvariant('J end', mainWindow)
 

@@ -41,6 +41,23 @@
 - [x] **回归**: `test-mirror` 61/61、`test-plugin-uninstall` 22/22、`test-task` 64/64、`test-fastcmd-platform` 32/32、`test-sound-settings` 9/9、`test-md-preview` 48/48、`test-md-scroll` 12/12、`test-platform-support` 通过
 - [x] **文档**: AGENTS.md 新增决策52; `docs/PLUGIN_DEVELOPMENT.md` 增补窗口按钮布局约定与「按钮要早绑定」提醒; `docs/PLUGIN_SPEC.md` 注明最小化语义
 
+### feat: 设置·关于页改版 (logo + 版本号 + 检查更新 + 关于作者) (决策53)
+- [x] **logo**: 原 🎮 emoji → 应用实际使用的插画 logo (`src/renderer/assets/logo-512.png`, 与窗口图标/NSIS 图标同源); 删除硬编码的 `v1.0.0-alpha` (与实际版本不符)
+- [x] **logo 明暗处理 (用户拍板)**: **统一使用原图 (亮色) logo**, 不做暗色/亮色变体; 浅色模式下曾加 `filter: brightness(0.72) saturate(1.6)` 提高对比, 按用户要求已移除
+- [x] **版本号上移**: 版本行置于信息行最上方 (在「技术栈」之上), 取值走主进程 `getAppVersion()` → `app.getVersion()` (显示 `v1.0.0`), 不再硬编码
+- [x] **检查更新按钮**: 位于版本行最右侧, 功能暂未实现 → 点击弹「开发中」提示弹窗 (复用 Settings 的 Modal); 图标 `↻` (`🔄` 缺字形会渲染成豆腐块)
+- [x] **措辞调整**: 「平台」→「系统」 (win32 映射为 Windows/macOS/Linux 等可读名), 「引擎」→「技术栈」 (显示实际主版本 `Electron 28 + Vue 3`)
+- [x] **关于作者板块**: 头像 + 名字「芜柒」+ 签名「音乐区最失败的程序员」+ Gitee/GitHub/Bilibili 三链接 (点击走 `openExternal`, 主进程只允许 http/https)
+  - **头像移入项目**: `~/桌面/b_d81010724cbc9da5062ab5681cc4ec4d.jpg` → `src/renderer/assets/author-avatar.jpg` (原件) + `author-avatar.png` (Pillow 居中正方形裁剪 + 椭圆 alpha 遮罩 = **圆形裁剪, 不抠背景**)   
+- [x] **键盘可达**: 关于页右栏可交互项由 0 → 4 (检查更新 + 3 个链接), `executeDetailAction()` 补 case 4, ↑↓/Enter 可操作
+- [x] **i18n**: 删除 `settings.engine` / `settings.platform`, 新增 `stack` / `system` / `checkUpdate` / `updateTitle` / `updateMsg` / `author` (zh/en)
+- [x] **验证**: 生产构建通过; Electron `capturePage` 实拍深色/浅色/英文三种渲染; 回归 window-lifecycle 61/61、mirror 61/61、task 64/64、sound-settings 9/9、plugin-uninstall 22/22
+
+### 修复: test-fastcmd-platform 末项因语言环境误判为失败
+- [x] **现象**: `显示"当前系统不受支持"` 在英文系统恒失败 (31/32), 与本次改动无关 (已用 `git stash` 在干净 HEAD 复现)
+- [x] **根因**: ①子程序 UI 语言跟随系统 `navigator.language` (本机 en-US → 渲染 `Unsupported OS`), 断言却硬编码中文; ②改写断言时模板字符串里多带一个 `)`, 使表达式语法错误被 `waitFor` 吞掉 → 现改为中英文都接受, 并用字符串拼接避免嵌套模板/括号错位
+- [x] **结果**: test-fastcmd-platform **32/32 通过**
+
 ### 新增 opencode skill: 子程序开发 (hundundesktop-plugin-dev)
 - [x] **新增** `.opencode/skill/hundundesktop-plugin-dev/SKILL.md`: 子程序 (插件) 开发实操手册 —— 插件目录结构与 manifest 字段、**窗口按钮组规范** (📌 ▬ ✕ 位置/样式/伪元素横线/早绑定/no-drag)、母/子窗口互斥语义 (最小化→母程序恢复、恢复→母程序再隐藏、`pluginMinimized` 标记)、数据目录规则 (storage → `hundundesktop-data/<id>.json`, fs → `user-data/plugins/<id>/file/`)、i18n/主题/音效、平台差异、插件级回归测试写法、常见坑速查表
 - [x] **交叉引用**: packaging skill 增加「子程序开发请用 hundundesktop-plugin-dev」指引; AGENTS.md 文档结构表 + README 文档章节列出两个 skill

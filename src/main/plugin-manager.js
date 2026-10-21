@@ -562,6 +562,8 @@ class PluginManager {
       }
       pluginWindow.on('restore', onPluginWindowVisible)
       pluginWindow.on('show', onPluginWindowVisible)
+      // focus 兜底: 个别窗口管理器从最小化恢复时只发 focus (事件时序不保证)
+      pluginWindow.on('focus', onPluginWindowVisible)
 
       // 窗口关闭事件
       pluginWindow.on('closed', () => {
@@ -866,7 +868,15 @@ class PluginManager {
     pluginWindow.minimize()
     const owner = this.pluginOwner.get(pluginId)
     if (owner) {
-      this._recoverMainWindowIfIdle(owner, 'plugin minimized')
+      // 恢复动作延到下一拍再执行:
+      // ① 让 minimize() 的状态先落地 (isVisible 有延迟);
+      // ② 若这期间窗口已被 restore (标记被清), 说明又可见了 → 不能再把母程序拉起来
+      //    (防重复点击最小化 + 延迟处理导致的「母子双可见」竞态)
+      setImmediate(() => {
+        if (pluginWindow.isDestroyed()) return
+        if (!this.pluginMinimized.get(pluginId)) return
+        this._recoverMainWindowIfIdle(owner, 'plugin minimized')
+      })
     }
     return true
   }

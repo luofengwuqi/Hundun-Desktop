@@ -197,20 +197,51 @@
         <!-- About -->
         <div v-if="selectedTab === 4" class="tab-content">
           <div class="setting-group about-section">
-            <div class="about-logo">🎮</div>
-            <div class="about-title">HUNDUN DESKTOP</div>
-            <div class="about-version">v1.0.0-alpha</div>
-            <div class="about-desc">
-              {{ t('settings.desc') }}
+            <div class="about-head">
+              <img class="about-logo" :src="logoUrl" :alt="t('settings.about')" />
+              <div class="about-head-text">
+                <div class="about-title">HUNDUN DESKTOP</div>
+                <div class="about-desc">{{ t('settings.desc') }}</div>
+              </div>
             </div>
+
             <div class="about-links">
-              <div class="about-link">
-                <span class="link-label">{{ t('settings.engine') }}</span>
-                <span class="link-value">Electron + Vue3</span>
+              <div class="about-link detail-item" :class="{ selected: currentSide === 'right' && detailIndex === 0 }" @click="selectDetail(0)">
+                <span class="link-label">{{ t('settings.version') }}</span>
+                <span class="link-value">{{ appVersion }}</span>
+                <button class="about-update-btn" @click.stop="selectDetail(0); checkUpdate()">
+                  <span class="btn-icon">↻</span>
+                  <span class="btn-text">{{ t('settings.checkUpdate') }}</span>
+                </button>
               </div>
               <div class="about-link">
-                <span class="link-label">{{ t('settings.platform') }}</span>
-                <span class="link-value">{{ platform }}</span>
+                <span class="link-label">{{ t('settings.stack') }}</span>
+                <span class="link-value">{{ stackValue }}</span>
+              </div>
+              <div class="about-link">
+                <span class="link-label">{{ t('settings.system') }}</span>
+                <span class="link-value">{{ systemName }}</span>
+              </div>
+            </div>
+
+            <!-- 关于作者 -->
+            <div class="about-author">
+              <div class="about-author-title">{{ t('settings.author') }}</div>
+              <div class="about-author-body">
+                <img class="author-avatar" :src="authorAvatarUrl" :alt="author.name" />
+                <div class="author-info">
+                  <div class="author-name">{{ author.name }}</div>
+                  <div class="author-sign">{{ author.signature }}</div>
+                  <div class="author-links">
+                    <button
+                      v-for="(link, i) in author.links"
+                      :key="link.label"
+                      class="author-link detail-item"
+                      :class="{ selected: currentSide === 'right' && detailIndex === i + 1 }"
+                      @click="selectDetail(i + 1); openExternal(link.url)"
+                    >{{ link.label }}</button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -244,6 +275,8 @@ import { playSound, setGlobalVolume } from '../utils/audio'
 import { loadSoundSettings, saveSoundSettings } from '../utils/sound-settings'
 import { localeOptions } from '../i18n/index.js'
 import Modal from './Modal.vue'
+import logoUrl from '../assets/logo-512.png'
+import authorAvatarUrl from '../assets/author-avatar.png'
 
 const emit = defineEmits(['close'])
 
@@ -259,6 +292,34 @@ const detailIndex = ref(-1)
 const currentSide = ref('left') // 'left' 或 'right'
 const previousSideIndex = ref(0) // 记住从右侧返回时要恢复的左侧栏索引
 const platform = ref('Unknown')
+// 应用版本 (主进程 app.getVersion(), 避免硬编码)
+const appVersion = ref('v0.0.0')
+// 作者信息 (个人资料, 不随语言切换)
+const author = {
+  name: '芜柒',
+  signature: '音乐区最失败的程序员',
+  links: [
+    { label: 'Gitee', url: 'https://gitee.com/luofengwuqi' },
+    { label: 'GitHub', url: 'https://github.com/luofengwuqi' },
+    { label: 'Bilibili', url: 'https://space.bilibili.com/3546961076554583' }
+  ]
+}
+// 系统名 (win32 → Windows 等)
+const systemName = computed(() => {
+  const map = {
+    win32: 'Windows',
+    darwin: 'macOS',
+    linux: 'Linux',
+    freebsd: 'FreeBSD',
+    openbsd: 'OpenBSD'
+  }
+  return map[platform.value] || platform.value || 'Unknown'
+})
+// 技术栈 (显示实际 Electron 主版本)
+const stackValue = computed(() => {
+  const ev = window.nodeInfo && window.nodeInfo.versions && window.nodeInfo.versions.electron
+  return ev ? `Electron ${ev.split('.')[0]} + Vue 3` : 'Electron + Vue3'
+})
 const currentLocale = computed(() => i18nStore.locale)
 const languageOptions = localeOptions
 
@@ -311,7 +372,7 @@ const detailItemCount = computed(() => {
     case 3: // 插件标签
       return plugins.value.length // 插件数量
     case 4: // 关于标签
-      return 0 // 没有可交互元素
+      return 4 // 检查更新按钮 + 3 个作者主页链接
     default:
       return 0
   }
@@ -383,6 +444,25 @@ const loadSettings = () => {
 const selectDetail = (index) => {
   detailIndex.value = index
   currentSide.value = 'right'
+}
+
+// ========== 关于页: 检查更新 (暂未实现) ==========
+const checkUpdate = () => {
+  playSound('click')
+  showModal('🚧', t('settings.updateTitle'), t('settings.updateMsg'),
+    [{ text: t('cartridge.ok'), class: 'primary', action: closeModal }])
+}
+
+// ========== 关于页: 打开作者主页 (系统浏览器) ==========
+const openExternal = (url) => {
+  playSound('click')
+  try {
+    if (window.electronAPI && window.electronAPI.openExternal) {
+      window.electronAPI.openExternal(url)
+    }
+  } catch (e) {
+    console.error('[Settings] openExternal failed:', e)
+  }
 }
 
 // ========== 决策46: 运行状态实时化 ==========
@@ -601,6 +681,14 @@ const executeDetailAction = () => {
     case 3: // Plugin settings
       // Plugin items are display only, no action on Enter
       break
+    case 4: // About settings
+      if (detailIndex.value === 0) {
+        checkUpdate()
+      } else if (detailIndex.value >= 1 && detailIndex.value <= 3) {
+        const link = author.links[detailIndex.value - 1]
+        if (link) openExternal(link.url)
+      }
+      break
   }
 }
 
@@ -722,6 +810,17 @@ onMounted(() => {
   // Get platform info
   if (window.nodeInfo) {
     platform.value = window.nodeInfo.platform
+  }
+
+  // 应用版本 (主进程 app.getVersion(), 避免硬编码)
+  try {
+    if (window.electronAPI && window.electronAPI.getAppVersion) {
+      Promise.resolve(window.electronAPI.getAppVersion()).then((v) => {
+        if (v) appVersion.value = `v${v}`
+      }).catch(() => {})
+    }
+  } catch (e) {
+    console.error('[Settings] getAppVersion failed:', e)
   }
 
   // 决策46: 运行状态实时化 (初始拉取 + 生命周期事件增删)
@@ -1337,36 +1436,43 @@ onUnmounted(() => {
 
 /* About Section */
 .about-section {
-  text-align: center;
-  padding: 32px 20px;
+  padding: 24px 20px;
+}
+
+/* 头部: logo + 标题/描述 */
+.about-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
 .about-logo {
-  font-size: 48px;
-  margin-bottom: 16px;
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 10px var(--shadow-color));
+}
+
+.about-head-text {
+  text-align: left;
+  min-width: 0;
 }
 
 .about-title {
   font-family: 'Noto Sans SC', 'Press Start 2P', cursive;
   font-size: 20px;
   color: var(--accent-primary);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   text-shadow: 0 0 10px var(--accent-primary);
-}
-
-.about-version {
-  font-family: 'Noto Sans SC', 'Press Start 2P', cursive;
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin-bottom: 16px;
 }
 
 .about-desc {
   font-family: 'Noto Sans SC', sans-serif;
-  font-size: 16px;
+  font-size: 14px;
   color: var(--text-secondary);
-  margin-bottom: 24px;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .about-links {
@@ -1377,10 +1483,115 @@ onUnmounted(() => {
 
 .about-link {
   display: flex;
+  align-items: center;
   justify-content: space-between;
+  gap: 12px;
   padding: 8px 16px;
   background: var(--bg-slot);
   border-radius: 6px;
+}
+
+/* 检查更新按钮 (靠最右侧) */
+.about-update-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 5px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent-primary);
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.about-update-btn:hover {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 10px var(--shadow-color);
+  transform: scale(1.05);
+}
+
+.about-update-btn .btn-icon {
+  font-size: 12px;
+}
+
+/* 关于作者 */
+.about-author {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 2px solid var(--border-color);
+}
+
+.about-author-title {
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 13px;
+  color: var(--text-secondary);
+  letter-spacing: 2px;
+  margin-bottom: 14px;
+  text-align: left;
+}
+
+.about-author-body {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.author-avatar {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 10px var(--shadow-color));
+}
+
+.author-info {
+  text-align: left;
+  min-width: 0;
+}
+
+.author-name {
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent-primary);
+  text-shadow: 0 0 10px var(--shadow-color);
+  margin-bottom: 4px;
+}
+
+.author-sign {
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.author-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.author-link {
+  padding: 4px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent-tertiary, #00d4ff);
+  font-family: 'Noto Sans SC', sans-serif;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.author-link:hover {
+  border-color: var(--accent-tertiary, #00d4ff);
+  box-shadow: 0 0 10px var(--shadow-color);
+  transform: scale(1.05);
 }
 
 .link-label {

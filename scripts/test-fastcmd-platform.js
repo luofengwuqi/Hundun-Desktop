@@ -136,7 +136,12 @@ app.whenReady().then(async () => {
     check('darwin 判定为不受支持', await js(`FastCmdPlatform.isSupported`) === false);
     check('不支持时无可用后缀', (await js(`FastCmdPlatform.extensions.length`)) === 0);
     check('不支持时列表为空', await waitFor(`typeof files !== 'undefined' && files.length === 0`), JSON.stringify(await js(`files.map(f => f.name)`)));
-    check('显示"当前系统不受支持"', (await listText()).includes('不受支持'), await listText());
+    // 注: 子程序 UI 语言跟随系统语言 (navigator.language), 断言需同时接受中英文
+    const hasUnsupportedText = await waitFor(
+      "((document.getElementById('fileList')||{textContent:''}).textContent||'').indexOf('不受支持') >= 0 ||" +
+      "((document.getElementById('fileList')||{textContent:''}).textContent||'').indexOf('Unsupported') >= 0"
+    )
+    check('显示"当前系统不受支持"', hasUnsupportedText, await listText());
     check('底部无按钮', (await js(`getFooterButtons().length`)) === 0);
     check('isScriptFile 全为 false', await js(`isScriptFile('a.sh')`) === false && await js(`isScriptFile('a.bat')`) === false);
     check('不支持时不生成默认脚本', !fss.existsSync(path.join(DATA_ROOT, 'darwin_hello.sh')));
