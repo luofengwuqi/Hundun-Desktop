@@ -10,6 +10,7 @@
     "preview": "electron-vite preview",
     "postinstall": "electron-builder install-app-deps",
     "gen-icon": "node scripts/gen-icon.js",
+    "gen-icons": "python3 scripts/gen-linux-icons.py",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win nsis --x64",
     "build:mac": "npm run build && electron-builder --mac",
@@ -57,7 +58,7 @@
     },
     "linux": {
       "target": ["AppImage", "deb"],
-      "icon": "src/renderer/public/icon.png",
+      "icon": "build/icons",
       "category": "Utility",
       "description": "Retro handheld style desktop efficiency tool",
       "maintainer": "HundunDesktop Team <hundundesktop@example.com>",

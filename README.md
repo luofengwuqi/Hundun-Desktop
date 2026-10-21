@@ -152,6 +152,9 @@ npm run build:setup  # 一次产出三件套
 > [!WARNING]
 > AppImage 需要系统安装 `libfuse2`（Ubuntu 24.04+ 为 `libfuse2t64`）。构建脚本会自动为 AppImage 注入 `--no-sandbox`，以适配 Ubuntu 24.04+ 的 AppArmor user namespace 限制。
 
+> [!NOTE]
+> Linux 图标由 `build/icons/` 图标集目录提供（16/24/32/48/64/128/256/512 各级尺寸），`build.linux.icon` 必须指向**目录**——指向单个 PNG 时 electron-builder 解析不到尺寸，图标会被装进 `hicolor/0x0/`，安装后应用菜单就没有图标。换 logo 后跑 `npm run gen-icons`（需 Pillow）重新生成。
+
 ## 项目结构
 
 ```text

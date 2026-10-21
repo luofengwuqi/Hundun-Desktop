@@ -113,11 +113,20 @@ Dev mode is always portable, so `npm run dev` is unaffected.
 ### 7. Icon paths
 - Window icon in `createWindow` must point at `../renderer/icon.png` (the file was once
   wrongly `../renderer/assets/icon.png`, which didn't exist).
-- `src/renderer/public/icon.png` (256) is copied by vite into `out/renderer/`; it is also the
-  Linux `build.linux.icon`.
+- `src/renderer/public/icon.png` (256) is copied by vite into `out/renderer/`; it is the
+  window/app icon.
 - `src/renderer/assets/icon.ico` (256 PNG-in-ICO) is the Windows `build.win.icon`.
+- **`build.linux.icon` points at the DIRECTORY `build/icons`** (16/24/32/48/64/128/256/512
+  `<size>x<size>.png`), *not* at a single PNG. A single-PNG `linux.icon` makes app-builder
+  return `size: 0`, and the icon lands in `usr/share/icons/hicolor/0x0/apps/...` — the desktop
+  environment never finds it, so the installed app shows a generic icon (决策 50, 2026-10-21).
+  Verify with:
+  `node_modules/app-builder-bin/linux/x64/app-builder icon --format set --root "$PWD/build" --root "$PWD" --out /tmp/ic --input build/icons`
+  → must list sizes 16…512, never `0`.
 - **`npm run gen-icon` regenerates the OLD pixel-handheld placeholder and would overwrite the
   current illustration logo.** Only run it if you deliberately want to revert the logo.
+  Use `npm run gen-icons` (Pillow, `scripts/gen-linux-icons.py`) to regenerate the Linux icon
+  set + `src/renderer/public/icon.png` from `src/renderer/assets/logo-512.png`.
 
 ### 8. deb build fails: "Please specify project homepage"
 `fpm` (used for .deb) requires `homepage` in `package.json`. It's set — don't remove it.
@@ -135,15 +144,19 @@ the icon source to catch this.
 
 ```bash
 cd /home/wuqi/code/hundunDesktop
-NEW=$(md5sum src/renderer/public/icon.png | cut -d' ' -f1)
+NEW=$(md5sum build/icons/512x512.png | cut -d' ' -f1)
 
 # AppImage: extract and compare icon(s)
-./dist/*.AppImage --appimage-extract '*.png' >/dev/null 2>&1
-md5sum squashfs-root/hundundesktop.png squashfs-root/.DirIcon     # both == $NEW
+./dist/*.AppImage --appimage-extract >/dev/null 2>&1
+md5sum squashfs-root/hundundesktop.png           # == $NEW (512x512 = biggest set member)
+ls -l squashfs-root/.DirIcon                     # -> usr/share/icons/hicolor/512x512/apps/hundundesktop.png
+ls squashfs-root/usr/share/icons/hicolor/        # must list 16x16 … 512x512 (8 sizes, no 0x0!)
 ./dist/*.AppImage --appimage-help >/dev/null && echo runtime-ok
 
 # deb: extract and compare, then inspect control
-dpkg-deb -x dist/*.deb /tmp/debx && md5sum /tmp/debx/usr/share/icons/hicolor/*/apps/hundundesktop.png
+dpkg-deb -x dist/*.deb /tmp/debx
+ls /tmp/debx/usr/share/icons/hicolor/            # must list 16x16 … 512x512 (8 sizes, no 0x0!)
+md5sum /tmp/debx/usr/share/icons/hicolor/512x512/apps/hundundesktop.png   # == $NEW
 dpkg-deb -I dist/*.deb | grep -E 'Package|Version|Depends|Homepage'
 
 # exe: confirm the new logo PNG is embedded (rcedit stored it verbatim)
@@ -176,7 +189,9 @@ Per 决策 48, the logo is produced by a one-off flood-fill cut-out of
    pre-fill transparent RGB with the red outline `(211,33,47)` to avoid white bloom.
 
 Outputs: `src/renderer/assets/logo-512.png` (source), `src/renderer/public/icon.png` (256),
-`src/renderer/assets/icon.ico` (256). Then `npm run build` and **rebuild all three installers**.
+`src/renderer/assets/icon.ico` (256). Then run `npm run gen-icons` (Pillow) to refresh the
+Linux icon set `build/icons/{16…512}x<size>.png` from `logo-512.png`, then `npm run build` and
+**rebuild all three installers**.
 
 ## Version bump
 

@@ -1,6 +1,19 @@
 # HundunDesktop - 更新日志
 
-> 最后更新: 2026-10-20
+> 最后更新: 2026-10-21
+
+---
+
+## 2026-10-21
+
+### 修复: deb / AppImage 安装后应用没有图标 (决策50)
+- [x] **症状**: `.deb` 安装后应用菜单显示通用图标 (无自有图标), 桌面/任务栏同样无图标
+- [x] **根因**: `build.linux.icon` 指向**单个 PNG** (`src/renderer/public/icon.png`) — electron-builder 的 `FpmTarget` 用 `icon.size` 拼 hicolor 目录 (`hicolor/${size}x${size}/apps/`), 而 app-builder 的 `icon --format set` 对**单文件**输入**解析不到尺寸 → 返回 `size: 0`**, 图标最终被装到 `usr/share/icons/hicolor/0x0/apps/hundundesktop.png` — `0x0` 不是合法图标尺寸目录, 桌面环境按图标主题规范查找时必然落空
+  - 实测复现: `node_modules/app-builder-bin/linux/x64/app-builder icon --format set --input <任意 PNG>` 恒返回 `{"size":0}`; 换成**目录**输入 (文件名 `<size>x<size>.png`) 才解析出 16/24/32/48/64/128/256/512
+- [x] **修法**: 新增 `build/icons/` **图标集目录** (16/24/32/48/64/128/256/512 各一份 `<size>x<size>.png`), `build.linux.icon` 改指 `"build/icons"` → deb 装到 `hicolor/16x16 … hicolor/512x512/apps/hundundesktop.png`; AppImage 内嵌同名目录结构 (两者共用 `LinuxTargetHelper.icons`, 一处修两个产物)
+- [x] **图标生成**: `scripts/gen-linux-icons.py` (Pillow, LANCZOS + `reducing_gap=3.0`, 源图 `src/renderer/assets/logo-512.png`) 产出图标集并同步刷新 `src/renderer/public/icon.png` (256, 窗口图标/vite publicDir); `npm run gen-icons` 触发; **产物已入库**, 构建不依赖 Pillow (仅换 logo 时需重跑)
+- [x] **验证**: 重建 `dist/hundundesktop_1.0.0_amd64.deb` → `dpkg-deb -c` 见 8 个 hicolor 尺寸目录; `HundunDesktop-1.0.0.AppImage --appimage-extract` 内嵌同样 8 个目录; 桌面文件 `Icon=hundundesktop` 命中标准查找路径
+- [x] **文档**: AGENTS.md 新增决策50 + 头部状态行更新; README 构建小节补图标集说明
 
 ---
 
