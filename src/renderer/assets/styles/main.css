@@ -19,6 +19,8 @@
   --cartridge-body: #2d2d2d;
   --cartridge-label: #00ff88;
   --scanline-opacity: 0.03;
+  /* 机身内阴影 (圆角外不允许有任何绘制, 故不用外阴影, 决策51) */
+  --console-shadow: inset 0 2px 14px rgba(0, 0, 0, 0.45), inset 0 -2px 10px rgba(0, 0, 0, 0.35);
 }
 
 /* Light Mode - 匹配原型 */
@@ -41,6 +43,7 @@
   --cartridge-body: #f5f5f5;
   --cartridge-label: #C3272B;
   --scanline-opacity: 0.01;
+  --console-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.16), inset 0 -2px 8px rgba(0, 0, 0, 0.12);
 }
 
 /* ========== Base Reset ========== */
@@ -74,7 +77,9 @@ body {
   background: var(--bg-secondary);
   border-radius: 50px;
   border: 3px solid var(--border-color);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  /* 圆角外必须「什么都没有」: 外阴影会画在圆角缺口处, 漏出一层半透明灰边
+     (窗口四角 notch 处最明显)。体积感改用内阴影, 只在机身内侧, 不溢出轮廓 */
+  box-shadow: var(--console-shadow);
   position: relative;
   overflow: hidden;
 }

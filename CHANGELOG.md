@@ -15,6 +15,13 @@
 - [x] **验证**: 重建 `dist/hundundesktop_1.0.0_amd64.deb` → `dpkg-deb -c` 见 8 个 hicolor 尺寸目录; `HundunDesktop-1.0.0.AppImage --appimage-extract` 内嵌同样 8 个目录; 桌面文件 `Icon=hundundesktop` 命中标准查找路径
 - [x] **文档**: AGENTS.md 新增决策50 + 头部状态行更新; README 构建小节补图标集说明
 
+### 修复: 母程序圆角外有一层半透明灰色 (决策51)
+- [x] **症状**: 母程序窗口圆角之外 (四个窗口角的 notch 区域) 有一层半透明灰边, 期望「圆角外什么都没有」(完全透明, 直接透出桌面)
+- [x] **根因**: `.console` 的 **外阴影** `box-shadow: 0 10px 40px rgba(0,0,0,0.5)` —— 外阴影按圆角矩形的 alpha 遮罩绘制, 会溢出到圆角缺口内, 于是窗口四角出现模糊黑灰 (实测缺口 alpha 9→35 渐变, 叠在浅色桌面上是可见灰晕)
+- [x] **修法**: 外阴影改**内阴影** (`--console-shadow` 变量, 深/浅色各一套), 只在机身内侧起体积感, 轮廓外零绘制; `BrowserWindow` 补 `backgroundColor: '#00000000'` (显式全透明, 防 Windows 平台透明窗口残留灰底)
+- [x] **验证**: 用 Electron `capturePage` 抓真实渲染层 (生产构建 + 桩 preload) 对比修复前后 —— 缺口区 alpha 由 9/13/21/30/35 全部降为 **0**, 其余像素不变
+- [x] **文档**: AGENTS.md 新增决策51 + 头部状态行更新
+
 ---
 
 ## 2026-10-20

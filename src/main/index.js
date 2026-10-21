@@ -104,6 +104,7 @@ function createWindow (label = 'main') {
     maxHeight: 580,
     frame: false,
     transparent: true,
+    backgroundColor: '#00000000', // 显式全透明背景: 避免部分平台 (Windows) 透明窗口残留灰底 (决策51)
     resizable: false,
     webPreferences: {
       nodeIntegration: true,
