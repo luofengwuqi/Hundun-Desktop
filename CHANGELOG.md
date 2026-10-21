@@ -41,6 +41,11 @@
 - [x] **回归**: `test-mirror` 61/61、`test-plugin-uninstall` 22/22、`test-task` 64/64、`test-fastcmd-platform` 32/32、`test-sound-settings` 9/9、`test-md-preview` 48/48、`test-md-scroll` 12/12、`test-platform-support` 通过
 - [x] **文档**: AGENTS.md 新增决策52; `docs/PLUGIN_DEVELOPMENT.md` 增补窗口按钮布局约定与「按钮要早绑定」提醒; `docs/PLUGIN_SPEC.md` 注明最小化语义
 
+### 新增 opencode skill: 子程序开发 (hundundesktop-plugin-dev)
+- [x] **新增** `.opencode/skill/hundundesktop-plugin-dev/SKILL.md`: 子程序 (插件) 开发实操手册 —— 插件目录结构与 manifest 字段、**窗口按钮组规范** (📌 ▬ ✕ 位置/样式/伪元素横线/早绑定/no-drag)、母/子窗口互斥语义 (最小化→母程序恢复、恢复→母程序再隐藏、`pluginMinimized` 标记)、数据目录规则 (storage → `hundundesktop-data/<id>.json`, fs → `user-data/plugins/<id>/file/`)、i18n/主题/音效、平台差异、插件级回归测试写法、常见坑速查表
+- [x] **交叉引用**: packaging skill 增加「子程序开发请用 hundundesktop-plugin-dev」指引; AGENTS.md 文档结构表 + README 文档章节列出两个 skill
+- [x] 全局指针 skill (`~/.config/opencode/skills/hundun-lite-packaging/`) 同步修正陈旧路径 (决策49 改名后应为 `hundundesktop-packaging`) 与图标路径说明 (Linux 图标 = `build/icons` 目录), 并指向新的插件开发 skill (本地文件, 不入库)
+
 ---
 
 ## 2026-10-20

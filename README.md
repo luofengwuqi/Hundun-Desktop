@@ -239,6 +239,11 @@ node scripts/test-platform-support.js
 - [更新日志](CHANGELOG.md)
 - [历史开发报告（2026-08）](docs/archive/DEVELOPMENT_REPORT.md)
 
+### opencode skills（给 AI 助手用）
+
+- `.opencode/skill/hundundesktop-plugin-dev/` — 子程序（插件）开发：窗口按钮组规范、`window.hundun` API、数据目录、母/子互斥语义、插件级回归测试写法
+- `.opencode/skill/hundundesktop-packaging/` — 跨平台打包：NSIS/AppImage/deb、wine、AppImage 沙箱、图标集、可写根回退
+
 ## 技术栈
 
 | 层 | 选型 |

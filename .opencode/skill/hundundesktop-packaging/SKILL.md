@@ -1,6 +1,6 @@
 ---
 name: hundundesktop-packaging
-description: Use when building, rebuilding, or debugging installers for HundunDesktop (a.k.a. chaos-lite / hundunDesktop — the Electron + Vue3 retro-handheld app) — producing the Windows NSIS "HundunDesktop Setup" exe, the Linux AppImage and deb, or changing the app logo/icon. Trigger on any mention of packaging HundunDesktop, electron-builder for this repo, AppImage/deb/NSIS outputs, wine/rcedit, "no usable sandbox" or libfuse2 on AppImage, or portable userData issues.
+description: Use when building, rebuilding, or debugging installers for HundunDesktop (a.k.a. chaos-lite / hundunDesktop — the Electron + Vue3 retro-handheld app) — producing the Windows NSIS "HundunDesktop Setup" exe, the Linux AppImage and deb, or changing its app logo/icon. Trigger on any mention of packaging HundunDesktop, electron-builder for this repo, AppImage/deb/NSIS outputs, wine/rcedit, "no usable sandbox" or libfuse2 on AppImage, or portable userData issues. (Sub-program/plugin development lives in the sibling skill hundundesktop-plugin-dev.)
 ---
 
 # HundunDesktop — cross-platform packaging
@@ -13,6 +13,10 @@ build is boring.
 The authoritative, verbose record lives in the repo: `AGENTS.md` **决策 47** (packaging +
 AppImage sandbox) and **决策 48** (logo), plus `CHANGELOG.md` 2026-10-15. Read those if a
 detail here is insufficient.
+
+> Writing or modifying a **sub-program (plugin)** under `plugins/`? Use the sibling skill
+> `.opencode/skill/hundundesktop-plugin-dev/SKILL.md` (window header buttons, `window.hundun` API,
+> data dirs, session 互斥 semantics, plugin test recipes).
 
 ## What a build produces
 

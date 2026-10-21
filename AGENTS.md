@@ -17,6 +17,8 @@
 | `docs/PLUGIN_SPEC.md` | 子程序开发规范（manifest 字段、权限、完整 API、主题） |
 | `docs/archive/DEVELOPMENT_REPORT.md` | 2026-08 开发快照，仅作历史存档 |
 | `plugins/fast-txt/STORAGE.md` | FastTXT 数据目录与存储细节 |
+| `.opencode/skill/hundundesktop-plugin-dev/SKILL.md` | **opencode skill**：子程序（插件）开发实操 —— 窗口按钮组规范、`window.hundun` API、数据目录、母/子互斥语义、插件级测试写法 |
+| `.opencode/skill/hundundesktop-packaging/SKILL.md` | **opencode skill**：跨平台打包实操 —— NSIS/AppImage/deb、wine、AppImage 沙箱、图标集 |
 
 ---
 
