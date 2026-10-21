@@ -532,33 +532,7 @@ function registerPluginManagerIPC() {
     return { success: false, error: 'No active plugin' }
   })
 
-  // 插件窗口控制
-  ipcMain.handle('plugin:close', async (event, pluginId) => {
-    try {
-      await pluginManager.closePlugin(pluginId)
-      return { success: true }
-    } catch (error) {
-      return { success: false, error: error.message }
-    }
-  })
-
-  ipcMain.handle('plugin:minimize', async (event, pluginId) => {
-    try {
-      pluginManager.minimizePlugin(pluginId)
-      return { success: true }
-    } catch (error) {
-      return { success: false, error: error.message }
-    }
-  })
-
-  ipcMain.handle('plugin:maximize', async (event, pluginId) => {
-    try {
-      pluginManager.maximizePlugin(pluginId)
-      return { success: true }
-    } catch (error) {
-      return { success: false, error: error.message }
-    }
-  })
+  // 插件窗口控制 IPC (plugin:close / plugin:minimize / plugin:maximize) 由 PluginManager 注册
 
   // ========== 镜像模式 (决策45) ==========
   // 打开镜像窗口; 已存在则聚焦 (全局至多一个镜像)

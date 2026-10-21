@@ -174,7 +174,7 @@
     .calc-pin-btn {
       position: absolute;
       top: 8px;
-      right: 48px;
+      right: 84px;
       width: 28px;
       height: 28px;
       border-radius: 50%;
@@ -190,6 +190,44 @@
       -webkit-app-region: no-drag;
       z-index: 102;
     }
+
+    /* 最小化按钮 (位于 ✕ 左侧) */
+    .calc-min-btn {
+      position: absolute;
+      top: 8px;
+      right: 48px;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: none;
+      background: transparent;
+      color: var(--accent-primary);
+      font-size: 12px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      -webkit-app-region: no-drag;
+      z-index: 102;
+    }
+
+    .calc-min-btn:hover {
+      color: var(--accent-tertiary, #00d4ff);
+      box-shadow: 0 0 12px var(--shadow-color);
+      transform: scale(1.1);
+    }
+    /* 最小化横线: 伪元素绘制, 宽度随字号 (0.72em), 与 ✕ 字形相当且精确居中 */
+    .calc-min-btn::before {
+      content: '';
+      display: block;
+      width: 0.72em;
+      height: 2px;
+      border-radius: 1px;
+      background: currentColor;
+    }
+
 
     .calc-pin-btn:hover {
       color: var(--accent-secondary, #ff0080);
@@ -470,6 +508,7 @@
         <span class="calc-chip">POCKET EDITION</span>
       </div>
       <button class="calc-pin-btn" id="pinBtn" title="窗口置顶">📌</button>
+      <button class="calc-min-btn" id="minBtn" title="最小化"></button>
       <button class="calc-close-btn" id="closeBtn" title="返回母程序">✕</button>
     </header>
 
@@ -765,6 +804,16 @@
         const pinned = pinBtn.classList.contains('pinned');
         if (window.hundun && window.hundun.window && window.hundun.window.setAlwaysOnTop) {
           await window.hundun.window.setAlwaysOnTop(pinned);
+        }
+      });
+    }
+
+    // ========== 窗口最小化 ==========
+    const minBtn = document.getElementById('minBtn');
+    if (minBtn) {
+      minBtn.addEventListener('click', async () => {
+        if (window.hundun && window.hundun.window && window.hundun.window.minimize) {
+          await window.hundun.window.minimize();
         }
       });
     }

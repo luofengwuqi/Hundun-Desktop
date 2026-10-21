@@ -4,6 +4,7 @@ export default {
     title: 'HUNDUN DESKTOP',
     selectHint: '← → Select cartridge',
     exit: 'Exit',
+    minimize: 'Minimize',
   },
 
   // 卡带信息

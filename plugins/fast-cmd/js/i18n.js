@@ -4,7 +4,7 @@
 const FastCmdI18n = (() => {
   const zh = {
     theme: { dark: '深色', light: '浅色' },
-    header: { back: '返回' },
+    header: { back: '返回', minimize: '最小化' },
     search: { placeholder: '搜索脚本...' },
     empty: {
       trash: '回收站为空',
@@ -71,7 +71,7 @@ const FastCmdI18n = (() => {
 
   const en = {
     theme: { dark: 'Dark', light: 'Light' },
-    header: { back: 'Back' },
+    header: { back: 'Back', minimize: 'Minimize' },
     search: { placeholder: 'Search scripts...' },
     empty: {
       trash: 'Trash is empty',

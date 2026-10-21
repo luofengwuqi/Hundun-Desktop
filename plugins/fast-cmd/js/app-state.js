@@ -3,6 +3,7 @@
     const viewMain = document.getElementById('view-main');
     const closeBtn = document.getElementById('closeBtn');
     const pinBtn = document.getElementById('pinBtn');
+    const minBtn = document.getElementById('minBtn');
     const searchInput = document.getElementById('searchInput');
     const fileList = document.getElementById('fileList');
     const trashZone = document.getElementById('trashZone');
@@ -104,4 +105,14 @@
         }
       };
       pinBtn.addEventListener('click', togglePin);
+    };
+
+    // ========== 最小化按钮设置 ==========
+    const setupMinButton = () => {
+      if (!minBtn) return;
+      minBtn.addEventListener('click', async () => {
+        if (window.hundun && window.hundun.window && window.hundun.window.minimize) {
+          await window.hundun.window.minimize();
+        }
+      });
     };

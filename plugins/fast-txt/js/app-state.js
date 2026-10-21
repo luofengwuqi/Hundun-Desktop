@@ -4,6 +4,7 @@
     const viewEditor = document.getElementById('view-editor');
     const closeBtn = document.getElementById('closeBtn');
     const pinBtn = document.getElementById('pinBtn');
+    const minBtn = document.getElementById('minBtn');
     const searchInput = document.getElementById('searchInput');
     const fileList = document.getElementById('fileList');
     const trashZone = document.getElementById('trashZone');
@@ -163,4 +164,18 @@
       
       if (pinBtn) pinBtn.addEventListener('click', togglePin);
       if (editorPinBtn) editorPinBtn.addEventListener('click', togglePin);
+    };
+
+    // ========== 最小化按钮设置 ==========
+    const setupMinButton = () => {
+      const editorMinBtn = document.getElementById('editorMinBtn');
+
+      const minimize = async () => {
+        if (window.hundun && window.hundun.window && window.hundun.window.minimize) {
+          await window.hundun.window.minimize();
+        }
+      };
+
+      if (minBtn) minBtn.addEventListener('click', minimize);
+      if (editorMinBtn) editorMinBtn.addEventListener('click', minimize);
     };

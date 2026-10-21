@@ -4,7 +4,7 @@
 const TaskI18n = (() => {
   const zh = {
     theme: { dark: '深色', light: '浅色' },
-    header: { back: '返回母程序', pin: '窗口置顶' },
+    header: { back: '返回母程序', pin: '窗口置顶', minimize: '最小化' },
     empty: {
       title: '还没有任务',
       hint: '点击下方 + 创建第一个任务',
@@ -77,7 +77,7 @@ const TaskI18n = (() => {
 
   const en = {
     theme: { dark: 'Dark', light: 'Light' },
-    header: { back: 'Back to main', pin: 'Pin window' },
+    header: { back: 'Back to main', pin: 'Pin window', minimize: 'Minimize' },
     empty: {
       title: 'No tasks yet',
       hint: 'Click + below to create your first task',

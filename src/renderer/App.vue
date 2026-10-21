@@ -29,6 +29,7 @@
           <button class="header-pin-btn" @click="togglePin" :class="{ pinned: isPinned }" :title="isPinned ? '取消置顶' : '窗口置顶'">
             📌
           </button>
+          <button class="header-min-btn" @click="minimizeApp" :title="t('app.minimize')"></button>
           <button class="header-close-btn" @click="quitApp" :title="t('app.exit')">
             ✕
           </button>
@@ -296,6 +297,19 @@ const quitApp = () => {
       }
     }
   }, 1000)
+}
+
+// ========== 最小化窗口 ==========
+const minimizeApp = () => {
+  playSound('click')
+  try {
+    const { ipcRenderer } = require('electron')
+    ipcRenderer.send('window-minimize')
+  } catch (e) {
+    if (window.electronAPI && window.electronAPI.windowMinimize) {
+      window.electronAPI.windowMinimize()
+    }
+  }
 }
 
 // ========== 窗口置顶 ==========

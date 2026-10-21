@@ -16,6 +16,12 @@
   const closeBtn = document.getElementById('closeBtn')
   if (closeBtn) closeBtn.title = t('header.back')
 
+  // 最小化按钮 (主视图 + 编辑器视图)
+  const minBtn = document.getElementById('minBtn')
+  if (minBtn) minBtn.title = t('header.minimize')
+  const editorMinBtn = document.getElementById('editorMinBtn')
+  if (editorMinBtn) editorMinBtn.title = t('header.minimize')
+
   // 搜索框
   const searchInput = document.getElementById('searchInput')
   if (searchInput) searchInput.placeholder = t('search.placeholder')

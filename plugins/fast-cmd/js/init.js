@@ -1,5 +1,9 @@
     // ========== Init ==========
     const init = async () => {
+      // 窗口按钮先绑定 (不依赖后续异步初始化, 避免 fs 初始化失败时按钮失效)
+      setupPinButton();
+      setupMinButton();
+
       const api = fsAPI();
       if (api) {
         await api.mkdir(TRASH_DIR);
@@ -14,7 +18,6 @@
       const themeToggle = document.getElementById('themeToggle');
       if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
 
-      setupPinButton();
       updateUI();
 
       if (window.hundun && window.hundun.host) {

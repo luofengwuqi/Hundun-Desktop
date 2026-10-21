@@ -327,7 +327,7 @@ const offBroadcast = window.hundun.messaging.onBroadcast((message) => {
 
 ```javascript
 // 最小化窗口
-await window.hundun.window.minimize()
+await window.hundun.window.minimize()   // 最小化后母程序自动恢复显示 (会话内互斥)
 
 // 最大化/还原
 await window.hundun.window.maximize()

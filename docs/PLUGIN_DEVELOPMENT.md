@@ -191,6 +191,13 @@ window.hundun.window.setTitle('MYAPP v1.0.0')
 await window.hundun.window.close()
 ```
 
+> [!NOTE]
+> 母程序与内置子程序的窗口右上角统一是「📌 置顶 · ▬ 最小化 · ✕ 关闭」三个圆形按钮（最小化在 ✕ 左侧）。
+最小化图标不是字符而是伪元素画的短横线（`::before` + `width:0.72em; height:2px; background:currentColor`），这样宽度可精确控制且严格居中；按钮字号与 ✕ 保持一致（12px bold）即可让横线随字号缩放。
+> 子程序最小化后，母程序会自动恢复显示（会话内母/子互斥不变式），从任务栏恢复子程序时母程序会再次隐藏。
+> 自定义插件建议照此布局，并给按钮加上 `-webkit-app-region: no-drag`（否则在无边框窗口里点不动）。
+> **窗口按钮要在异步初始化之前绑定**——若 `init()` 前半段有 await（读文件等）失败，按钮监听器将永远不会挂上。
+
 ### 插件消息
 
 ```javascript

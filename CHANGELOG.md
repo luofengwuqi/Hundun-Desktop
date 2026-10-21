@@ -22,6 +22,25 @@
 - [x] **验证**: 用 Electron `capturePage` 抓真实渲染层 (生产构建 + 桩 preload) 对比修复前后 —— 缺口区 alpha 由 9/13/21/30/35 全部降为 **0**, 其余像素不变
 - [x] **文档**: AGENTS.md 新增决策51 + 头部状态行更新
 
+
+### feat: 母程序与全部子程序新增「最小化」按钮 (决策52)
+- [x] **需求**: 母程序以及所有子程序, 在 ✕ 按钮左侧增加最小化按钮
+- [x] **UI**: 母程序 `.header-buttons` 顺序改为 📌 置顶 → — 最小化 → ✕ 关闭 (flex 排列, 最小化紧邻 ✕ 左侧); 四个内置子程序的头部按钮为绝对定位, 统一调整为 **✕ right:12px / — right:48px / 📌 right:84px** (fast-txt 两个头部: 主视图 + 编辑器视图各一组)
+  - 图标 = **CSS 伪元素横线** (`::before`, `width:0.72em; height:2px; border-radius:1px; background:currentColor`), 按钮为空内容; 宽度约 8.6px 与 ✕ 字形相当且严格居中; 字号与 ✕ 一致 (`12px` bold) 使横线随字号缩放 — 试过 `▁`(U+2581, 墨迹偏下) 与 em dash `—`(U+2014, 12px 下偏宽) 均弃用
+  - 母程序: `src/renderer/App.vue` 新增 `.header-min-btn` + `minimizeApp()` (走 `window-minimize` IPC) + `main.css` 样式 + i18n `app.minimize` (zh/en)
+  - calculator (单文件): `.calc-min-btn` + `#minBtn` 监听
+  - fast-cmd: `.fcmd-min-btn` + `setupMinButton()` (app-state.js) + i18n `header.minimize`
+  - fast-txt: `.ftxt-min-btn` + `#minBtn` / `#editorMinBtn` 两个按钮 + i18n `header.minimize`
+  - task: `.task-min-btn` + `setupMinButton()` + i18n `header.minimize`
+- [x] **语义 (会话内互斥不变式, 决策38/45)**: 子程序最小化后 `isVisible()` 为 false, 该会话将没有可见窗口 → **母程序自动恢复显示**; 子程序随后从任务栏恢复时, 母程序被再次隐藏 (互斥保持)
+  - `plugin-manager.js`: 新增 `pluginMinimized` 标记 (Electron 的 `isVisible()` 在 `minimize()` 之后有状态延迟, 用自有标记做判定, 避免母程序恢复被时序打断); `minimizePlugin()` 最小化 + 恢复母程序; 插件窗口 `restore`/`show` 监听 → 清标记 + 藏母程序; `startPlugin()` 已运行分支补 `restore()` (show() 不会解除最小化); `_recoverMainWindowIfIdle()` 增加 reason 参数
+  - `getVisiblePluginWindows()` 排除已最小化的插件
+- [x] **IPC 归位**: `plugin:close` / `plugin:minimize` / `plugin:maximize` 三个处理器从 `index.js` 移到 `PluginManager._registerIPC()` (与其它插件 IPC 同源, 单测/脚本可直接复用, 避免重复注册)
+- [x] **健壮性**: fast-cmd / fast-txt 的窗口按钮绑定从 `init()` 末尾**提前到最前** —— 原先若异步 fs 初始化失败, 按钮监听器永远不会挂上 (按钮完全失效)
+- [x] **测试**: `scripts/test-window-lifecycle.js` 新增 J 段 (真实点击四个子程序的 `#minBtn` → 断言窗口已最小化 / 母程序恢复可见 / 恢复子程序后母程序再隐藏 / 互斥不变式) + 母程序按钮静态断言 → **61/61 通过** (原 32/32)
+- [x] **回归**: `test-mirror` 61/61、`test-plugin-uninstall` 22/22、`test-task` 64/64、`test-fastcmd-platform` 32/32、`test-sound-settings` 9/9、`test-md-preview` 48/48、`test-md-scroll` 12/12、`test-platform-support` 通过
+- [x] **文档**: AGENTS.md 新增决策52; `docs/PLUGIN_DEVELOPMENT.md` 增补窗口按钮布局约定与「按钮要早绑定」提醒; `docs/PLUGIN_SPEC.md` 注明最小化语义
+
 ---
 
 ## 2026-10-20

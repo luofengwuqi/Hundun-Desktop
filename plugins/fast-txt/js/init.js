@@ -1,5 +1,9 @@
     // ========== Init ==========
     const init = async () => {
+      // 窗口按钮先绑定 (不依赖后续异步初始化, 避免 fs 初始化失败时按钮失效)
+      setupPinButton();
+      setupMinButton();
+
       const api = fsAPI();
       if (api) {
         // 确保回收站目录存在
@@ -26,8 +30,6 @@
         themeToggleEditor.addEventListener('click', toggleTheme);
       }
 
-      // 设置图钉按钮
-      setupPinButton();
 
       updateUI();
 

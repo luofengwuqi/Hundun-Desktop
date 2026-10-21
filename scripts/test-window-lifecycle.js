@@ -162,6 +162,65 @@ app.whenReady().then(async () => {
   check('I. 返回后母程序可见', mainWindow.isVisible())
   checkInvariant('I', mainWindow)
 
+  // ---------- J. 最小化按钮 (决策52): 子程序最小化 → 母程序恢复可见; 恢复子程序 → 母程序再隐藏 ----------
+  // 逐个内置子程序: 真实点击页面里的最小化按钮 (真实 plugin-preload → plugin:minimize IPC)
+  for (const pluginId of ['task', 'calculator', 'fast-cmd', 'fast-txt']) {
+    const launched = await pm.launchPluginWithTransition(pluginId)
+    await sleep(500)
+    const pWin = pm.getPluginWindow(pluginId)
+    if (!launched || !launched.success || !pWin) {
+      check(`J. ${pluginId} 启动成功 (最小化测试前置)`, false, JSON.stringify(launched))
+      continue
+    }
+    // 页面里必须存在最小化按钮 (真实 DOM 断言)
+    const hasBtn = await pWin.webContents.executeJavaScript(
+      `!!document.getElementById('minBtn')`, true
+    ).catch(() => false)
+    check(`J. ${pluginId} 头部存在最小化按钮 #minBtn`, hasBtn === true)
+
+    // fast-txt 有两个头部 (主视图 + 编辑器视图), 编辑器视图也要有最小化按钮
+    if (pluginId === 'fast-txt') {
+      const hasEditorBtn = await pWin.webContents.executeJavaScript(
+        `!!document.getElementById('editorMinBtn')`, true
+      ).catch(() => false)
+      check('J. fast-txt 编辑器视图也存在最小化按钮 #editorMinBtn', hasEditorBtn === true)
+    }
+
+    // 真实点击 → window.hundun.window.minimize() → plugin:minimize → 窗口最小化
+    // (fast-cmd / fast-txt 的 init 是异步的, 监听器挂载较晚 → 轮询重试)
+    let minimized = false
+    for (let i = 0; i < 24 && !minimized; i++) {
+      await pWin.webContents.executeJavaScript(
+        `document.getElementById('minBtn').click()`, true
+      ).catch(() => {})
+      await sleep(250)
+      minimized = pWin.isMinimized() === true
+    }
+    check(`J. ${pluginId} 最小化按钮生效 (窗口已最小化)`, minimized === true)
+    check(`J. ${pluginId} 最小化后母程序恢复可见 (会话不变量)`, mainWindow.isVisible() === true,
+      `mainVisible=${mainWindow.isVisible()}`)
+    checkInvariant(`J.${pluginId}`, mainWindow)
+
+    // 模拟任务栏恢复子程序 → 母程序必须再次隐藏 (会话内互斥)
+    pWin.restore()
+    await sleep(600)
+    check(`J. ${pluginId} 恢复后母程序重新隐藏 (互斥保持)`, mainWindow.isVisible() === false,
+      `mainVisible=${mainWindow.isVisible()}`)
+    checkInvariant(`J.${pluginId} restored`, mainWindow)
+    await pm.returnToParent(pluginId)
+    await sleep(300)
+  }
+  check('J. 全部子程序最小化/恢复后母程序可见', mainWindow.isVisible() === true,
+    `mainVisible=${mainWindow.isVisible()}`)
+  checkInvariant('J end', mainWindow)
+
+  // 母程序自身的最小化按钮 (静态断言: App.vue 按钮 + main.css 样式 + window-minimize IPC)
+  const appVue = fs.readFileSync(path.join(__dirname, '../src/renderer/App.vue'), 'utf8')
+  const mainCss = fs.readFileSync(path.join(__dirname, '../src/renderer/assets/styles/main.css'), 'utf8')
+  const mainJs = fs.readFileSync(path.join(__dirname, '../src/main/index.js'), 'utf8')
+  check('J. 母程序含最小化按钮 (.header-min-btn)', /header-min-btn/.test(appVue) && /header-min-btn/.test(mainCss))
+  check('J. 母程序最小化走 window-minimize IPC', /window-minimize/.test(appVue) && /ipcMain\.on\('window-minimize'/.test(mainJs))
+
   const failed = results.filter(r => !r.pass)
   console.log(`\n结果: ${results.length - failed.length}/${results.length} 通过`)
   app.exit(failed.length ? 1 : 0)

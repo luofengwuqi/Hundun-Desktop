@@ -14,6 +14,9 @@
   const closeBtn = document.getElementById('closeBtn');
   if (closeBtn) closeBtn.title = t('header.back');
 
+  const minBtn = document.getElementById('minBtn');
+  if (minBtn) minBtn.title = t('header.minimize');
+
   const searchInput = document.getElementById('searchInput');
   if (searchInput) searchInput.placeholder = t('search.placeholder');
 

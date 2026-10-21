@@ -16,6 +16,7 @@ const FastTXTI18n = (() => {
     header: {
       back: '返回',
       saveBack: '保存并返回',
+      minimize: '最小化',
     },
 
     // 搜索
@@ -147,6 +148,7 @@ const FastTXTI18n = (() => {
     header: {
       back: 'Back',
       saveBack: 'Save & Back',
+      minimize: 'Minimize',
     },
 
     // Search

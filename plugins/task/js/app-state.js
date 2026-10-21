@@ -5,6 +5,7 @@
     const headerTitle = document.getElementById('headerTitle');
     const closeBtn = document.getElementById('closeBtn');
     const pinBtn = document.getElementById('pinBtn');
+    const minBtn = document.getElementById('minBtn');
     const themeToggle = document.getElementById('themeToggle');
     const taskList = document.getElementById('taskList');
     const footerButtons = document.getElementById('footerButtons');
@@ -56,4 +57,14 @@
         }
       };
       pinBtn.addEventListener('click', togglePin);
+    };
+
+    // ========== 最小化按钮 ==========
+    const setupMinButton = () => {
+      if (!minBtn) return;
+      minBtn.addEventListener('click', async () => {
+        if (window.hundun && window.hundun.window && window.hundun.window.minimize) {
+          await window.hundun.window.minimize();
+        }
+      });
     };

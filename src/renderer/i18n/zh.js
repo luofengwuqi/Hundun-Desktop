@@ -4,6 +4,7 @@ export default {
     title: 'HUNDUN DESKTOP',
     selectHint: '← → 选择卡带',
     exit: '退出',
+    minimize: '最小化',
   },
 
   // 卡带信息

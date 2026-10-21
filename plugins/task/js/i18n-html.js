@@ -16,6 +16,8 @@
   if (closeBtn) closeBtn.title = t('header.back');
   const pinBtn = document.getElementById('pinBtn');
   if (pinBtn) pinBtn.title = t('header.pin');
+  const minBtn = document.getElementById('minBtn');
+  if (minBtn) minBtn.title = t('header.minimize');
 
   // 表单静态文案
   const lblName = document.getElementById('lblName');

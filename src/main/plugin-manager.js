@@ -54,6 +54,11 @@ class PluginManager {
     // 追踪每个插件窗口的置顶状态（show() 会重置 always-on-top，需要独立追踪）
     this.pluginPinStates = new Map() // pluginId -> boolean
 
+    // 追踪被最小化的插件 (决策52)
+    // Electron 的 isVisible() 状态更新有延迟 (minimize() 之后仍可能短暂返回 true),
+    // 因此用独立标记做会话可见性判定, 保证「最小化 → 母程序顶上」不被时序打断
+    this.pluginMinimized = new Map() // pluginId -> true
+
     // 默认会话 = 主会话 (兼容 test-window-lifecycle 等直接 new PluginManager(mainWin) 的用法)
     if (mainWindow && !mainWindow.isDestroyed()) {
       this.setPrimarySession(this.addSession(mainWindow, 'main'))
@@ -263,6 +268,37 @@ class PluginManager {
       this.executePluginCommand(pluginId, command, ...args)
     })
 
+    // 插件 -> 主进程：关闭窗口 (返回母程序, 带过渡动画)
+    ipcMain.handle('plugin:close', async (event, pluginId) => {
+      try {
+        await this.closePlugin(pluginId)
+        return { success: true }
+      } catch (error) {
+        return { success: false, error: error.message }
+      }
+    })
+
+    // 插件 -> 主进程：最小化窗口 (决策52)
+    // 最小化后该会话将没有可见窗口 → 由 minimizePlugin 负责恢复母程序
+    ipcMain.handle('plugin:minimize', async (event, pluginId) => {
+      try {
+        const ok = this.minimizePlugin(pluginId)
+        return { success: !!ok }
+      } catch (error) {
+        return { success: false, error: error.message }
+      }
+    })
+
+    // 插件 -> 主进程：最大化/还原窗口
+    ipcMain.handle('plugin:maximize', async (event, pluginId) => {
+      try {
+        this.maximizePlugin(pluginId)
+        return { success: true }
+      } catch (error) {
+        return { success: false, error: error.message }
+      }
+    })
+
     // 插件 -> 主进程：返回母程序 (带过渡动画)
     ipcMain.handle('plugin:returnToParent', async (event) => {
       const pluginId = this._getWindowPluginId(event.sender)
@@ -447,12 +483,16 @@ class PluginManager {
       throw new Error(platformError)
     }
 
-    // 如果已经在运行，返回现有窗口
-    if (plugin.state === PluginState.RUNNING && this.windows.has(pluginId)) {
-      const existingWindow = this.windows.get(pluginId)
-      // 互斥(会话内): 先藏本会话母程序, 再显示插件窗口 (避免瞬间双窗口同时可见)
-      this._hideMainForPlugin(targetSession)
-      existingWindow.show()
+      // 如果已经在运行，返回现有窗口
+      if (plugin.state === PluginState.RUNNING && this.windows.has(pluginId)) {
+        const existingWindow = this.windows.get(pluginId)
+        // 互斥(会话内): 先藏本会话母程序, 再显示插件窗口 (避免瞬间双窗口同时可见)
+        this._hideMainForPlugin(targetSession)
+        // 窗口此前被最小化 → 先恢复 (show() 不会解除最小化, 否则会话将没有可见窗口)
+        if (existingWindow.isMinimized()) {
+          existingWindow.restore()
+        }
+        existingWindow.show()
       // 重新应用置顶状态（show() 会重置 always-on-top）
       if (this.pluginPinStates.get(pluginId)) {
         existingWindow.setAlwaysOnTop(true, 'screen-saver')
@@ -511,11 +551,24 @@ class PluginManager {
         // 不立即显示，等过渡动画就绪
       })
 
+      // 子程序从最小化恢复 (任务栏/程序坞点击) → 再次隐藏本会话母程序, 维持会话内互斥
+      // (最小化时母程序已恢复可见, 见 minimizePlugin)
+      const onPluginWindowVisible = () => {
+        this.pluginMinimized.delete(pluginId)
+        const ownerSession = this.pluginOwner.get(pluginId)
+        if (ownerSession) {
+          this._hideMainForPlugin(ownerSession)
+        }
+      }
+      pluginWindow.on('restore', onPluginWindowVisible)
+      pluginWindow.on('show', onPluginWindowVisible)
+
       // 窗口关闭事件
       pluginWindow.on('closed', () => {
         // 先捕获归属会话 (removeSession 注销时会提前清掉 owner, 此时不再恢复已销毁的母窗口)
         const ownerSession = this.pluginOwner.get(pluginId)
         this.windows.delete(pluginId)
+        this.pluginMinimized.delete(pluginId)
         if (plugin) {
           plugin.state = PluginState.UNLOADED
         }
@@ -798,13 +851,24 @@ class PluginManager {
 
   /**
    * 最小化插件窗口
+   * 会话内互斥不变式 (决策38/45): 最小化后 isVisible() 返回 false,
+   * 该会话将没有任何可见窗口 → 立即恢复母程序, 保证「不会两个都没了」;
+   * 子程序随后从任务栏恢复时, 母程序会被再次隐藏 (见 startPlugin 的 restore/show 监听)
    * @param {string} pluginId - 插件ID
+   * @returns {boolean} 是否成功最小化
    */
   minimizePlugin(pluginId) {
     const pluginWindow = this.windows.get(pluginId)
-    if (pluginWindow) {
-      pluginWindow.minimize()
+    if (!pluginWindow || pluginWindow.isDestroyed()) return false
+    // 先打标记: Electron 的 isVisible() 在 minimize() 之后有状态延迟,
+    // 不打标记会导致母程序恢复逻辑误判「子程序仍可见」而被跳过
+    this.pluginMinimized.set(pluginId, true)
+    pluginWindow.minimize()
+    const owner = this.pluginOwner.get(pluginId)
+    if (owner) {
+      this._recoverMainWindowIfIdle(owner, 'plugin minimized')
     }
+    return true
   }
 
   /**
@@ -950,6 +1014,7 @@ class PluginManager {
   getVisiblePluginWindows(session = null) {
     const visible = []
     for (const [pluginId, win] of this.windows) {
+      if (this.pluginMinimized.get(pluginId)) continue // 已最小化: 视为不可见 (决策52)
       if (!win || win.isDestroyed() || !win.isVisible()) continue
       if (session && this.pluginOwner.get(pluginId) !== session) continue
       visible.push(win)
@@ -996,12 +1061,13 @@ class PluginManager {
   /**
    * 插件窗口消失后的本会话母程序恢复 (互斥的另一半: 保证该会话始终有一个窗口在运行)
    * @param {Object|null} session - 会话; 为空(会话已注销)则跳过
+   * @param {string} [reason] - 恢复原因 (仅日志)
    */
-  _recoverMainWindowIfIdle(session = null) {
+  _recoverMainWindowIfIdle(session = null, reason = 'plugin gone') {
     if (!session || !session.main || session.main.isDestroyed()) return
     if (this.hasVisiblePluginWindow(session)) return
     if (session.main.isVisible()) return
-    console.log(`[PluginManager] Plugin gone, restoring main window (${session.label})`)
+    console.log(`[PluginManager] Restoring main window (${session.label}): ${reason}`)
     session.main.show()
     // show() 会重置 always-on-top, 按保存的置顶状态恢复
     if (session.pinnedMain) {

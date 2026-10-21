@@ -16,6 +16,7 @@
       loadTheme();
       themeToggle.addEventListener('click', toggleTheme);
       setupPinButton();
+      setupMinButton();
       setHeaderTitle();
       updateUI();
       startReminderLoop();
