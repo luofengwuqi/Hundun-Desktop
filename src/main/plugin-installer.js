@@ -321,8 +321,9 @@ function validateManifest (manifest, pluginRoot) {
     return `入口文件不存在: ${entry} (压缩包内缺少该文件)`
   }
   const entryExt = path.extname(entryPath).toLowerCase()
-  if (entryExt !== '.html' && entryExt !== '.js') {
-    return `入口文件类型不支持: ${entryExt || '(无扩展名)'}，仅支持 .html / .js`
+  // 安全 (V1): .js 入口经 require 运行在主进程 = 主进程 RCE，安装侧一并封堵
+  if (entryExt !== '.html') {
+    return `入口文件类型不支持: ${entryExt || '(无扩展名)'}，仅支持 .html`
   }
 
   // 可选字段类型检查

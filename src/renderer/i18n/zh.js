@@ -45,7 +45,7 @@ export default {
     installZip: '本地安装 (.zip)',
     community: '逛逛社区',
     successTitle: '安装成功',
-    successMsg: '<strong>{name}</strong> v{version} 已安装<br>已同步到卡带货架与插件列表。',
+    successMsg: '<strong>{name}</strong> v{version} 已安装<br>已同步到卡带货架与插件列表。<br><br>⚠️ 插件拥有本机完整权限，请仅安装信任来源的插件包。',
     failTitle: '安装失败',
     communityFailTitle: '无法打开浏览器',
     communityFailMsg: '请手动访问: https://gitee.com/luofengwuqi',

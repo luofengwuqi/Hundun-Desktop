@@ -45,7 +45,7 @@ export default {
     installZip: 'INSTALL (.ZIP)',
     community: 'COMMUNITY',
     successTitle: 'INSTALL SUCCESS',
-    successMsg: '<strong>{name}</strong> v{version} installed<br>Synced to the shelf and plugin list.',
+    successMsg: '<strong>{name}</strong> v{version} installed<br>Synced to the shelf and plugin list.<br><br>⚠️ Plugins run with full local privileges. Only install plugins from trusted sources.',
     failTitle: 'INSTALL FAILED',
     communityFailTitle: 'BROWSER NOT OPENED',
     communityFailMsg: 'Please visit manually: https://gitee.com/luofengwuqi',

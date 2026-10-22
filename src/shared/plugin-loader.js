@@ -149,16 +149,15 @@ class PluginLoader {
   // 加载插件模块
   async loadPluginModule(pluginPath, manifest) {
     const entryFile = path.join(pluginPath, manifest.entry || 'index.js')
-    
+
     if (!fs.existsSync(entryFile)) {
       throw new Error(`Plugin entry file not found: ${entryFile}`)
     }
 
-    // 根据文件类型加载
-    if (entryFile.endsWith('.js')) {
-      return require(entryFile)
-    } else if (entryFile.endsWith('.html')) {
-      // HTML 插件，返回基础对象
+    // 仅允许 .html 入口。
+    // 安全 (2026-10-22 审核决策 V1): .js 入口会经 require() 运行在**主进程**，
+    // 任意插件包即获得主进程 RCE，一律拒绝。插件逻辑一律跑在插件 BrowserWindow 内。
+    if (entryFile.endsWith('.html')) {
       return {
         type: 'html',
         path: entryFile,
@@ -166,8 +165,8 @@ class PluginLoader {
         cleanup: () => {}
       }
     }
-    
-    throw new Error(`Unsupported plugin type: ${entryFile}`)
+
+    throw new Error(`Unsupported plugin entry: ${manifest.entry || 'index.js'} — 仅支持 .html 入口`)
   }
 
   // 验证插件

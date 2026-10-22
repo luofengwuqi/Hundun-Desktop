@@ -210,26 +210,33 @@ class PluginManager {
    * 注册 IPC 处理器
    */
   _registerIPC() {
+    // 插件 -> 主进程：数据存取
+    // 安全 (V5): 发送方是插件窗口时，pluginId 一律以服务端反查为准 ——
+    // 插件只能读写自己的数据，传参伪造其他插件 id 无效
+    const _trustedPluginId = (event, pluginId) => {
+      return this._getWindowPluginId(event.sender) || pluginId
+    }
+
     // 插件 -> 主进程：获取插件数据
     ipcMain.handle('plugin:getData', (event, pluginId, key, defaultValue) => {
-      return this.database.get(pluginId, key, defaultValue)
+      return this.database.get(_trustedPluginId(event, pluginId), key, defaultValue)
     })
 
     // 插件 -> 主进程：设置插件数据
     ipcMain.handle('plugin:setData', (event, pluginId, key, value) => {
-      this.database.set(pluginId, key, value)
+      this.database.set(_trustedPluginId(event, pluginId), key, value)
       return true
     })
 
     // 插件 -> 主进程：删除插件数据
     ipcMain.handle('plugin:removeData', (event, pluginId, key) => {
-      this.database.remove(pluginId, key)
+      this.database.remove(_trustedPluginId(event, pluginId), key)
       return true
     })
 
     // 插件 -> 主进程：获取所有插件数据
     ipcMain.handle('plugin:getAllData', (event, pluginId) => {
-      return this.database.getAll(pluginId)
+      return this.database.getAll(_trustedPluginId(event, pluginId))
     })
 
     // 插件 -> 主进程：发送消息到其他插件
@@ -242,9 +249,9 @@ class PluginManager {
       return this.broadcastMessage(message)
     })
 
-    // 插件 -> 主进程：获取插件信息
+    // 插件 -> 主进程：获取插件信息 (身份服务端反查, V5)
     ipcMain.handle('plugin:getInfo', (event, pluginId) => {
-      const plugin = this.plugins.get(pluginId)
+      const plugin = this.plugins.get(_trustedPluginId(event, pluginId))
       if (!plugin) return null
       return {
         id: plugin.id,
@@ -258,9 +265,9 @@ class PluginManager {
       return this.getInstalledPlugins()
     })
 
-    // 插件 -> 主进程：请求权限
+    // 插件 -> 主进程：请求权限 (身份服务端反查, V5)
     ipcMain.handle('plugin:requestPermission', (event, pluginId, permission) => {
-      return this.checkPermission(pluginId, permission)
+      return this.checkPermission(_trustedPluginId(event, pluginId), permission)
     })
 
     // 主程序 -> 插件：执行命令
@@ -598,10 +605,11 @@ class PluginManager {
       pluginWindow.webContents.on('did-finish-load', () => {
         console.log(`[PluginManager] Plugin page loaded: ${pluginId}`)
         // 注入插件 ID 到窗口
+        // 安全 (V4): JSON.stringify 序列化注入，杜绝 pluginId 拼接造成的 JS 源码注入
         pluginWindow.webContents.executeJavaScript(`
-          window.__PLUGIN_ID__ = '${pluginId}';
+          window.__PLUGIN_ID__ = ${JSON.stringify(pluginId)};
           window.__PLUGIN_MANIFEST__ = ${JSON.stringify(plugin.manifest)};
-          console.log('[Plugin] Injected plugin ID:', '${pluginId}');
+          console.log('[Plugin] Injected plugin ID:', window.__PLUGIN_ID__);
         `)
       })
 

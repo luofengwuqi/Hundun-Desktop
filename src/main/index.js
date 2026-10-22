@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, protocol, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, shell } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const { PluginManager } = require('./plugin-manager')
@@ -304,44 +304,19 @@ ipcMain.handle('plugin:setAlwaysOnTop', async (event, pluginId, flag) => {
   return pluginManager.setAlwaysOnTop(pluginId, flag)
 })
 
-// 窗口拖动（自定义标题栏用）
-ipcMain.on('window-start-drag', (event, mousePosition) => {
-  const dragWin = mainWinOfSender(event.sender)
-  if (dragWin) {
-    const winBounds = dragWin.getBounds()
-    const currentPos = dragWin.getPosition()
-    
-    const moveWindow = (e) => {
-      // 计算新位置
-      const x = currentPos[0] + (e.screenX - mousePosition.x)
-      const y = currentPos[1] + (e.screenY - mousePosition.y)
-      dragWin.setPosition(x, y)
-    }
-    
-    const stopMove = () => {
-      document.removeEventListener('mousemove', moveWindow)
-      document.removeEventListener('mouseup', stopMove)
-    }
-    
-    // 这里通过 webContents 发送事件
-  }
-})
-
-// 自定义协议注册 (用于加载本地资源)
-app.whenReady().then(() => {
-  protocol.registerFileProtocol('local-file', (request, callback) => {
-    const filePath = path.join(__dirname, '../renderer', request.url.replace('local-file://', ''))
-    callback({ path: filePath })
-  })
-})
+// 自定义协议注册 (用于加载本地资源) 已移除 (V9):
+// 旧 local-file 协议为废弃 API 且全工程无使用，纯死代码
 
 // 窗口尺寸调整（子程序切换用）- 带过渡动画
-let resizeAnimToken = 0 // 防重入：新动画启动时使旧动画立即失效
+// 防重入 token 按窗口隔离 (V7): 旧实现是全局单 token，
+// A 窗口动画进行中 B 窗口 resize 会静默取消 A 的动画且尺寸锁不再落地 (窗口停在中间态)
+const resizeAnimTokens = new Map() // BrowserWindow -> 最新 token
 ipcMain.on('window-resize', (event, { width, height }) => {
   const w = mainWinOfSender(event.sender)
   if (!w) return
   const session = pluginManager ? pluginManager.sessions.get(w) : null
-  const token = ++resizeAnimToken // 旧动画的 token 不再匹配，会被取消
+  const token = (resizeAnimTokens.get(w) || 0) + 1
+  resizeAnimTokens.set(w, token) // 旧动画的 token 不再匹配，会被取消
 
   const targetW = width + 20
   const targetH = height + 20
@@ -369,8 +344,12 @@ ipcMain.on('window-resize', (event, { width, height }) => {
     : 1 - Math.pow(-2 * t + 2, 2) / 2
 
   const animate = () => {
-    // 新动画已启动，或窗口已销毁 → 取消本次动画
-    if (token !== resizeAnimToken || w.isDestroyed()) return
+    // 本窗口新动画已启动，或窗口已销毁 → 取消本次动画
+    if (w.isDestroyed()) {
+      resizeAnimTokens.delete(w)
+      return
+    }
+    if (resizeAnimTokens.get(w) !== token) return
 
     const elapsed = Date.now() - startTime
     const progress = Math.min(elapsed / duration, 1)
@@ -388,6 +367,7 @@ ipcMain.on('window-resize', (event, { width, height }) => {
       setTimeout(animate, frameInterval)
     } else {
       // 动画结束，锁定尺寸（中心点已保持不变，无需再居中）
+      resizeAnimTokens.delete(w)
       w.setMinimumSize(targetW, targetH)
       w.setMaximumSize(targetW, targetH)
       // 重新应用置顶状态（setBounds 会重置 always-on-top）
@@ -557,15 +537,37 @@ let fasttxtPluginManager = null
 function registerFastTXTIPC(pm) {
   fasttxtPluginManager = pm
 
+  // 安全 (V3): 插件身份一律由主进程从 event.sender 反查，绝不信任渲染进程传参
+  // —— 否则任意插件窗口可传别的 pluginId 读写其他插件数据
+  const senderPluginId = (event) => {
+    try {
+      return pm && pm._getWindowPluginId(event.sender)
+    } catch (_) {
+      return null
+    }
+  }
+
+  // 安全 (V3): 相对路径解析后必须仍落在 base 内（防绝对路径 / `..` 穿越逃出插件数据目录）
+  const safeJoin = (base, rel) => {
+    const target = path.resolve(base, String(rel == null ? '' : rel))
+    if (target !== base && !target.startsWith(base + path.sep)) {
+      throw new Error('非法路径 (越界): ' + rel)
+    }
+    return target
+  }
+
   // 获取插件数据目录
   ipcMain.handle('fasttxt:getBasePath', (event, pluginId) => {
-    return getFastTXTBasePath(pluginId)
+    const pid = senderPluginId(event)
+    if (!pid) return null
+    return getFastTXTBasePath(pid)
   })
 
   // 列出目录
   ipcMain.handle('fasttxt:readDir', (event, pluginId, dirPath) => {
-    const basePath = getFastTXTBasePath(pluginId)
-    const target = path.join(basePath, dirPath || '')
+    const pid = senderPluginId(event)
+    if (!pid) return []
+    const target = safeJoin(getFastTXTBasePath(pid), dirPath || '')
     try {
       if (!fs.existsSync(target)) return []
       const entries = fs.readdirSync(target, { withFileTypes: true })
@@ -595,8 +597,9 @@ function registerFastTXTIPC(pm) {
 
   // 读取文件
   ipcMain.handle('fasttxt:readFile', (event, pluginId, filePath) => {
-    const basePath = getFastTXTBasePath(pluginId)
-    const target = path.join(basePath, filePath)
+    const pid = senderPluginId(event)
+    if (!pid) return null
+    const target = safeJoin(getFastTXTBasePath(pid), filePath)
     try {
       if (!fs.existsSync(target)) return null
       return fs.readFileSync(target, 'utf-8')
@@ -608,8 +611,9 @@ function registerFastTXTIPC(pm) {
 
   // 写入文件
   ipcMain.handle('fasttxt:writeFile', (event, pluginId, filePath, content) => {
-    const basePath = getFastTXTBasePath(pluginId)
-    const target = path.join(basePath, filePath)
+    const pid = senderPluginId(event)
+    if (!pid) return false
+    const target = safeJoin(getFastTXTBasePath(pid), filePath)
     try {
       const dir = path.dirname(target)
       if (!fs.existsSync(dir)) {
@@ -628,8 +632,9 @@ function registerFastTXTIPC(pm) {
 
   // 删除文件
   ipcMain.handle('fasttxt:deleteFile', (event, pluginId, filePath) => {
-    const basePath = getFastTXTBasePath(pluginId)
-    const target = path.join(basePath, filePath)
+    const pid = senderPluginId(event)
+    if (!pid) return false
+    const target = safeJoin(getFastTXTBasePath(pid), filePath)
     try {
       if (!fs.existsSync(target)) return true
       const stat = fs.statSync(target)
@@ -647,8 +652,9 @@ function registerFastTXTIPC(pm) {
 
   // 创建目录
   ipcMain.handle('fasttxt:mkdir', (event, pluginId, dirPath) => {
-    const basePath = getFastTXTBasePath(pluginId)
-    const target = path.join(basePath, dirPath)
+    const pid = senderPluginId(event)
+    if (!pid) return false
+    const target = safeJoin(getFastTXTBasePath(pid), dirPath)
     try {
       fs.mkdirSync(target, { recursive: true })
       return true
@@ -660,9 +666,11 @@ function registerFastTXTIPC(pm) {
 
   // 重命名
   ipcMain.handle('fasttxt:rename', (event, pluginId, oldPath, newPath) => {
-    const basePath = getFastTXTBasePath(pluginId)
-    const oldTarget = path.join(basePath, oldPath)
-    const newTarget = path.join(basePath, newPath)
+    const pid = senderPluginId(event)
+    if (!pid) return false
+    const basePath = getFastTXTBasePath(pid)
+    const oldTarget = safeJoin(basePath, oldPath)
+    const newTarget = safeJoin(basePath, newPath)
     try {
       const dir = path.dirname(newTarget)
       if (!fs.existsSync(dir)) {
@@ -678,10 +686,10 @@ function registerFastTXTIPC(pm) {
 
   // 检查是否存在
   ipcMain.handle('fasttxt:exists', (event, pluginId, filePath) => {
-    const basePath = getFastTXTBasePath(pluginId)
-    const target = path.join(basePath, filePath)
+    const pid = senderPluginId(event)
+    if (!pid) return false
     try {
-      return fs.existsSync(target)
+      return fs.existsSync(safeJoin(getFastTXTBasePath(pid), filePath))
     } catch (err) {
       return false
     }
@@ -689,9 +697,10 @@ function registerFastTXTIPC(pm) {
 
   // 获取文件信息
   ipcMain.handle('fasttxt:stat', (event, pluginId, filePath) => {
-    const basePath = getFastTXTBasePath(pluginId)
-    const target = path.join(basePath, filePath)
+    const pid = senderPluginId(event)
+    if (!pid) return null
     try {
+      const target = safeJoin(getFastTXTBasePath(pid), filePath)
       if (!fs.existsSync(target)) return null
       const stat = fs.statSync(target)
       return {
@@ -706,14 +715,17 @@ function registerFastTXTIPC(pm) {
 
   // 用系统文件管理器打开目录
   ipcMain.handle('fasttxt:openInExplorer', (event, pluginId) => {
-    const basePath = getFastTXTBasePath(pluginId)
-    shell.openPath(basePath)
+    const pid = senderPluginId(event)
+    if (!pid) return false
+    shell.openPath(getFastTXTBasePath(pid))
+    return true
   })
 
   // 同步写入文件（beforeunload 时使用，确保窗口关闭前数据落盘）
   ipcMain.on('fasttxt:writeFileSync', (event, pluginId, filePath, content) => {
-    const basePath = getFastTXTBasePath(pluginId)
-    const target = path.join(basePath, filePath)
+    const pid = senderPluginId(event)
+    if (!pid) return
+    const target = safeJoin(getFastTXTBasePath(pid), filePath)
     try {
       const dir = path.dirname(target)
       if (!fs.existsSync(dir)) {
@@ -836,6 +848,3 @@ ipcMain.handle('get-app-info', () => {
     arch: process.arch
   }
 })
-
-// 导出窗口引用供插件系统使用
-module.exports = { mainWindow }
