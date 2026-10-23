@@ -82,57 +82,59 @@
           </div>
         </div>
 
-        <!-- Theme Settings -->
+        <!-- Theme Settings (决策55: 官方样式/非官方主题分区, 非官方激活时隐藏官方卡) -->
         <div v-if="selectedTab === 1" class="tab-content">
           <div class="setting-group">
+            <!-- 官方样式 -->
+            <template v-if="themeStore.isOfficial()">
+              <div class="theme-section-label">{{ t('settings.officialThemes') }}</div>
+              <div class="theme-options">
+                <button
+                  v-for="(opt, i) in officialThemeCards"
+                  :key="opt.id"
+                  class="theme-option detail-item"
+                  :class="{ active: themeStore.theme === opt.id, selected: currentSide === 'right' && detailIndex === i }"
+                  @click="selectDetail(i); setTheme(opt.id)"
+                >
+                  <div class="theme-preview" :class="opt.previewClass">
+                    <div class="preview-header"></div>
+                    <div class="preview-body"></div>
+                  </div>
+                  <span class="theme-name">{{ t(opt.labelKey) }}</span>
+                  <span class="official-tag">{{ t('settings.officialBadge') }}</span>
+                  <span v-if="themeStore.theme === opt.id" class="in-use-tag">{{ t('settings.inUse') }}</span>
+                </button>
+              </div>
+            </template>
+            <!-- 非官方主题 -->
+            <div class="theme-section-label">{{ t('settings.communityThemes') }}</div>
             <div class="theme-options">
               <button
+                v-for="(opt, i) in communityThemeCards"
+                :key="opt.id"
                 class="theme-option detail-item"
-                :class="{ active: themeStore.theme === 'dark', selected: currentSide === 'right' && detailIndex === 0 }"
-                @click="selectDetail(0); setTheme('dark')"
+                :class="{ active: themeStore.theme === opt.id, selected: currentSide === 'right' && detailIndex === communityIndexOffset + i }"
+                @click="selectDetail(communityIndexOffset + i); setTheme(opt.id)"
               >
-                <div class="theme-preview dark">
+                <div class="theme-preview" :class="opt.previewClass">
                   <div class="preview-header"></div>
                   <div class="preview-body"></div>
                 </div>
-                <span class="theme-name">{{ t('settings.dark') }}</span>
-                <span v-if="themeStore.theme === 'dark'" class="in-use-tag">{{ t('settings.inUse') }}</span>
+                <span class="theme-name">{{ t(opt.labelKey) }}</span>
+                <span v-if="themeStore.theme === opt.id" class="in-use-tag">{{ t('settings.inUse') }}</span>
               </button>
+              <!-- 恢复官方样式入口 (仅非官方主题激活时出现) -->
               <button
-                class="theme-option detail-item"
-                :class="{ active: themeStore.theme === 'light', selected: currentSide === 'right' && detailIndex === 1 }"
-                @click="selectDetail(1); setTheme('light')"
+                v-if="!themeStore.isOfficial()"
+                class="theme-option restore detail-item"
+                :class="{ selected: currentSide === 'right' && detailIndex === communityThemeCards.length }"
+                @click="selectDetail(communityThemeCards.length); setTheme('hun-tun-black')"
               >
-                <div class="theme-preview light">
+                <div class="theme-preview restore">
                   <div class="preview-header"></div>
                   <div class="preview-body"></div>
                 </div>
-                <span class="theme-name">{{ t('settings.light') }}</span>
-                <span v-if="themeStore.theme === 'light'" class="in-use-tag">{{ t('settings.inUse') }}</span>
-              </button>
-              <button
-                class="theme-option detail-item"
-                :class="{ active: themeStore.theme === 'neon', selected: currentSide === 'right' && detailIndex === 2 }"
-                @click="selectDetail(2); setTheme('neon')"
-              >
-                <div class="theme-preview neon">
-                  <div class="preview-header"></div>
-                  <div class="preview-body"></div>
-                </div>
-                <span class="theme-name">{{ t('settings.neon') }}</span>
-                <span v-if="themeStore.theme === 'neon'" class="in-use-tag">{{ t('settings.inUse') }}</span>
-              </button>
-              <button
-                class="theme-option detail-item"
-                :class="{ active: themeStore.theme === 'gameboy', selected: currentSide === 'right' && detailIndex === 3 }"
-                @click="selectDetail(3); setTheme('gameboy')"
-              >
-                <div class="theme-preview gameboy">
-                  <div class="preview-header"></div>
-                  <div class="preview-body"></div>
-                </div>
-                <span class="theme-name">{{ t('settings.gameboy') }}</span>
-                <span v-if="themeStore.theme === 'gameboy'" class="in-use-tag">{{ t('settings.inUse') }}</span>
+                <span class="theme-name">{{ t('settings.restoreOfficial') }}</span>
               </button>
             </div>
           </div>
@@ -292,7 +294,7 @@
 
 <script setup>
 import { ref, computed, reactive, onMounted, onUnmounted } from 'vue'
-import { useThemeStore } from '../stores/theme'
+import { useThemeStore, THEME_REGISTRY, OFFICIAL_THEMES } from '../stores/theme'
 import { usePluginStore } from '../stores/plugin'
 import { useI18nStore } from '../stores/i18n'
 import { playSound, setGlobalVolume } from '../utils/audio'
@@ -310,6 +312,38 @@ const i18nStore = useI18nStore()
 
 // State
 const isDarkMode = computed(() => themeStore.isDarkMode)
+
+// ========== 主题卡 (决策55: 注册表驱动, 官方/非官方分区) ==========
+const officialThemeCards = computed(() =>
+  THEME_REGISTRY
+    .filter(t => t.official)
+    .map(t => ({
+      id: t.id,
+      labelKey: t.labelKey,
+      previewClass: t.id === 'hun-tun-yellow' ? 'light' : 'dark'
+    }))
+)
+
+const communityThemeCards = computed(() =>
+  THEME_REGISTRY
+    .filter(t => !t.official)
+    .map(t => ({ id: t.id, labelKey: t.labelKey, previewClass: 'handheld' }))
+)
+
+// 非官方卡在键盘导航扁平序列中的起始下标 (官方卡显示时排在其后)
+const communityIndexOffset = computed(() =>
+  themeStore.isOfficial() ? OFFICIAL_THEMES.length : 0
+)
+
+// 主题 Tab 键盘导航的扁平动作序列:
+// 官方激活 → [官方卡..., 非官方卡...] / 非官方激活 → [非官方卡..., 恢复官方]
+const themeDetailActions = computed(() => {
+  const actions = []
+  if (themeStore.isOfficial()) actions.push(...OFFICIAL_THEMES)
+  actions.push(...communityThemeCards.value.map(c => c.id))
+  if (!themeStore.isOfficial()) actions.push('__restore__')
+  return actions
+})
 const plugins = computed(() => pluginStore.plugins)
 const selectedTab = ref(0)
 const detailIndex = ref(-1)
@@ -389,8 +423,8 @@ const detailItemCount = computed(() => {
   switch (selectedTab.value) {
     case 0: // 声音标签
       return 3 // 音效开关、音量滑块、测试按钮
-    case 1: // 主题标签
-      return 4 // 深/浅/赛博霓虹/经典绿
+    case 1: // 主题标签 (决策55: 随注册表/激活态动态伸缩)
+      return themeDetailActions.value.length
     case 2: // 语言标签
       return 2 // 中文、英文
     case 3: // 插件标签
@@ -688,8 +722,15 @@ const executeDetailAction = () => {
         testSound()
       }
       break
-    case 1: // Theme settings
-      setTheme(['dark', 'light', 'neon', 'gameboy'][detailIndex.value] || 'dark')
+    case 1: // Theme settings (决策55: 注册表驱动)
+      {
+        const action = themeDetailActions.value[detailIndex.value]
+        if (action === '__restore__') {
+          setTheme('hun-tun-black')
+        } else if (action) {
+          setTheme(action)
+        }
+      }
       break
     case 2: // Language settings
       if (detailIndex.value === 0) {
@@ -1202,39 +1243,79 @@ onUnmounted(() => {
   background: #1a1a1a;
 }
 
-/* 赛博霓虹预览 (决策54) */
-.theme-preview.neon {
-  background: #150926;
-  border-color: #ff2ec4;
+/* 掌机实装预览 (决策55): 注塑塑料 + LCD 磷光绿 + 电源红 */
+.theme-preview.handheld {
+  background: linear-gradient(160deg, #1c2026 0%, #0f1216 100%);
+  border-color: #060708;
+  position: relative;
 }
 
-.theme-preview.neon .preview-header {
+.theme-preview.handheld::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffb08c, #ff4d2e 60%, #a81f00);
+  box-shadow: 0 0 5px rgba(255, 77, 46, 0.9);
+}
+
+.theme-preview.handheld .preview-header {
   height: 12px;
-  background: #1c0f33;
-  border-bottom: 1px solid #ff2ec4;
-  box-shadow: 0 0 6px rgba(255, 46, 196, 0.6);
+  background: linear-gradient(180deg, #262b31 0%, #181c20 100%);
+  border-bottom: 1px solid #000;
 }
 
-.theme-preview.neon .preview-body {
+.theme-preview.handheld .preview-body {
   height: 48px;
-  background: linear-gradient(180deg, #221240 0%, #150926 100%);
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #081108 0%, #0d1c0f 100%);
 }
 
-/* GameBoy 经典绿预览 (决策54) */
-.theme-preview.gameboy {
-  background: #9bbc0f;
-  border-color: #306230;
+/* 恢复官方样式入口预览: 半官方黑黄对角拼接 */
+.theme-preview.restore {
+  background: linear-gradient(135deg, #0a0a0a 0%, #0a0a0a 50%, #FFF8E8 50%, #FFF3D6 100%);
+  border-color: var(--border-color);
 }
 
-.theme-preview.gameboy .preview-header {
+.theme-preview.restore .preview-header {
   height: 12px;
-  background: #8bac0f;
-  border-bottom: 2px solid #306230;
+  background: transparent;
+  border-bottom: 1px dashed #666;
 }
 
-.theme-preview.gameboy .preview-body {
+.theme-preview.restore .preview-body {
   height: 48px;
-  background: #accf16;
+  background: transparent;
+}
+
+/* 主题分区标签 (官方样式 / 非官方主题) */
+.theme-section-label {
+  font-family: 'Noto Sans SC', 'Press Start 2P', cursive;
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  margin: 6px 2px 8px;
+  user-select: none;
+}
+
+/* 官方徽标 */
+.official-tag {
+  font-family: 'Noto Sans SC', 'Press Start 2P', cursive;
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  color: var(--bg-primary);
+  background: var(--accent-primary);
+  user-select: none;
+}
+
+/* 恢复官方样式卡片: 虚线边框提示"回到官方" */
+.theme-option.restore {
+  border-style: dashed;
 }
 
 .theme-name {

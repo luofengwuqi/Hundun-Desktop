@@ -1006,8 +1006,9 @@ onMounted(async () => {
   try {
     const { ipcRenderer } = require('electron')
     ipcRenderer.on('theme:get-request', () => {
-      // 发送真实主题名 (dark/light/neon/gameboy), 插件 applyTheme 自行映射
-      ipcRenderer.send('theme:get-response', themeStore.theme)
+      // 决策55: 子程序只继承官方基底 (馄饨黑→dark / 馄饨黄→light),
+      // 非官方母程序主题不下发, 子程序主题由插件自行开发管理
+      ipcRenderer.send('theme:get-response', themeStore.isDarkMode ? 'dark' : 'light')
     })
   } catch (e) {
     console.warn('[App] Failed to register theme handler:', e)

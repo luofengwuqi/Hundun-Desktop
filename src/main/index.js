@@ -833,23 +833,6 @@ ipcMain.on('theme:get-response', (event, theme) => {
   }
 })
 
-// 主题实时同步 (修复: theme-changed 事件原先无发送方, 运行中切主题不同步到已打开的子程序):
-// 母程序切主题 → 广播给全部运行中的插件窗口, 插件 onThemeChange 按各自规则应用
-// (插件本地若已手动切过主题, 由插件侧自行忽略 —— 尊重本地覆盖语义)
-ipcMain.on('theme:changed', (event, theme) => {
-  if (!pluginManager) return
-  // 仅受理母窗口发起的广播 (插件窗口不可反向驱动全局主题)
-  const fromMain = [...pluginManager.sessions.keys()]
-    .some(win => !win.isDestroyed() && win.webContents === event.sender)
-  if (!fromMain) return
-  const name = String(theme || 'dark')
-  for (const [pluginId, win] of pluginManager.windows) {
-    if (win && !win.isDestroyed()) {
-      win.webContents.send('theme-changed', name)
-    }
-  }
-})
-
 // 获取应用版本
 ipcMain.handle('get-app-version', () => {
   return app.getVersion()

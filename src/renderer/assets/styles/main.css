@@ -46,50 +46,28 @@
   --console-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.16), inset 0 -2px 8px rgba(0, 0, 0, 0.12);
 }
 
-/* Neon Mode - 赛博霓虹 (决策54): 深紫夜幕 + 品红/青双色霓虹, 发光机身 */
-.neon-mode {
-  --bg-primary: #0d0515;
-  --bg-secondary: #150926;
-  --bg-card: #1c0f33;
-  --bg-slot: #0a0412;
-  --text-primary: #f0eaff;
-  --text-secondary: #9d8fc4;
-  --text-muted: #5e4d85;
-  --accent-primary: #ff2ec4;   /* 品红霓虹 */
-  --accent-secondary: #00f0ff; /* 青色霓虹 */
-  --accent-tertiary: #a855f7;  /* 紫罗兰 */
-  --border-color: #3b1f66;
-  --shadow-color: rgba(255, 46, 196, 0.45);
-  --shadow-glow: 0 0 24px rgba(255, 46, 196, 0.55), 0 0 48px rgba(0, 240, 255, 0.25);
-  --toggle-bg: #2a1747;
-  --toggle-knob: #ff2ec4;
-  --cartridge-body: #221240;
-  --cartridge-label: #00f0ff;
-  --scanline-opacity: 0.05;
-  --console-shadow: inset 0 2px 14px rgba(0, 0, 0, 0.6), inset 0 -2px 10px rgba(88, 28, 135, 0.35);
-}
-
-/* Gameboy Mode - 经典绿 (决策54): 初代 DMG 液晶屏四阶绿 */
-.gameboy-mode {
-  --bg-primary: #9bbc0f;
-  --bg-secondary: #8bac0f;
-  --bg-card: #accf16;
-  --bg-slot: #7e9c0c;
-  --text-primary: #0f380f;
-  --text-secondary: #306230;
-  --text-muted: #4a6a2f;
-  --accent-primary: #0f380f;
-  --accent-secondary: #306230;
-  --accent-tertiary: #0f380f;
-  --border-color: #306230;
-  --shadow-color: rgba(15, 56, 15, 0.35);
-  --shadow-glow: 0 0 12px rgba(15, 56, 15, 0.4);
-  --toggle-bg: #accf16;
-  --toggle-knob: #0f380f;
-  --cartridge-body: #accf16;
-  --cartridge-label: #0f380f;
-  --scanline-opacity: 0.06;
-  --console-shadow: inset 0 2px 12px rgba(15, 56, 15, 0.3), inset 0 -2px 8px rgba(15, 56, 15, 0.22);
+/* Handheld Mode - 掌机实装 (决策55, 非官方主题): 纯 CSS 全拟物整机
+   深空黑机身 + 电源橙红 LED + LCD 磷光绿信息屏 + 实体按键物理行程 */
+.handheld-mode {
+  --bg-primary: #0b0d10;
+  --bg-secondary: #16191d;
+  --bg-card: #101216;
+  --bg-slot: #0d0f12;
+  --text-primary: #d8e6f0;
+  --text-secondary: #7a8a99;
+  --text-muted: #47535f;
+  --accent-primary: #ff4d2e;   /* 电源橙红: LED/重点 */
+  --accent-secondary: #29d4ff; /* 屏幕青 */
+  --accent-tertiary: #ffd447;  /* 琥珀: A 键 */
+  --border-color: #2a2f36;
+  --shadow-color: rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 15px rgba(255, 77, 46, 0.35);
+  --toggle-bg: #0d0f12;
+  --toggle-knob: #cfd8e0;
+  --cartridge-body: #1c2026;
+  --cartridge-label: #ff4d2e;
+  --scanline-opacity: 0.09;    /* 加强扫描线: 拟物 CRT */
+  --console-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.55), inset 0 -2px 10px rgba(0, 0, 0, 0.45);
 }
 
 /* ========== Base Reset ========== */
@@ -877,15 +855,24 @@ svg.slot-btn-icon {
   box-shadow: none;
 }
 
-/* ========== 赛博霓虹主题专属效果 (决策54) ========== */
-/* 机身: 深紫渐变 + 霓虹描边 (遵守决策51: 圆角外无绘制, 全部内阴影/渐变) */
-.neon-mode .console {
+/* ==================================================================
+   掌机实装 · HARDWARE MODE (决策55, 非官方主题)
+   概念: 窗口不是"应用", 是一台真实掌机。纯 CSS 全拟物, 零图片:
+   注塑塑料机身 / 呼吸电源 LED / LCD 磷光信息屏 / 实体按键物理行程
+   / 弹簧卡带 / 沉头螺丝 / 扬声器格栅 / 卡带错位排列 (破坏网格)
+   全部遵守决策51: 圆角外零绘制; DOM 与键盘导航不动, 只换皮肤层
+   ================================================================== */
+
+/* ---- 机身: 注塑塑料 (分层光影 + 顶部受光带) ---- */
+.handheld-mode .console {
   background:
-    linear-gradient(160deg, #1a0b2e 0%, #150926 45%, #0d0518 100%);
-  border-color: #ff2ec4;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, transparent 16%),
+    linear-gradient(160deg, #1c2026 0%, #14171b 42%, #0f1216 100%);
+  border-color: #060708;
 }
 
-.neon-mode .console::after {
+/* 机身氛围层: 屏幕冷光从上渗入 + 电源暖光从下渗入 + 暗角 */
+.handheld-mode .console::after {
   content: '';
   position: absolute;
   top: 0;
@@ -893,115 +880,248 @@ svg.slot-btn-icon {
   width: 100%;
   height: 100%;
   background:
-    radial-gradient(ellipse 60% 40% at 20% 0%, rgba(168, 85, 247, 0.22), transparent),
-    radial-gradient(ellipse 50% 35% at 85% 100%, rgba(0, 240, 255, 0.14), transparent);
+    radial-gradient(ellipse 130% 55% at 50% -12%, rgba(41, 212, 255, 0.06), transparent 58%),
+    radial-gradient(ellipse 100% 60% at 50% 118%, rgba(255, 77, 46, 0.08), transparent 55%),
+    radial-gradient(ellipse 150% 110% at 50% 50%, transparent 58%, rgba(0, 0, 0, 0.42) 100%);
   pointer-events: none;
   z-index: 0;
 }
 
-.neon-mode .header,
-.neon-mode .footer,
-.neon-mode .info-bar {
+/* ---- 顶栏: 机身一体成型 (取消色块, 改模具接缝线) ---- */
+.handheld-mode .header,
+.handheld-mode .footer {
   background: transparent;
 }
 
-/* 卡带: 霓虹描边 + 双色发光 (卡带在机身内部, 外发光不会画出圆角缺口) */
-.neon-mode .cartridge {
-  background: linear-gradient(180deg, #2a1352 0%, #1c0f33 100%);
-  border-color: #00f0ff;
+.handheld-mode .header {
+  border-bottom: none;
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.55), inset 0 -2px 0 rgba(255, 255, 255, 0.035);
 }
 
-.neon-mode .cartridge:hover {
-  box-shadow: 0 0 14px rgba(0, 240, 255, 0.6), 0 0 30px rgba(255, 46, 196, 0.3);
+/* ---- 电源 LED: 实体发光二极管, 硬件呼吸 ---- */
+.handheld-mode .status-dot {
+  width: 10px;
+  height: 10px;
+  background: radial-gradient(circle at 35% 30%, #ffb08c, #ff4d2e 55%, #a81f00 100%);
+  animation: hwLedBreath 2.4s ease-in-out infinite;
 }
 
-.neon-mode .cartridge.selected {
-  border-color: #ff2ec4;
-  box-shadow: 0 0 16px rgba(255, 46, 196, 0.7), 0 0 36px rgba(255, 46, 196, 0.35);
+@keyframes hwLedBreath {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 5px rgba(255, 77, 46, 0.95), 0 0 14px rgba(255, 77, 46, 0.5);
+  }
+  50% {
+    opacity: 0.55;
+    box-shadow: 0 0 2px rgba(255, 77, 46, 0.5), 0 0 6px rgba(255, 77, 46, 0.2);
+  }
 }
 
-.neon-mode .slot-cartridge:hover {
-  box-shadow: 0 0 18px rgba(255, 46, 196, 0.7);
+/* ---- 拨动开关: 凹陷滑轨 + 金属拨杆 ---- */
+.handheld-mode .toggle-switch {
+  background: #0b0d10;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.85), inset 0 -1px 0 rgba(255, 255, 255, 0.05);
 }
 
-/* 按钮/开关: 霓虹发光 */
-.neon-mode .slot-btn:hover:not(:disabled) {
-  box-shadow: 0 0 12px rgba(255, 46, 196, 0.55);
+.handheld-mode .toggle-knob {
+  background: linear-gradient(180deg, #e8edf2 0%, #9aa6b2 100%);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.85);
 }
 
-.neon-mode .toggle-switch.active {
-  border-color: #00f0ff;
-  box-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+/* ---- LCD 信息屏: 磷光绿点阵屏, 内凹屏框 + 像素扫描纹 ---- */
+.handheld-mode .cartridge-info {
+  height: 48px;
+  margin-top: 44px;
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #081108 0%, #0d1c0f 100%);
+  border: 2px solid #040804;
+  border-radius: 8px;
+  box-shadow:
+    inset 0 3px 10px rgba(0, 0, 0, 0.9),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 0 26px rgba(88, 255, 157, 0.05);
 }
 
-/* 信息栏名称: 霓虹描边 */
-.neon-mode .cartridge-info-name {
-  text-shadow: 0 0 10px rgba(255, 46, 196, 0.65), 0 0 28px rgba(0, 240, 255, 0.3);
+.handheld-mode .cartridge-info-name {
+  color: #58ff9d;
+  text-shadow: 0 0 8px rgba(88, 255, 157, 0.5), 0 0 24px rgba(88, 255, 157, 0.22);
 }
 
-/* ========== GameBoy 经典绿主题专属效果 (决策54) ========== */
-/* 机身: 液晶四阶绿 + 网点纹理 (点阵印刷感) */
-.gameboy-mode .console {
-  background: var(--bg-secondary);
-  border-color: #306230;
-  border-width: 4px;
+.handheld-mode .cartridge-info-empty {
+  color: #2e6b45;
+  text-shadow: 0 0 6px rgba(88, 255, 157, 0.14);
 }
 
-.gameboy-mode .console::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-image: radial-gradient(rgba(15, 56, 15, 0.08) 1px, transparent 1px);
-  background-size: 4px 4px;
-  pointer-events: none;
-  z-index: 0;
+/* ---- 卡带货架: 整排轻微倾斜 (打破横平竖直) ---- */
+.handheld-mode .cartridge-row {
+  transform: rotate(-1.2deg);
 }
 
-.gameboy-mode .header,
-.gameboy-mode .footer,
-.gameboy-mode .info-bar {
-  background: transparent;
+/* ---- 卡带: 实体外壳 + 底部厚投影 + 弹簧弹出 ---- */
+.handheld-mode .cartridge {
+  background: linear-gradient(180deg, #23272d 0%, #14171a 100%);
+  border: 2px solid #050607;
+  border-radius: 10px 10px 14px 14px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.35),
+    0 6px 10px rgba(0, 0, 0, 0.55);
+  /* 弹簧曲线: 过冲回弹 */
+  transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.28s ease, border-color 0.2s ease;
 }
 
-/* 卡带: 硬边框像素风 (无圆角, 无发光) */
-.gameboy-mode .cartridge {
-  background: var(--bg-card);
-  border: 3px solid #306230;
-  border-radius: 4px;
+/* 排列破坏: 卡带插歪了 (3 周期错位, 网格感瓦解) */
+.handheld-mode .cartridge:nth-child(3n+1) {
+  margin-top: -14px;
 }
 
-.gameboy-mode .cartridge:hover {
-  box-shadow: none;
-  transform: translate(-1px, -1px);
+.handheld-mode .cartridge:nth-child(3n+2) {
+  margin-top: 10px;
 }
 
-.gameboy-mode .cartridge.selected {
-  border-color: #0f380f;
-  box-shadow: inset 0 0 0 2px #0f380f;
+/* hover = 弹簧顶起, 带一丝不平衡旋转 */
+.handheld-mode .cartridge:hover {
+  transform: translateY(-14px) rotate(-1deg);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    0 12px 18px rgba(0, 0, 0, 0.6);
 }
 
-.gameboy-mode .cartridge-label {
-  background: var(--bg-card);
-  border: 2px solid #0f380f;
-  border-radius: 2px;
+.handheld-mode .cartridge.selected {
+  transform: translateY(-10px) scale(1.04);
+  border-color: var(--cartridge-color, var(--accent-primary));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    0 10px 16px rgba(0, 0, 0, 0.6),
+    0 0 18px var(--cartridge-color, var(--accent-primary));
 }
 
-.gameboy-mode .slot-cartridge:hover {
-  box-shadow: none;
-  transform: translate(-1px, -1px);
+.handheld-mode .cartridge.selected:hover {
+  transform: translateY(-16px) scale(1.05) rotate(-1deg);
 }
 
-.gameboy-mode .slot-btn {
-  border-radius: 4px;
+/* 底部标签区 → 贴纸 (斜纹印刷质感) */
+.handheld-mode .cartridge::after {
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #2c3138 0%, #21252b 100%);
 }
 
-.gameboy-mode .toggle-knob {
-  border-radius: 2px;
+/* 图标区 → 内凹显示屏 */
+.handheld-mode .cartridge-icon {
+  background: #06080a;
+  border-color: #000;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.9), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
-.gameboy-mode .cartridge-info-name {
-  text-shadow: 1px 1px 0 rgba(15, 56, 15, 0.35);
+/* 编号 → 阴刻铭文 */
+.handheld-mode .cartridge-id {
+  color: #2c3138;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* ---- 插槽: 深插槽 + 金属导轨 ---- */
+.handheld-mode .cartridge-slot {
+  background: linear-gradient(180deg, #05070a 0%, #0c1013 100%);
+  border: 2px solid #000;
+  box-shadow:
+    inset 0 6px 14px rgba(0, 0, 0, 0.85),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.03);
+}
+
+.handheld-mode .slot-cartridge {
+  background: linear-gradient(180deg, #23272d 0%, #14171a 100%);
+  border-color: #050607;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+}
+
+/* 槽内卡带 hover → 向下顶 (插入动作, 与货架弹出相反) */
+.handheld-mode .slot-cartridge:hover {
+  transform: translateY(4px);
+  box-shadow: 0 0 12px var(--cartridge-color, var(--accent-primary));
+}
+
+/* ---- 实体按键: 3D 键帽 + 物理按压行程 (键杆阴影 3px → 0) ---- */
+.handheld-mode .slot-btn {
+  background: linear-gradient(180deg, #262b31 0%, #181c20 100%);
+  border-color: #0a0c0e;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.4),
+    0 3px 0 #060708,
+    0 5px 8px rgba(0, 0, 0, 0.55);
+  transition: transform 0.06s ease, box-shadow 0.06s ease, border-color 0.2s ease;
+}
+
+.handheld-mode .slot-btn:hover {
+  transform: translateY(-1px);
+  border-color: #3a4047;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.4),
+    0 4px 0 #060708,
+    0 7px 12px rgba(0, 0, 0, 0.55);
+}
+
+/* 按下 = 键帽到底 (键杆阴影消失, 行程 3px) */
+.handheld-mode .slot-btn:active {
+  transform: translateY(3px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.5),
+    0 0 0 #060708,
+    0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.handheld-mode .slot-btn.selected {
+  transform: none;
+  border-color: var(--accent-primary);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    inset 0 -2px 3px rgba(0, 0, 0, 0.4),
+    0 3px 0 #060708,
+    0 5px 8px rgba(0, 0, 0, 0.55),
+    0 0 12px rgba(255, 77, 46, 0.4);
+}
+
+/* 镜像激活 → 青色键帽点亮 */
+.handheld-mode .slot-btn.mirror-btn.active {
+  border-color: var(--accent-secondary);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.13),
+    0 3px 0 #060708,
+    0 0 14px rgba(41, 212, 255, 0.45);
+}
+
+/* ---- 沉头螺丝: 金属渐变 + 一字槽 ---- */
+.handheld-mode .deco-screw {
+  width: 12px;
+  height: 12px;
+  background: radial-gradient(circle at 35% 30%, #4a525c, #1a1e23 60%, #101216 100%);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.8),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.08),
+    0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.handheld-mode .deco-screw::before {
+  color: #0a0c0e;
+  font-size: 10px;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+/* ---- 底栏: 扬声器格栅 + 模压铭牌 ---- */
+.handheld-mode .footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.045);
+  background-image: radial-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1.4px);
+  background-size: 7px 7px;
+  background-position: center;
+}
+
+.handheld-mode .footer-info {
+  color: #3d454e;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.07);
+  letter-spacing: 3px;
 }
