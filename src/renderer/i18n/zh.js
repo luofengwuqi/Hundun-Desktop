@@ -67,6 +67,8 @@ export default {
     testSound: '测试音效',
     light: '浅色',
     dark: '深色',
+    neon: '赛博霓虹',
+    gameboy: '经典绿',
     version: '版本',
     stack: '技术栈',
     system: '系统',

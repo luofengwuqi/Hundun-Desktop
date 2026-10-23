@@ -1,17 +1,23 @@
-    // ========== Theme ==========
+    // ========== Theme (dark/light/neon/gameboy, 决策54) ==========
     let isDarkMode = true;
 
-    const applyTheme = (isDark) => {
-      isDarkMode = typeof isDark === 'boolean' ? isDark : isDark === 'dark';
-      document.body.classList.toggle('light-mode', !isDarkMode);
+    const applyTheme = (themeValue) => {
+      // 兼容: boolean(旧) | 'dark'|'light'|'neon'|'gameboy'(母程序主题名)
+      const name = typeof themeValue === 'boolean'
+        ? (themeValue ? 'dark' : 'light')
+        : ['dark', 'light', 'neon', 'gameboy'].includes(themeValue) ? themeValue : 'dark';
+      isDarkMode = (name === 'dark' || name === 'neon');
+      document.body.classList.remove('light-mode', 'neon-mode', 'gameboy-mode');
+      if (name === 'light') document.body.classList.add('light-mode');
+      else if (name === 'neon') document.body.classList.add('neon-mode');
+      else if (name === 'gameboy') document.body.classList.add('gameboy-mode');
       updateThemeToggle();
     };
 
     const toggleTheme = () => {
-      isDarkMode = !isDarkMode;
-      document.body.classList.toggle('light-mode', !isDarkMode);
+      // 本地拨动开关: 始终在暗/亮基底间切换 (neon/gameboy 等精确主题由母程序设置页驱动)
+      applyTheme(!isDarkMode);
       localStorage.setItem('task-theme', isDarkMode ? 'dark' : 'light');
-      updateThemeToggle();
     };
 
     const updateThemeToggle = () => {
@@ -20,5 +26,5 @@
 
     const loadTheme = () => {
       const savedTheme = localStorage.getItem('task-theme');
-      if (savedTheme) applyTheme(savedTheme === 'dark');
+      if (savedTheme) applyTheme(savedTheme); // 'dark'/'light' 都是合法主题名
     };

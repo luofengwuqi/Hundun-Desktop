@@ -1006,8 +1006,8 @@ onMounted(async () => {
   try {
     const { ipcRenderer } = require('electron')
     ipcRenderer.on('theme:get-request', () => {
-      const theme = themeStore.isDarkMode ? 'dark' : 'light'
-      ipcRenderer.send('theme:get-response', theme)
+      // 发送真实主题名 (dark/light/neon/gameboy), 插件 applyTheme 自行映射
+      ipcRenderer.send('theme:get-response', themeStore.theme)
     })
   } catch (e) {
     console.warn('[App] Failed to register theme handler:', e)

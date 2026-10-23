@@ -67,6 +67,8 @@ export default {
     testSound: 'TEST SOUND',
     light: 'LIGHT',
     dark: 'DARK',
+    neon: 'NEON',
+    gameboy: 'GAMEBOY',
     version: 'Version',
     stack: 'Tech Stack',
     system: 'System',

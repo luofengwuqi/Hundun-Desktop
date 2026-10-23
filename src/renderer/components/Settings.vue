@@ -86,29 +86,53 @@
         <div v-if="selectedTab === 1" class="tab-content">
           <div class="setting-group">
             <div class="theme-options">
-              <button 
+              <button
                 class="theme-option detail-item"
-                :class="{ active: !isDarkMode, selected: currentSide === 'right' && detailIndex === 0 }"
-                @click="selectDetail(0); setTheme('light')"
-              >
-                <div class="theme-preview light">
-                  <div class="preview-header"></div>
-                  <div class="preview-body"></div>
-                </div>
-                <span class="theme-name">{{ t('settings.light') }}</span>
-                <span v-if="!isDarkMode" class="in-use-tag">{{ t('settings.inUse') }}</span>
-              </button>
-              <button 
-                class="theme-option detail-item"
-                :class="{ active: isDarkMode, selected: currentSide === 'right' && detailIndex === 1 }"
-                @click="selectDetail(1); setTheme('dark')"
+                :class="{ active: themeStore.theme === 'dark', selected: currentSide === 'right' && detailIndex === 0 }"
+                @click="selectDetail(0); setTheme('dark')"
               >
                 <div class="theme-preview dark">
                   <div class="preview-header"></div>
                   <div class="preview-body"></div>
                 </div>
                 <span class="theme-name">{{ t('settings.dark') }}</span>
-                <span v-if="isDarkMode" class="in-use-tag">{{ t('settings.inUse') }}</span>
+                <span v-if="themeStore.theme === 'dark'" class="in-use-tag">{{ t('settings.inUse') }}</span>
+              </button>
+              <button
+                class="theme-option detail-item"
+                :class="{ active: themeStore.theme === 'light', selected: currentSide === 'right' && detailIndex === 1 }"
+                @click="selectDetail(1); setTheme('light')"
+              >
+                <div class="theme-preview light">
+                  <div class="preview-header"></div>
+                  <div class="preview-body"></div>
+                </div>
+                <span class="theme-name">{{ t('settings.light') }}</span>
+                <span v-if="themeStore.theme === 'light'" class="in-use-tag">{{ t('settings.inUse') }}</span>
+              </button>
+              <button
+                class="theme-option detail-item"
+                :class="{ active: themeStore.theme === 'neon', selected: currentSide === 'right' && detailIndex === 2 }"
+                @click="selectDetail(2); setTheme('neon')"
+              >
+                <div class="theme-preview neon">
+                  <div class="preview-header"></div>
+                  <div class="preview-body"></div>
+                </div>
+                <span class="theme-name">{{ t('settings.neon') }}</span>
+                <span v-if="themeStore.theme === 'neon'" class="in-use-tag">{{ t('settings.inUse') }}</span>
+              </button>
+              <button
+                class="theme-option detail-item"
+                :class="{ active: themeStore.theme === 'gameboy', selected: currentSide === 'right' && detailIndex === 3 }"
+                @click="selectDetail(3); setTheme('gameboy')"
+              >
+                <div class="theme-preview gameboy">
+                  <div class="preview-header"></div>
+                  <div class="preview-body"></div>
+                </div>
+                <span class="theme-name">{{ t('settings.gameboy') }}</span>
+                <span v-if="themeStore.theme === 'gameboy'" class="in-use-tag">{{ t('settings.inUse') }}</span>
               </button>
             </div>
           </div>
@@ -366,7 +390,7 @@ const detailItemCount = computed(() => {
     case 0: // 声音标签
       return 3 // 音效开关、音量滑块、测试按钮
     case 1: // 主题标签
-      return 2 // 浅色主题、深色主题
+      return 4 // 深/浅/赛博霓虹/经典绿
     case 2: // 语言标签
       return 2 // 中文、英文
     case 3: // 插件标签
@@ -665,11 +689,7 @@ const executeDetailAction = () => {
       }
       break
     case 1: // Theme settings
-      if (detailIndex.value === 0) {
-        setTheme('light')
-      } else if (detailIndex.value === 1) {
-        setTheme('dark')
-      }
+      setTheme(['dark', 'light', 'neon', 'gameboy'][detailIndex.value] || 'dark')
       break
     case 2: // Language settings
       if (detailIndex.value === 0) {
@@ -1120,8 +1140,9 @@ onUnmounted(() => {
 
 /* Theme Options */
 .theme-options {
-  display: flex;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 
 .theme-option {
@@ -1179,6 +1200,41 @@ onUnmounted(() => {
 .theme-preview.dark .preview-body {
   height: 48px;
   background: #1a1a1a;
+}
+
+/* 赛博霓虹预览 (决策54) */
+.theme-preview.neon {
+  background: #150926;
+  border-color: #ff2ec4;
+}
+
+.theme-preview.neon .preview-header {
+  height: 12px;
+  background: #1c0f33;
+  border-bottom: 1px solid #ff2ec4;
+  box-shadow: 0 0 6px rgba(255, 46, 196, 0.6);
+}
+
+.theme-preview.neon .preview-body {
+  height: 48px;
+  background: linear-gradient(180deg, #221240 0%, #150926 100%);
+}
+
+/* GameBoy 经典绿预览 (决策54) */
+.theme-preview.gameboy {
+  background: #9bbc0f;
+  border-color: #306230;
+}
+
+.theme-preview.gameboy .preview-header {
+  height: 12px;
+  background: #8bac0f;
+  border-bottom: 2px solid #306230;
+}
+
+.theme-preview.gameboy .preview-body {
+  height: 48px;
+  background: #accf16;
 }
 
 .theme-name {

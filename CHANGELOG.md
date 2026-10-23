@@ -1,8 +1,22 @@
 # HundunDesktop - 更新日志
 
-> 最后更新: 2026-10-21
+> 最后更新: 2026-10-23
 
 ---
+
+## 2026-10-23
+
+### feat: 四主题系统 — 赛博霓虹 + GameBoy 经典绿 (决策54)
+
+- [x] **新主题 × 2**: 设置 > 主题 从二卡扩为四卡 (2×2 grid, 键盘可达)
+  - **赛博霓虹 (neon)**: 深紫夜幕机身 (三段渐变 + 紫罗兰/青双色径向光晕) + 品红 #ff2ec4 / 青 #00f0ff 霓虹描边, 卡带 hover/选中双色发光, 信息栏名称霓虹 text-shadow, 扫描线加重 (0.05); 全部效果遵守决策51 (圆角外零绘制, 只用渐变/内阴影/机身内部发光)
+  - **GameBoy 经典绿 (gameboy)**: 初代 DMG 四阶绿 (#0f380f/#306230/#8bac0f/#9bbc0f) + 4px 点阵网点纹理 + 卡带硬边框像素风 (无圆角无发光, hover 位移替代), 扫描线 0.06 还原 LCD 质感
+- [x] **架构**: 主题 = CSS 变量块 (契约不变, 26 变量) + body class (`light-mode`/`neon-mode`/`gameboy-mode`, dark 走 :root); theme store 二值 → 四值, `isDarkMode` 保留为基底语义 (`dark/neon`=暗), 顶部拨动开关仍只切暗/亮, 精确主题从设置页四卡选; localStorage 存原始主题名, 非法值回退 dark
+- [x] **子程序全量适配**: fast-txt / fast-cmd / task / calculator 的 `applyTheme` 兼容 boolean(旧) 与主题名(新), 各自 CSS 补 neon/gameboy 变量块; 插件本地拨动开关语义不变 (本地切换过则忽略母程序广播)
+- [x] **修复: 主题运行中不同步到已打开子程序** (theme-changed 事件原先无任何发送方): 现在 `setTheme` → `ipc 'theme:changed'` → 主进程校验发送方为母窗口后转发给全部运行中插件窗口; 插件不可反向驱动全局主题; `theme:get-response` 应答从二值改为真实主题名
+- [x] **验证**: node --check / npm run build 全量 / 生产产物启动冒烟 (Session added + Plugin manager initialized 正常); i18n zh/en 补 `settings.neon`/`settings.gameboy`
+
+## 2026-10-21
 
 ## 2026-10-21
 

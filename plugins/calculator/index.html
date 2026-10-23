@@ -40,6 +40,40 @@
       --scanline-opacity: 0.01;
     }
 
+    /* Neon Mode - 赛博霓虹 (决策54) */
+    .neon-mode {
+      --bg-primary: #0d0515;
+      --bg-secondary: #150926;
+      --bg-card: #1c0f33;
+      --bg-slot: #0a0412;
+      --text-primary: #f0eaff;
+      --text-secondary: #9d8fc4;
+      --text-muted: #5e4d85;
+      --accent-primary: #ff2ec4;
+      --accent-secondary: #00f0ff;
+      --accent-tertiary: #a855f7;
+      --border-color: #3b1f66;
+      --shadow-color: rgba(255, 46, 196, 0.45);
+      --scanline-opacity: 0.05;
+    }
+
+    /* Gameboy Mode - 经典绿 (决策54): 初代 DMG 四阶绿 */
+    .gameboy-mode {
+      --bg-primary: #9bbc0f;
+      --bg-secondary: #8bac0f;
+      --bg-card: #accf16;
+      --bg-slot: #7e9c0c;
+      --text-primary: #0f380f;
+      --text-secondary: #306230;
+      --text-muted: #4a6a2f;
+      --accent-primary: #0f380f;
+      --accent-secondary: #306230;
+      --accent-tertiary: #0f380f;
+      --border-color: #306230;
+      --shadow-color: rgba(15, 56, 15, 0.35);
+      --scanline-opacity: 0.06;
+    }
+
     /* ========== Base ========== */
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -548,8 +582,15 @@
     };
 
     // ========== 主题 ==========
-    const applyTheme = (isDark) => {
-      document.body.classList.toggle('light-mode', !isDark);
+    const applyTheme = (themeValue) => {
+      // 兼容: boolean(旧) | 'dark'|'light'|'neon'|'gameboy'(母程序主题名, 决策54)
+      const name = typeof themeValue === 'boolean'
+        ? (themeValue ? 'dark' : 'light')
+        : ['dark', 'light', 'neon', 'gameboy'].includes(themeValue) ? themeValue : 'dark';
+      document.body.classList.remove('light-mode', 'neon-mode', 'gameboy-mode');
+      if (name === 'light') document.body.classList.add('light-mode');
+      else if (name === 'neon') document.body.classList.add('neon-mode');
+      else if (name === 'gameboy') document.body.classList.add('gameboy-mode');
     };
 
     // ========== 状态 ==========
