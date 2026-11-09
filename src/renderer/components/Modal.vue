@@ -3,7 +3,7 @@
     <div class="modal" :class="{ 'modal-large': size === 'large' }">
       <!-- 左侧：图标和信息 -->
       <div class="modal-left">
-        <div class="modal-icon">{{ icon }}</div>
+        <div class="modal-icon"><span v-if="iconSvg" class="modal-icon-svg" :style="{ '--modal-icon-color': iconColor || 'currentColor' }" v-html="iconSvg"></span><template v-else>{{ icon }}</template></div>
         <div class="modal-info">
           <div class="modal-title" :class="{ 'modal-title-large': titleSize === 'large' }">{{ title }}</div>
           <div class="modal-message" v-if="message" v-html="message"></div>
@@ -33,6 +33,15 @@ const props = defineProps({
   icon: {
     type: String,
     default: '🎮'
+  },
+  // 有 SVG 图标时优先渲染图片，icon 仅作兜底
+  iconSvg: {
+    type: String,
+    default: ''
+  },
+  iconColor: {
+    type: String,
+    default: ''
   },
   title: {
     type: String,
@@ -196,6 +205,23 @@ onUnmounted(() => {
 .modal-icon {
   font-size: 72px;
   flex-shrink: 0;
+}
+
+/* v-html 插入的 svg 没有 data-v 作用域属性，尺寸/颜色必须走 :deep() */
+.modal-icon-svg {
+  display: block;
+  line-height: 0;
+  color: var(--modal-icon-color, currentColor);
+}
+
+.modal-icon-svg :deep(svg) {
+  width: 56px;
+  height: 56px;
+  display: block;
+}
+
+.light-mode .modal-icon-svg :deep(svg) {
+  filter: brightness(0.72);
 }
 
 .modal-info {

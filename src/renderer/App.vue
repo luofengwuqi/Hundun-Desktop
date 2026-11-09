@@ -149,6 +149,8 @@
     <Modal
       v-if="modalVisible"
       :icon="modalIcon"
+      :icon-svg="modalIconSvg"
+      :icon-color="modalIconColor"
       :title="modalTitle"
       :message="modalMessage"
       :buttons="modalButtons"
@@ -217,6 +219,8 @@ const foreignIds = ref([])
 // 弹窗状态
 const modalVisible = ref(false)
 const modalIcon = ref('')
+const modalIconSvg = ref('')
+const modalIconColor = ref('')
 const modalTitle = ref('')
 const modalMessage = ref('')
 const modalButtons = ref([])
@@ -240,6 +244,26 @@ const escapeHtml = (str) => String(str ?? '')
   .replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#39;')
+
+// 卡带图标优先用 manifest 的 iconSvg（图片），缺失时才回退 emoji 字符。
+// 弹窗正文走 v-html，图标以行内样式内联，尺寸/颜色不依赖 scoped 样式。
+const safeIconColor = (plugin) => {
+  const c = plugin && (plugin.iconColor || plugin.color)
+  return typeof c === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(c) ? c : 'currentColor'
+}
+
+// 给内联 SVG 补上尺寸（原字符串无 width/height，缺省会按 300x150 撑开）
+const svgSized = (svg, px) => String(svg || '').replace(/<svg\b/, `<svg width="${px}" height="${px}"`)
+
+// 返回「图标 + 名字」的 HTML 片段；名字由调用方先转义
+const pluginIconHtml = (plugin, px = 18) => {
+  if (!plugin) return ''
+  if (plugin.iconSvg) {
+    const color = safeIconColor(plugin)
+    return `<span style="display:inline-block;color:${color};vertical-align:-3px;margin-right:6px;line-height:0;">${svgSized(plugin.iconSvg, px)}</span>`
+  }
+  return escapeHtml(plugin.icon || '')
+}
 
 // ========== 初始化 / 同步卡带货架 ==========
 // 依据插件 store 重建货架（排除插槽中正在使用的卡带），
@@ -361,7 +385,7 @@ const insertSelectedToSlot = () => {
     showModal(
       '⚠️',
       t('cartridge.running'),
-      t('cartridge.busyOtherMsg', { name: `${plugin.icon} ${plugin.name}` }),
+      t('cartridge.busyOtherMsg', { name: `${pluginIconHtml(plugin)}${escapeHtml(plugin.name)}` }),
       [{ text: t('cartridge.ok'), class: 'primary', action: closeModal }]
     )
     return
@@ -371,7 +395,7 @@ const insertSelectedToSlot = () => {
     showModal(
       '⚠️',
       t('cartridge.alreadyRunning'),
-      t('cartridge.alreadyRunningMsg', { name: `${plugin.icon} ${plugin.name}` }),
+      t('cartridge.alreadyRunningMsg', { name: `${pluginIconHtml(plugin)}${escapeHtml(plugin.name)}` }),
       [{ text: t('cartridge.ok'), class: 'primary', action: closeModal }]
     )
     return
@@ -385,8 +409,8 @@ const insertSelectedToSlot = () => {
       '🔌',
       t('cartridge.switchTitle'),
       t('cartridge.switchMsg', { 
-        current: `${currentPlugin.icon} ${currentPlugin.name}`, 
-        target: `${newPlugin.icon} ${newPlugin.name}` 
+        current: `${pluginIconHtml(currentPlugin)}${escapeHtml(currentPlugin.name)}`,
+        target: `${pluginIconHtml(newPlugin)}${escapeHtml(newPlugin.name)}`
       }),
       [
         { text: t('cartridge.cancel'), class: 'secondary', action: closeModal },
@@ -603,7 +627,10 @@ const handleSlotClick = () => {
           { text: t('cartridge.eject'), class: 'danger', action: ejectCurrentPlugin },
           { text: t('cartridge.cancel'), class: 'secondary', action: closeModal }
         ],
-        'large'
+        'large',
+        'normal',
+        slotPlugin.value.iconSvg,
+        safeIconColor(slotPlugin.value)
       )
     }
   } else {
@@ -757,7 +784,7 @@ const handleDrop = () => {
     showModal(
       '⚠️',
       t('cartridge.running'),
-      t('cartridge.busyOtherMsg', { name: `${plugin.icon} ${plugin.name}` }),
+      t('cartridge.busyOtherMsg', { name: `${pluginIconHtml(plugin)}${escapeHtml(plugin.name)}` }),
       [{ text: t('cartridge.ok'), class: 'primary', action: closeModal }]
     )
     dragPlugin.value = null
@@ -768,7 +795,7 @@ const handleDrop = () => {
     showModal(
       '⚠️',
       t('cartridge.alreadyRunning'),
-      t('cartridge.alreadyRunningMsg', { name: `${plugin.icon} ${plugin.name}` }),
+      t('cartridge.alreadyRunningMsg', { name: `${pluginIconHtml(plugin)}${escapeHtml(plugin.name)}` }),
       [{ text: t('cartridge.ok'), class: 'primary', action: closeModal }]
     )
     dragPlugin.value = null
@@ -799,8 +826,10 @@ const handleWheel = (e) => {
 }
 
 // ========== 弹窗系统 ==========
-const showModal = (icon, title, message, buttons, size = 'normal', titleSize = 'normal') => {
+const showModal = (icon, title, message, buttons, size = 'normal', titleSize = 'normal', iconSvg = '', iconColor = '') => {
   modalIcon.value = icon
+  modalIconSvg.value = iconSvg
+  modalIconColor.value = iconColor
   modalTitle.value = title
   modalMessage.value = message
   modalButtons.value = buttons

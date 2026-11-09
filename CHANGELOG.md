@@ -6,6 +6,15 @@
 
 ## 2026-11-10
 
+### feat: 弹窗类提示同样优先用 SVG 图标（切换卡带/插槽/移除）
+
+- [x] **问题**: 卡带本体已经用上 SVG，但**切换卡带确认弹窗**里 `.modal-message` 仍是 `${icon} ${name}` 拼出来的字符，同一个插件在货架上是蓝音符、进弹窗就变回 emoji，观感割裂
+- [x] **正文内联**: 新增 `pluginIconHtml(plugin, px)` —— 有 `iconSvg` 就输出带内联样式的 `<span>` + 补过 `width/height` 的 svg（原字符串没有尺寸，缺省会按 300×150 撑开），否则回退转义后的 emoji。覆盖切换卡带 `current/target`、镜像互斥/已在运行两处 `busyOtherMsg`、设置页移除确认与移除成功文案（共 8 处）
+- [x] **弹窗大图标**: `Modal.vue` 增加 `iconSvg` / `iconColor` prop，有 SVG 就渲染图片（56×56，颜色走 `--modal-icon-color`），`icon` 仅兜底；`showModal()` 尾部追加这两个参数，插槽「运行中」大弹窗已接入
+- [x] **安全**: 插件名统一 `escapeHtml`（原本 `${plugin.icon} ${plugin.name}` 是直接拼进 `v-html` 的）；图标色只接受 `#RGB/#RRGGBB` 形式，否则回落 `currentColor`
+- [x] **坑**: 两处 `v-html` 内容都在 scoped 组件内，svg 不带 `data-v-*`，尺寸/颜色必须 `:deep()`（与上一版设置页同一个坑）
+- [x] **验证**: Electron 实拍 —— 切换卡带弹窗里 Music 前是 18px 蓝音符、FastCmd 正确回退 ⚡；插槽大弹窗 56×56 蓝音符，深色带辉光、浅色 `brightness(0.72)` 压深后仍清晰。`npm run build` + `check:main` 通过
+
 ### feat: 插件图标支持内联 SVG（Music 换成蓝色音符）
 
 - [x] **动机**: 上一版把 `🎵` 换成 `🎼` 只是「能看清」，但乐谱 emoji 带白纸底、字形发灰，在卡带里显得脏；用户要一个干净的蓝色音符

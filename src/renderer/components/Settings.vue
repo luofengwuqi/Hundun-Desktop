@@ -536,6 +536,18 @@ const refreshOccupied = async () => {
 }
 
 // ========== 决策46: 弹窗 helpers ==========
+// 插件图标优先用 iconSvg（图片），缺失才回退 emoji 字符
+const svgSized = (svg, px) => String(svg || '').replace(/<svg\b/, `<svg width="${px}" height="${px}"`)
+const pluginIconHtml = (plugin, px = 18) => {
+  if (!plugin) return ''
+  if (plugin.iconSvg) {
+    const raw = plugin.iconColor || plugin.color
+    const color = typeof raw === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(raw) ? raw : 'currentColor'
+    return `<span style="display:inline-block;color:${color};vertical-align:-3px;margin-right:6px;line-height:0;">${svgSized(plugin.iconSvg, px)}</span>`
+  }
+  return escapeHtml(plugin.icon || '')
+}
+
 const escapeHtml = (str) => String(str ?? '')
   .replace(/&/g, '&amp;')
   .replace(/</g, '&lt;')
@@ -576,7 +588,7 @@ const requestRemove = (plugin) => {
   showModal(
     '🗑️',
     t('settings.removeTitle'),
-    t('settings.removeMsg', { name: `${plugin.icon} ${escapeHtml(plugin.name)}` }),
+    t('settings.removeMsg', { name: `${pluginIconHtml(plugin)}${escapeHtml(plugin.name)}` }),
     [
       { text: t('settings.keepData'), class: 'primary', action: () => doRemove(plugin, false) },
       { text: t('settings.removeDataBtn'), class: 'danger', action: () => doRemove(plugin, true) },
@@ -611,7 +623,7 @@ const doRemove = async (plugin, removeData) => {
     playSound('OK')
     showModal('✅', t('settings.removeOkTitle'),
       t('settings.removeOkMsg', {
-        name: `${plugin.icon} ${escapeHtml(plugin.name)}`,
+        name: `${pluginIconHtml(plugin)}${escapeHtml(plugin.name)}`,
         data: r.removedData ? t('settings.dataDeleted') : t('settings.dataKept')
       }),
       [{ text: t('cartridge.ok'), class: 'primary', action: closeModal }])
