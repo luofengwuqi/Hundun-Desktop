@@ -60,13 +60,13 @@
                 selected: selectedRow === 0 && idx === selectedIndex,
                 dragging: dragPlugin && dragPlugin.id === plugin.id
               }"
-              :style="{ '--cartridge-color': plugin.color }"
+              :style="{ '--cartridge-color': plugin.color, '--icon-color': plugin.iconColor || plugin.color }"
               :draggable="selectedRow === 0 && idx === selectedIndex"
               @dragstart="handleDragStart($event, plugin)"
               @dragend="handleDragEnd"
               @click="handleCartridgeClick(idx)"
             >
-              <div class="cartridge-icon">{{ plugin.icon }}</div>
+              <div class="cartridge-icon"><span v-if="plugin.iconSvg" class="icon-svg" v-html="plugin.iconSvg"></span><template v-else>{{ plugin.icon }}</template></div>
               <div class="cartridge-title">{{ plugin.name }}</div>
               <div class="cartridge-id">#{{ String(idx + 1).padStart(3, '0') }}</div>
               <div v-if="foreignIds.includes(plugin.id)" class="cartridge-running">{{ t('cartridge.running') }}</div>
@@ -127,8 +127,8 @@
             @drop="handleDrop"
             @click="handleSlotClick"
           >
-            <div v-if="slotPlugin" class="slot-cartridge" :style="{ '--cartridge-color': slotPlugin.color }">
-              <div class="slot-cartridge-icon">{{ slotPlugin.icon }}</div>
+            <div v-if="slotPlugin" class="slot-cartridge" :style="{ '--cartridge-color': slotPlugin.color, '--icon-color': slotPlugin.iconColor || slotPlugin.color }">
+              <div class="slot-cartridge-icon"><span v-if="slotPlugin.iconSvg" class="icon-svg" v-html="slotPlugin.iconSvg"></span><template v-else>{{ slotPlugin.icon }}</template></div>
               <div class="slot-cartridge-name">{{ slotPlugin.name }}</div>
             </div>
             <span v-else class="slot-empty">{{ t('cartridge.slotEmpty') }}</span>

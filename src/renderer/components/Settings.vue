@@ -186,7 +186,7 @@
               >
                 <!-- 拖拽柄 (决策46): 左侧, 拖动排序 -->
                 <span class="plugin-grip" title="⋮⋮">⣿</span>
-                <span class="plugin-icon">{{ plugin.icon }}</span>
+                <span class="plugin-icon" :style="{ '--icon-color': plugin.iconColor || plugin.color }"><span v-if="plugin.iconSvg" class="icon-svg" v-html="plugin.iconSvg"></span><template v-else>{{ plugin.icon }}</template></span>
                 <div class="plugin-info">
                   <span class="plugin-name">{{ plugin.name }}</span>
                   <span class="plugin-version">v{{ plugin.version }}</span>
@@ -211,7 +211,7 @@
               </button>
               <div v-if="removedOpen" class="removed-list">
                 <div v-for="r in removedRecords" :key="r.id" class="removed-item">
-                  <span class="removed-icon">{{ r.icon }}</span>
+                  <span class="removed-icon"><span v-if="r.iconSvg" class="icon-svg" v-html="r.iconSvg"></span><template v-else>{{ r.icon }}</template></span>
                   <span class="removed-name">{{ r.name }}</span>
                   <button class="restore-btn" @click="restoreRemoved(r)">{{ t('settings.restore') }}</button>
                 </div>
@@ -1397,6 +1397,26 @@ onUnmounted(() => {
 
 .plugin-icon {
   font-size: 24px;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* v-html 插入的 svg 拿不到 scoped 属性，必须用 :deep() 才能命中 */
+.icon-svg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.plugin-icon :deep(.icon-svg svg) {
+  width: 22px;
+  height: 22px;
+  display: block;
+  color: var(--icon-color, var(--accent-primary, #00ff88));
+}
+
+.light-mode .plugin-icon :deep(.icon-svg svg) {
+  filter: brightness(0.72);
 }
 
 .plugin-info {
@@ -1540,6 +1560,15 @@ onUnmounted(() => {
 
 .removed-icon {
   font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.removed-icon :deep(.icon-svg svg) {
+  width: 16px;
+  height: 16px;
+  display: block;
+  color: var(--accent-primary, #00ff88);
 }
 
 .removed-name {

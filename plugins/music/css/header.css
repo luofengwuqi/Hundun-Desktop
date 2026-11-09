@@ -19,7 +19,25 @@
   gap: 8px;
 }
 
-.logo-icon { font-size: 18px; }
+.logo-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.logo-icon svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  color: #4da3ff;
+  filter: drop-shadow(0 0 6px rgba(77, 163, 255, 0.5));
+}
+
+.light-mode .logo-icon svg {
+  color: #1f6fd0;
+  filter: none;
+}
 
 .logo-text {
   font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;

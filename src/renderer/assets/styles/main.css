@@ -476,6 +476,34 @@ body {
   z-index: 1;
 }
 
+.cartridge-icon .icon-svg,
+.slot-cartridge-icon .icon-svg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cartridge-icon .icon-svg svg {
+  width: 46px;
+  height: 46px;
+  display: block;
+  color: var(--icon-color, var(--cartridge-color, #00d4ff));
+  filter: drop-shadow(0 0 6px rgba(77, 163, 255, 0.45));
+}
+
+.slot-cartridge-icon .icon-svg svg {
+  width: 28px;
+  height: 28px;
+  display: block;
+  color: var(--icon-color, var(--cartridge-color, #00d4ff));
+}
+
+/* 浅色底(馄饨黄)上霓虹色偏浅：压暗一档并去掉辉光，保持色相不变 */
+.light-mode .cartridge-icon .icon-svg svg,
+.light-mode .slot-cartridge-icon .icon-svg svg {
+  filter: brightness(0.72);
+}
+
 .cartridge-title {
   display: none;
 }

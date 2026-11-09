@@ -108,10 +108,12 @@ export const usePluginStore = defineStore('plugin', () => {
         name: pluginInfo.name || pluginInfo.id,
         description: pluginInfo.description || '',
         icon: pluginInfo.icon || '📦',
+        iconSvg: pluginInfo.iconSvg || '',
         version: pluginInfo.version || '1.0.0',
         author: pluginInfo.author || 'Unknown',
         enabled: true,
         color: pluginInfo.color || '#00ff88',
+        iconColor: pluginInfo.iconColor || '',
         windowSize: pluginInfo.windowSize || { width: 400, height: 400 },
         state: 'unloaded',
         manifest: pluginInfo.manifest || pluginInfo
@@ -388,6 +390,8 @@ export const usePluginStore = defineStore('plugin', () => {
         id: plugin.id,
         name: plugin.name || plugin.id,
         icon: plugin.icon || '📦',
+        iconSvg: plugin.iconSvg || '',
+        iconColor: plugin.iconColor || '',
         version: plugin.version || '',
         removedAt: new Date().toISOString()
       })

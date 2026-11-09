@@ -6,6 +6,15 @@
 
 ## 2026-11-10
 
+### feat: 插件图标支持内联 SVG（Music 换成蓝色音符）
+
+- [x] **动机**: 上一版把 `🎵` 换成 `🎼` 只是「能看清」，但乐谱 emoji 带白纸底、字形发灰，在卡带里显得脏；用户要一个干净的蓝色音符
+- [x] **协议**: manifest 新增两个**可选**字段 —— `iconSvg`（内联 SVG 字符串，用 `currentColor` 上色）与 `iconColor`（图标单色，缺省回落 `color`）。`icon` 保留为纯文本兜底，toast / 弹窗等只能放字符串的地方继续用它
+- [x] **渲染**: `panel → App.vue` 的卡带 `.cartridge-icon`、插槽 `.slot-cartridge-icon`、`Settings.vue` 的 `.plugin-icon` / `.removed-icon` 统一改为「有 `iconSvg` 就 `v-html`，否则回退文本」；图标色以 `--icon-color` 变量下发
+- [x] **图形**: 连梁八分音符，`viewBox 0 0 24 24`，两个椭圆符头 + 符干 + 斜连梁，`fill: currentColor`。深色下 `#4DA3FF` + 6px 蓝色辉光；浅色下 `brightness(0.72)` 压深一档（不写死第二种蓝，换任何色相都不糊）
+- [x] **坑**: `Settings.vue` 是 `<style scoped>`，而 `v-html` 插入的 svg **拿不到 `data-v-*` 作用域属性**，普通后代选择器不命中（实测 `width: 0`、颜色回落成文字色）。改用 `:deep(.icon-svg svg)` 才对
+- [x] **验证**: Electron 实拍 —— 母程序深色 46×46 `rgb(77,163,255)` + 辉光、浅色压深后仍清晰；设置页插件列表 22px 与其它 emoji 图标等高对齐；插件头部 18px 蓝音符 + MUSIC 文字位置正常。`npm run build` + `check:main` 通过
+
 ### fix: 馄饨黑下 Music 卡带图标看不清（深色 emoji 落在近黑底）
 
 - [x] **现象**: 深色模式下母程序 `#005 Music` 卡带的图标几乎不可见；切到馄饨黄就正常
