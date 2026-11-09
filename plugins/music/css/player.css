@@ -7,7 +7,10 @@
   grid-template-rows: minmax(0, 1fr);
   align-items: center;
   column-gap: 34px;
-  padding: 18px 68px 52px 40px; /* 右侧让出队列把手, 底部让出抽屉把手 */
+  /* 两栏一起上移: 重心仍在下半部, 但不贴着底部电平柱。
+     窗口变矮时 lift 自动收敛到 0, 避免磁带顶到 header */
+  --stage-lift: clamp(0px, calc((100vh - 440px) * 0.4), 40px);
+  padding: 18px 68px calc(52px + var(--stage-lift)) 40px; /* 右侧让出队列把手, 底部让出抽屉把手 */
   min-height: 0;
   position: relative;
 }
@@ -271,7 +274,7 @@
   flex-direction: column;
   justify-content: flex-end;
   min-width: 0;
-  padding-bottom: 18px;   /* 与底部电平柱留出安全距 */
+  padding-bottom: 18px;   /* = .stage-deck 的 margin-bottom, 两栏底边始终对齐 */
 }
 
 .panel-inner {
