@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron')
 const path = require('path')
 const fs = require('fs')
 const { PluginManager } = require('./plugin-manager')
@@ -230,6 +230,9 @@ app.whenReady().then(() => {
 
   // 注册 FastTXT 云端文档库 (git) IPC 处理器 (决策56)
   registerFastTXTCloudIPC(pluginManager)
+
+  // 注册 Music 插件 IPC 处理器 (文件选择 / 导入 / 目录扫描)
+  registerMusicIPC(pluginManager)
 
   // 注册音效设置 IPC (主进程镜像 + 跨窗口广播, 供插件直放音效读取)
   registerSoundSettingsIPC()
@@ -1000,6 +1003,120 @@ async function safeCloudState(repoDir, cfg) {
   } catch (_) {
     return { enabled: !!(cfg && cfg.enabled), initialized: false, gitAvailable: false }
   }
+}
+
+// ========== Music 插件 IPC (2026-11-09) ==========
+// 能力: 系统文件选择对话框 / 音频导入 (移动语义: 复制到插件数据目录后删除源文件) / 递归目录扫描
+// 安全: 与 fasttxt:* 一致 —— 插件身份由主进程从 event.sender 反查, 数据只落插件自己的 user-data 目录
+const MUSIC_AUDIO_EXTS = ['.mp3', '.mp4', '.m4a', '.m4v', '.aac', '.flac', '.wav', '.ogg', '.oga', '.opus', '.webm']
+
+function isMusicAudioFileName (name) {
+  const n = String(name || '').toLowerCase()
+  return MUSIC_AUDIO_EXTS.some(ext => n.endsWith(ext))
+}
+
+function registerMusicIPC (pm) {
+  const senderPluginId = (event) => {
+    try {
+      return pm && pm._getWindowPluginId(event.sender)
+    } catch (_) {
+      return null
+    }
+  }
+
+  // 选择音频文件 (多选)
+  ipcMain.handle('music:pickAudio', async (event) => {
+    try {
+      const parent = BrowserWindow.fromWebContents(event.sender)
+      const options = {
+        title: '选择音频文件',
+        buttonLabel: '导入',
+        properties: ['openFile', 'multiSelections'],
+        filters: [{ name: '音频', extensions: MUSIC_AUDIO_EXTS.map(e => e.replace('.', '')) }]
+      }
+      const result = parent && !parent.isDestroyed()
+        ? await dialog.showOpenDialog(parent, options)
+        : await dialog.showOpenDialog(options)
+      if (result.canceled || !result.filePaths || result.filePaths.length === 0) return null
+      return result.filePaths
+    } catch (err) {
+      console.error('[Music] pickAudio failed:', err)
+      return null
+    }
+  })
+
+  // 选择文件夹 (导入整个文件夹中的音频)
+  ipcMain.handle('music:pickFolder', async (event) => {
+    try {
+      const parent = BrowserWindow.fromWebContents(event.sender)
+      const options = {
+        title: '选择音乐文件夹',
+        buttonLabel: '导入',
+        properties: ['openDirectory']
+      }
+      const result = parent && !parent.isDestroyed()
+        ? await dialog.showOpenDialog(parent, options)
+        : await dialog.showOpenDialog(options)
+      if (result.canceled || !result.filePaths || result.filePaths.length === 0) return null
+      return result.filePaths[0]
+    } catch (err) {
+      console.error('[Music] pickFolder failed:', err)
+      return null
+    }
+  })
+
+  // 递归扫描文件夹中的音频文件 (深度限制 4 层, 忽略隐藏目录)
+  ipcMain.handle('music:scanFolder', (event, folderPath) => {
+    const out = []
+    const walk = (dir, depth) => {
+      if (depth > 4 || out.length > 2000) return
+      let entries
+      try { entries = fs.readdirSync(dir, { withFileTypes: true }) } catch (_) { return }
+      for (const e of entries) {
+        if (e.name.startsWith('.')) continue
+        const full = path.join(dir, e.name)
+        if (e.isDirectory()) walk(full, depth + 1)
+        else if (e.isFile() && isMusicAudioFileName(e.name)) out.push(full)
+      }
+    }
+    try {
+      if (typeof folderPath === 'string' && folderPath.length > 0 &&
+        fs.existsSync(folderPath) && fs.statSync(folderPath).isDirectory()) {
+        walk(folderPath, 0)
+      }
+    } catch (_) { /* 返回空 */ }
+    return out
+  })
+
+  // 导入单个音频文件: 校验扩展名 → 复制到插件数据目录 (重名自动加序号) → 删除源文件 (移动语义, 跨盘安全)
+  ipcMain.handle('music:importFile', (event, srcPath) => {
+    const pid = senderPluginId(event)
+    if (!pid) return { ok: false, error: 'no-permission' }
+    if (typeof srcPath !== 'string' || srcPath.length === 0) return { ok: false, error: 'bad-path' }
+    try {
+      const stat = fs.statSync(srcPath)
+      if (!stat.isFile()) return { ok: false, error: 'not-file' }
+      // basename 已不含路径分隔, 再防御 Windows 保留字符与控制字符
+      let base = path.basename(srcPath).replace(/[\\/:*?"<>|\x00-\x1f]/g, '_').trim()
+      if (!base) base = 'imported'
+      if (!isMusicAudioFileName(base)) return { ok: false, error: 'not-audio' }
+      const destDir = getFastTXTBasePath(pid)
+      let dest = path.join(destDir, base)
+      let counter = 2
+      while (fs.existsSync(dest)) {
+        const ext = path.extname(base)
+        const stem = base.slice(0, base.length - ext.length)
+        dest = path.join(destDir, `${stem} (${counter})${ext}`)
+        counter++
+      }
+      fs.copyFileSync(srcPath, dest)
+      fs.unlinkSync(srcPath)
+      return { ok: true, name: path.basename(dest) }
+    } catch (err) {
+      console.error('[Music] importFile failed:', err)
+      return { ok: false, error: err.message }
+    }
+  })
 }
 
 // ========== 插件本地安装 IPC ==========
