@@ -1,0 +1,202 @@
+/* ========== Modal / Toast / 分组弹层 / 拖入提示 ========== */
+
+/* ---------- Modal (家族同构) ---------- */
+.mc-modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.mc-modal {
+  width: 320px;
+  max-width: calc(100% - 48px);
+  background: var(--bg-card);
+  border: 2px solid var(--border-color);
+  border-radius: 10px;
+  padding: 20px;
+  text-align: center;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+
+.modal-icon { font-size: 24px; margin-bottom: 8px; }
+
+.modal-title {
+  font-size: 14px;
+  color: var(--accent-primary);
+  margin-bottom: 8px;
+  letter-spacing: 1px;
+}
+
+.modal-message {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 14px;
+  word-break: break-all;
+}
+
+.modal-input {
+  width: 100%;
+  border: 2px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-slot);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  padding: 8px 10px;
+  outline: none;
+  margin-bottom: 14px;
+}
+
+.modal-input:focus { border-color: var(--accent-primary); }
+
+.modal-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.modal-btn {
+  min-width: 84px;
+  border: 2px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.modal-btn.primary {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.modal-btn.primary:hover {
+  background: color-mix(in srgb, var(--accent-primary) 18%, var(--bg-secondary));
+  box-shadow: 0 0 12px var(--shadow-color);
+}
+
+.modal-btn.secondary:hover { border-color: var(--text-secondary); }
+
+/* ---------- Toast ---------- */
+#toastContainer {
+  position: absolute;
+  bottom: 46px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  z-index: 300;
+  pointer-events: none;
+}
+
+.mc-toast {
+  background: var(--bg-card);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 12px;
+  padding: 8px 16px;
+  max-width: 420px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  animation: toast-in 0.25s ease-out;
+}
+
+.mc-toast.success { border-color: var(--accent-primary); color: var(--accent-primary); }
+.mc-toast.error { border-color: var(--accent-secondary); color: var(--accent-secondary); }
+.mc-toast.out { animation: toast-out 0.25s ease-in forwards; }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes toast-out {
+  from { opacity: 1; }
+  to { opacity: 0; transform: translateY(6px); }
+}
+
+/* ---------- 分组弹层 (添加分组) ---------- */
+.group-popover {
+  position: absolute;
+  width: 168px;
+  background: var(--bg-card);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  z-index: 250;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.gp-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 5px;
+  padding: 5px 8px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 12px;
+  transition: background 0.12s ease;
+}
+
+.gp-row:hover { background: var(--bg-slot); color: var(--text-primary); }
+
+.gp-check { font-size: 10px; width: 12px; color: var(--accent-primary); flex-shrink: 0; }
+.gp-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.gp-new {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  border-radius: 0;
+  margin-top: 3px;
+  padding: 6px 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.gp-new:hover { color: var(--accent-primary); }
+
+/* ---------- 拖入提示蒙层 ---------- */
+.drop-hint {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.drop-hint-box {
+  border: 2px dashed var(--accent-primary);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent-primary) 8%, var(--bg-card));
+  padding: 28px 44px;
+  text-align: center;
+}
+
+.drop-hint-icon { font-size: 34px; margin-bottom: 8px; }
+
+.drop-hint-text {
+  font-size: 13px;
+  color: var(--accent-primary);
+  letter-spacing: 1px;
+}

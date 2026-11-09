@@ -1,0 +1,330 @@
+/* ========== Player Stage ========== */
+.mc-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 0 90px 40px 60px; /* 右侧让出队列把手 */
+  min-height: 0;
+  position: relative;
+}
+
+/* ---------- 磁带 (页面唯一主角) ---------- */
+.cassette {
+  width: 264px;
+  background: var(--bg-card);
+  border: 2px solid var(--border-color);
+  border-radius: 14px;
+  padding: 14px 18px 12px;
+  position: relative;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+}
+
+/* 四角螺丝 */
+.cassette::before, .cassette::after,
+.cassette-window::before, .cassette-window::after {
+  content: '';
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--border-color);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.6);
+}
+.cassette::before { top: 6px; left: 6px; }
+.cassette::after { top: 6px; right: 6px; }
+.cassette-window::before { bottom: 6px; left: 6px; }
+.cassette-window::after { bottom: 6px; right: 6px; }
+
+.cassette-window {
+  position: relative;
+  background: var(--bg-slot);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  height: 84px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 56px;
+  overflow: hidden;
+}
+
+/* 卷轴: 播放时旋转 (唯一的非用户触发动画, 回应"播放"这一动作) */
+.reel {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-primary);
+  position: relative;
+  flex-shrink: 0;
+  animation: reel-spin 3.6s linear infinite;
+  animation-play-state: paused;
+}
+
+.reel-hub {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 2px solid var(--accent-primary);
+  background: var(--bg-slot);
+}
+
+.reel-spoke {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2px;
+  height: 16px;
+  background: var(--accent-primary);
+  transform-origin: center top;
+}
+.reel-spoke:nth-child(1) { transform: translate(-50%, -100%) rotate(0deg); }
+.reel-spoke:nth-child(2) { transform: translate(-50%, -100%) rotate(60deg); }
+.reel-spoke:nth-child(3) { transform: translate(-50%, -100%) rotate(120deg); }
+
+@keyframes reel-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* 播放中: 卷轴转起来, 带子亮起 */
+.music-app.is-playing .reel { animation-play-state: running; }
+.music-app.is-playing .tape-band { background: var(--accent-primary); box-shadow: 0 0 8px var(--shadow-color); }
+
+.tape-band {
+  position: absolute;
+  top: 50%;
+  left: 44px;
+  right: 44px;
+  height: 10px;
+  transform: translateY(-50%);
+  background: var(--border-color);
+  transition: background 0.4s ease, box-shadow 0.4s ease;
+}
+
+/* 磁带标签: 歌名写在带子上 */
+.cassette-label {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 5px 10px;
+  overflow: hidden;
+}
+
+.label-chip {
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: var(--accent-primary);
+  border: 1px solid var(--accent-primary);
+  border-radius: 3px;
+  padding: 1px 4px;
+  flex-shrink: 0;
+}
+
+.label-text {
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- 时间 / 进度 ---------- */
+.np-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.np-time { font-size: 12px; color: var(--text-secondary); letter-spacing: 1px; }
+.np-sep { font-size: 11px; color: var(--text-muted); }
+
+.seek {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.seek-track {
+  position: absolute;
+  top: 7px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bg-slot);
+  border: 1px solid var(--border-color);
+}
+
+.seek-fill {
+  position: absolute;
+  top: 7px;
+  left: 0;
+  width: 0;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--accent-primary);
+  box-shadow: 0 0 6px var(--shadow-color);
+}
+
+.seek-knob {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  transform: translateX(-50%);
+  box-shadow: 0 0 8px var(--shadow-color);
+}
+
+/* ---------- 走带控制 ---------- */
+.transport {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.tp-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 2px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.tp-btn:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  box-shadow: 0 0 12px var(--shadow-color);
+}
+
+.tp-btn:active { transform: scale(0.94); }
+
+.tp-btn .tp-svg {
+  width: 20px;
+  height: 20px;
+  display: none;
+  pointer-events: none;
+}
+
+.tp-play {
+  width: 56px;
+  height: 56px;
+  border-width: 3px;
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.tp-play .tp-svg { width: 26px; height: 26px; }
+
+.tp-mode .tp-svg { width: 22px; height: 22px; }
+
+/* 图标状态切换 */
+.tp-btn.is-on .tp-svg { display: block; }
+#btnPlay .tp-icon-play { display: block; }
+#btnPlay.is-playing .tp-icon-play { display: none; }
+#btnPlay.is-playing .tp-icon-pause { display: block; }
+#btnMode .tp-icon-seq { display: block; }
+#btnMode.is-shuffle .tp-icon-seq { display: none; }
+#btnMode.is-shuffle .tp-icon-shuffle { display: block; }
+
+#btnMode.is-shuffle {
+  border-color: var(--accent-secondary);
+  color: var(--accent-secondary);
+}
+
+/* 空态 */
+.np-empty { text-align: center; display: none; }
+.music-app.library-empty .np-empty { display: block; }
+.music-app.library-empty .np-row,
+.music-app.library-empty .seek { visibility: hidden; }
+.np-empty-title { font-size: 14px; color: var(--text-secondary); }
+.np-empty-hint { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+
+/* ---------- 抽屉把手 ---------- */
+/* 底部: 音乐库 */
+.drawer1-handle {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 200px;
+  height: 34px;
+  background: var(--bg-card);
+  border: 2px solid var(--border-color);
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  color: var(--text-secondary);
+  z-index: 55;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.drawer1-handle:hover {
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.dh-grip {
+  width: 34px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--text-muted);
+}
+
+.dh-label { font-size: 10px; letter-spacing: 2px; }
+
+/* 右侧: 播放队列 */
+.drawer2-handle {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  padding: 14px 0;
+  background: var(--bg-card);
+  border: 2px solid var(--border-color);
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  z-index: 55;
+  transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.drawer2-handle:hover {
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.dh2-label {
+  writing-mode: vertical-rl;
+  font-size: 10px;
+  letter-spacing: 4px;
+}

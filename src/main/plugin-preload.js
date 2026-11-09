@@ -256,6 +256,43 @@ window.hundun = {
     }
   },
 
+  // ========== Music 插件 API (文件选择 / 导入 / 目录扫描) ==========
+  music: {
+    /**
+     * 系统对话框选择音频文件 (多选)
+     * @returns {Promise<string[]|null>} 绝对路径数组, 取消返回 null
+     */
+    pickAudio: async () => {
+      return await ipcRenderer.invoke('music:pickAudio')
+    },
+
+    /**
+     * 系统对话框选择文件夹
+     * @returns {Promise<string|null>} 文件夹绝对路径, 取消返回 null
+     */
+    pickFolder: async () => {
+      return await ipcRenderer.invoke('music:pickFolder')
+    },
+
+    /**
+     * 递归扫描文件夹中的音频文件
+     * @param {string} folderPath - 文件夹绝对路径
+     * @returns {Promise<string[]>} 音频文件绝对路径数组
+     */
+    scanFolder: async (folderPath) => {
+      return await ipcRenderer.invoke('music:scanFolder', folderPath)
+    },
+
+    /**
+     * 导入音频文件 (移动语义: 复制到插件 user-data 目录后删除源文件)
+     * @param {string} srcPath - 源文件绝对路径
+     * @returns {Promise<{ok: boolean, name?: string, error?: string}>}
+     */
+    importFile: async (srcPath) => {
+      return await ipcRenderer.invoke('music:importFile', srcPath)
+    }
+  },
+
   // ========== 事件系统 ==========
   events: {
     onExecute: (callback) => {

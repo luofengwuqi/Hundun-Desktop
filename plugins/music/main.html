@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Music</title>
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/header.css">
+  <link rel="stylesheet" href="css/player.css">
+  <link rel="stylesheet" href="css/library.css">
+  <link rel="stylesheet" href="css/queue.css">
+  <link rel="stylesheet" href="css/overlays.css">
+</head>
+<body>
+  <div class="music-app" id="app">
+
+    <!-- ===== Player View ===== -->
+    <div id="view-player">
+      <!-- Header -->
+      <header class="mc-header">
+        <div class="toggle-container">
+          <span class="toggle-label" data-i18n="theme.dark">深色</span>
+          <div class="toggle-switch" id="themeToggle">
+            <div class="toggle-knob"></div>
+          </div>
+          <span class="toggle-label" data-i18n="theme.light">浅色</span>
+        </div>
+        <div class="mc-logo">
+          <span class="logo-icon">🎵</span>
+          <span class="logo-text">MUSIC</span>
+        </div>
+        <button class="mc-pin-btn" id="pinBtn" title="置顶">📌</button>
+        <button class="mc-min-btn" id="minBtn" data-i18n-title="header.minimize" title="最小化"></button>
+        <button class="mc-close-btn" id="closeBtn" data-i18n-title="header.back" title="返回">✕</button>
+      </header>
+
+      <!-- Stage -->
+      <main class="mc-stage" id="mcStage">
+        <div class="cassette" id="cassette">
+          <div class="cassette-window">
+            <div class="reel" id="reelL">
+              <div class="reel-spoke"></div>
+              <div class="reel-spoke"></div>
+              <div class="reel-spoke"></div>
+              <div class="reel-hub"></div>
+            </div>
+            <div class="tape-band"></div>
+            <div class="reel" id="reelR">
+              <div class="reel-spoke"></div>
+              <div class="reel-spoke"></div>
+              <div class="reel-spoke"></div>
+              <div class="reel-hub"></div>
+            </div>
+          </div>
+          <div class="cassette-label">
+            <span class="label-chip">MUSIC</span>
+            <span class="label-text" id="cassetteTitle">—</span>
+          </div>
+        </div>
+
+        <div class="np-row">
+          <span class="np-time" id="npCur">00:00</span>
+          <span class="np-sep">/</span>
+          <span class="np-time" id="npDur">00:00</span>
+        </div>
+
+        <div class="seek" id="seek">
+          <div class="seek-track"></div>
+          <div class="seek-fill" id="seekFill"></div>
+          <div class="seek-knob" id="seekKnob"></div>
+        </div>
+
+        <div class="transport">
+          <button class="tp-btn" id="btnPrev" data-i18n-title="player.prev" title="上一首">
+            <svg class="tp-svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="19,5 19,19 8,12"/><rect x="4" y="5" width="2.4" height="14"/></svg>
+          </button>
+          <button class="tp-btn tp-play" id="btnPlay" title="播放/暂停">
+            <svg class="tp-svg tp-icon-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="8,5 8,19 19,12"/></svg>
+            <svg class="tp-svg tp-icon-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="5" width="3.4" height="14"/><rect x="13.6" y="5" width="3.4" height="14"/></svg>
+          </button>
+          <button class="tp-btn" id="btnNext" data-i18n-title="player.next" title="下一首">
+            <svg class="tp-svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="5,5 5,19 16,12"/><rect x="17.6" y="5" width="2.4" height="14"/></svg>
+          </button>
+          <button class="tp-btn tp-mode" id="btnMode" title="顺序播放">
+            <svg class="tp-svg tp-icon-seq" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h9M4 12h9M4 18h9"/><path d="M16 8l4 4-4 4"/></svg>
+            <svg class="tp-svg tp-icon-shuffle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 4h4v4"/><path d="M4 20L20 4"/><path d="M16 20h4v-4"/><path d="M4 4l6 6"/><path d="M14 14l6 6"/></svg>
+          </button>
+        </div>
+
+        <div class="np-empty" id="npEmpty">
+          <div class="np-empty-title" data-i18n="player.emptyTitle">还没有音乐</div>
+          <div class="np-empty-hint" data-i18n="player.emptyHint">打开下方音乐库导入歌曲</div>
+        </div>
+      </main>
+    </div>
+
+    <!-- 底部抽屉把手 (音乐库) -->
+    <button class="drawer1-handle" id="drawer1Handle">
+      <span class="dh-grip"></span>
+      <span class="dh-label" data-i18n="library.title">音乐库</span>
+    </button>
+
+    <!-- 右侧抽屉把手 (播放队列) -->
+    <button class="drawer2-handle" id="drawer2Handle">
+      <span class="dh2-label" data-i18n="queue.title">队列</span>
+    </button>
+
+    <!-- 播放内核 -->
+    <audio id="audioEl" preload="metadata"></audio>
+
+    <!-- ===== Drawer 1: 音乐库 ===== -->
+    <div class="drawer1" id="drawer1">
+      <div class="d1-body">
+        <aside class="d1-side">
+          <button class="d1-add-group" id="addGroupBtn">
+            <span class="ic">+</span>
+            <span data-i18n="library.newGroup">新建分组</span>
+          </button>
+          <div class="d1-groups" id="groupList"></div>
+        </aside>
+        <div class="d1-main">
+          <div class="d1-search">
+            <svg class="search-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.5-4.5"/></svg>
+            <input class="search-input" id="libSearch" data-i18n-placeholder="library.searchPlaceholder" placeholder="搜索音乐..." />
+          </div>
+          <div class="d1-list" id="songList"></div>
+        </div>
+      </div>
+      <footer class="d1-footer">
+        <div class="d1-footer-btns">
+          <button class="footer-btn" id="importBtn" data-i18n-title="library.import" title="导入音乐">
+            <span class="btn-icon">+</span>
+          </button>
+          <button class="footer-btn" id="folderBtn" data-i18n-title="library.folder" title="在文件管理器中打开">
+            <span class="btn-icon">📁</span>
+          </button>
+          <button class="footer-btn" id="refreshBtn" data-i18n-title="library.refresh" title="刷新">
+            <span class="btn-icon"><svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="21 4 21 10 15 10"/><polyline points="3 20 3 14 9 14"/><path d="M4.2 9a8.5 8.5 0 0 1 14-3.2L21 10"/><path d="M19.8 15a8.5 8.5 0 0 1-14 3.2L3 14"/></svg></span>
+          </button>
+        </div>
+        <div class="d1-info" id="libInfo"></div>
+      </footer>
+    </div>
+
+    <!-- ===== Drawer 2: 播放队列 ===== -->
+    <div class="drawer2" id="drawer2">
+      <div class="d2-head">
+        <span class="d2-title" data-i18n="queue.title">播放队列</span>
+        <button class="d2-close" id="d2Close" title="✕">✕</button>
+      </div>
+      <div class="d2-list" id="queueList"></div>
+      <div class="d2-hint" data-i18n="queue.hint">拖动排序 · Shift+↑/↓ 移动 · ✕ 移除</div>
+    </div>
+
+    <!-- ===== Modal ===== -->
+    <div class="mc-modal-overlay" id="modalOverlay" style="display:none;">
+      <div class="mc-modal">
+        <div class="modal-icon" id="modalIcon"></div>
+        <div class="modal-title" id="modalTitle"></div>
+        <div class="modal-message" id="modalMessage"></div>
+        <input class="modal-input" id="modalInput" style="display:none;" />
+        <div class="modal-buttons" id="modalButtons"></div>
+      </div>
+    </div>
+
+    <!-- ===== 分组弹层 (歌曲卡片「添加分组」) ===== -->
+    <div class="group-popover" id="groupPopover" style="display:none;"></div>
+
+    <!-- ===== 拖入提示 ===== -->
+    <div class="drop-hint" id="dropHint" style="display:none;">
+      <div class="drop-hint-box">
+        <div class="drop-hint-icon">🎵</div>
+        <div class="drop-hint-text" data-i18n="import.dropHere">松手导入音乐 (源文件将被移入)</div>
+      </div>
+    </div>
+
+    <!-- ===== Toast ===== -->
+    <div id="toastContainer"></div>
+  </div>
+
+  <script src="js/sdk.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/i18n-html.js"></script>
+  <script src="js/app-state.js"></script>
+  <script src="js/modal.js"></script>
+  <script src="js/toast.js"></script>
+  <script src="js/library.js"></script>
+  <script src="js/importer.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/render-player.js"></script>
+  <script src="js/render-library.js"></script>
+  <script src="js/render-queue.js"></script>
+  <script src="js/keyboard.js"></script>
+  <script src="js/events.js"></script>
+  <script src="js/theme-sync.js"></script>
+  <script src="js/init.js"></script>
+</body>
+</html>
