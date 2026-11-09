@@ -1,7 +1,7 @@
 # HundunDesktop - 项目进度文档
 
-> 最后更新: 2026-10-21
-> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 新增 Markdown 实时渲染浏览模式 (markdown-it, Typora 式, 单换行直接渲染为换行)；修复"进入子程序后音效音量异常变大"（插件直放无视音量设置 + 主窗口 preload 因 contextBridge 长期失效一并修复）；修复"子程序启动时母程序意外出现"（母子窗口可见性互斥不变式）；修复 FastCmd 脚本从未真实执行（相对路径 + 假成功 toast），改为绝对路径 + start /wait 可见控制台 + 退出码回报；FastCmd 移植底部刷新按钮；旧数据目录 plugins/fast-cmd/file/ 迁移至 user-data；修复中文 .ps1 执行报"意外的标记"（UTF-8 无 BOM 被 PowerShell 5.1 按 GBK 读取 → ensurePs1Bom 就地补 BOM）；**FastCmd 交互简化：点击脚本即运行（操作弹窗移除，结果走 toast）、移除编辑功能、移除文件夹（脚本仅一级目录）**；**FastCmd 平台感知：打开前按 manifest.platforms 检查系统状态（支持 Windows/Linux），不支持的脚本文件不显示，Linux 新增 .sh 可见终端执行链（决策42）**；**timer-manager 全量重构为 TASK 任务清单（纵向 400×520、状态徽章/排序/提醒弹窗/深浅色/键盘导航，旧进度不保留）；持久化 = hundun.storage JSON，SQLite 审核否决（决策43、44）**；**镜像模式：底部新增「镜像模式」按钮开启并行镜像窗口（会话内母子互斥、A/B 可同屏；同一子程序同时只归属一个会话；镜像仅允许运行子程序、禁改配置，A 关闭后镜像升格恢复完整权限，全局仅一个镜像 — 决策45）**；**设置·插件页管理：实时运行状态（occupied + plugin-started/closed 转发）+ 左侧拖拽柄/Ctrl+↑↓ 排序持久化（货架 watch 同步、跨窗口 config-changed 广播）+ 右侧删除（运行中拦截、userdata 保留询问、内置=已移除名单可恢复/安装=删目录）— 决策46）**；**子程序头部字体一律默认字体（fast-txt/fast-cmd/task 的 .logo-text/.logo-chip 与 calculator 头部标题/徽章均改 Noto Sans SC，不再用 Press Start 2P；正文弹窗标签的像素字体保留 — 2026-10-15）**；**应用 Logo 更换：桌面馄饨插画抠图（棋盘底+水印透明，flood fill 连通性抠图 + 最大连通域 + 去灰边），产出 logo-512 / icon.png / icon.ico 三件套，`npm run gen-icon` 勿跑（决策48 — 2026-10-15，取代决策47 的像素掌机图标）**；**跨平台打包三件套完成（Windows NSIS Setup.exe + Linux AppImage/deb）：可写根回退（Program Files//opt/AppImage 只读时 userData 落系统目录）+ 零依赖图标生成 + 构建镜像/wine 环境 — 决策47）**；**全面改名 Hundun Lite → HundunDesktop：UI 大写标题改 HUNDUN DESKTOP、打包标识 name/appId/productName/executableName/packageName 全改（产物 HundunDesktop Setup.exe / HundunDesktop.AppImage / hundundesktop.deb）、数据键 hundundesktop-* 全换且不迁移（旧设置/数据丢弃）、prototype 与 packaging skill 同步改名；window.hundun 插件 API 命名空间与 chaos-lite git remote 不在改名范围 — 决策49，2026-10-16）**；**修复 Linux 图标缺失（deb/AppImage 安装后无图标）：`linux.icon` 单个 PNG → app-builder 解析不到尺寸返回 size=0，图标被装进 `hicolor/0x0/` 桌面环境查不到；改为指向 `build/icons/` 图标集目录（16~512 各尺寸，scripts/gen-linux-icons.py 生成）— 决策50，2026-10-21）**；**修复母程序圆角外的半透明灰边（`.console` 外阴影溢出到圆角缺口 → 改内阴影 --console-shadow + BrowserWindow 显式 backgroundColor:'#00000000'）— 决策51，2026-10-21）**；**feat: 母程序与全部子程序新增最小化按钮（📌·—·✕，最小化在 ✕ 左侧；子程序最小化→母程序自动恢复可见，任务栏恢复子程序→母程序再隐藏；pluginMinimized 标记解决 isVisible() 状态延迟；plugin:close/minimize/maximize IPC 归位 PluginManager）— 决策52，2026-10-21）**；**feat: 设置·关于页改版（应用 logo + 版本号上移并取自主进程 + 最右「检查更新」按钮弹开发中 + 平台→系统 / 引擎→技术栈 + 新增「关于作者」板块：芜柒/头像/签名/三链接）— 决策53，2026-10-21）**
+> 最后更新: 2026-10-24
+> 当前阶段: Phase 4 - BrowserWindow 插件架构完成，生产构建已修复；新增 ADD 按钮本地安装插件 (.zip)；FastTXT 新增 Markdown 实时渲染浏览模式 (markdown-it, Typora 式, 单换行直接渲染为换行)；修复"进入子程序后音效音量异常变大"（插件直放无视音量设置 + 主窗口 preload 因 contextBridge 长期失效一并修复）；修复"子程序启动时母程序意外出现"（母子窗口可见性互斥不变式）；修复 FastCmd 脚本从未真实执行（相对路径 + 假成功 toast），改为绝对路径 + start /wait 可见控制台 + 退出码回报；FastCmd 移植底部刷新按钮；旧数据目录 plugins/fast-cmd/file/ 迁移至 user-data；修复中文 .ps1 执行报"意外的标记"（UTF-8 无 BOM 被 PowerShell 5.1 按 GBK 读取 → ensurePs1Bom 就地补 BOM）；**FastCmd 交互简化：点击脚本即运行（操作弹窗移除，结果走 toast）、移除编辑功能、移除文件夹（脚本仅一级目录）**；**FastCmd 平台感知：打开前按 manifest.platforms 检查系统状态（支持 Windows/Linux），不支持的脚本文件不显示，Linux 新增 .sh 可见终端执行链（决策42）**；**timer-manager 全量重构为 TASK 任务清单（纵向 400×520、状态徽章/排序/提醒弹窗/深浅色/键盘导航，旧进度不保留）；持久化 = hundun.storage JSON，SQLite 审核否决（决策43、44）**；**镜像模式：底部新增「镜像模式」按钮开启并行镜像窗口（会话内母子互斥、A/B 可同屏；同一子程序同时只归属一个会话；镜像仅允许运行子程序、禁改配置，A 关闭后镜像升格恢复完整权限，全局仅一个镜像 — 决策45）**；**设置·插件页管理：实时运行状态（occupied + plugin-started/closed 转发）+ 左侧拖拽柄/Ctrl+↑↓ 排序持久化（货架 watch 同步、跨窗口 config-changed 广播）+ 右侧删除（运行中拦截、userdata 保留询问、内置=已移除名单可恢复/安装=删目录）— 决策46）**；**子程序头部字体一律默认字体（fast-txt/fast-cmd/task 的 .logo-text/.logo-chip 与 calculator 头部标题/徽章均改 Noto Sans SC，不再用 Press Start 2P；正文弹窗标签的像素字体保留 — 2026-10-15）**；**应用 Logo 更换：桌面馄饨插画抠图（棋盘底+水印透明，flood fill 连通性抠图 + 最大连通域 + 去灰边），产出 logo-512 / icon.png / icon.ico 三件套，`npm run gen-icon` 勿跑（决策48 — 2026-10-15，取代决策47 的像素掌机图标）**；**跨平台打包三件套完成（Windows NSIS Setup.exe + Linux AppImage/deb）：可写根回退（Program Files//opt/AppImage 只读时 userData 落系统目录）+ 零依赖图标生成 + 构建镜像/wine 环境 — 决策47）**；**全面改名 Hundun Lite → HundunDesktop：UI 大写标题改 HUNDUN DESKTOP、打包标识 name/appId/productName/executableName/packageName 全改（产物 HundunDesktop Setup.exe / HundunDesktop.AppImage / hundundesktop.deb）、数据键 hundundesktop-* 全换且不迁移（旧设置/数据丢弃）、prototype 与 packaging skill 同步改名；window.hundun 插件 API 命名空间与 chaos-lite git remote 不在改名范围 — 决策49，2026-10-16）**；**修复 Linux 图标缺失（deb/AppImage 安装后无图标）：`linux.icon` 单个 PNG → app-builder 解析不到尺寸返回 size=0，图标被装进 `hicolor/0x0/` 桌面环境查不到；改为指向 `build/icons/` 图标集目录（16~512 各尺寸，scripts/gen-linux-icons.py 生成）— 决策50，2026-10-21）**；**修复母程序圆角外的半透明灰边（`.console` 外阴影溢出到圆角缺口 → 改内阴影 --console-shadow + BrowserWindow 显式 backgroundColor:'#00000000'）— 决策51，2026-10-21）**；**feat: 母程序与全部子程序新增最小化按钮（📌·—·✕，最小化在 ✕ 左侧；子程序最小化→母程序自动恢复可见，任务栏恢复子程序→母程序再隐藏；pluginMinimized 标记解决 isVisible() 状态延迟；plugin:close/minimize/maximize IPC 归位 PluginManager）— 决策52，2026-10-21）**；**feat: 设置·关于页改版（应用 logo + 版本号上移并取自主进程 + 最右「检查更新」按钮弹开发中 + 平台→系统 / 引擎→技术栈 + 新增「关于作者」板块：芜柒/头像/签名/三链接）— 决策53，2026-10-21）**；**feat: FastTXT 云端文档库（git）：底部 ☁ 按钮 → 全屏 Cloud Link 页，默认关闭，首次进入三选项引导（新建/已有/暂不启用），关联后手动同步（commit→fetch→merge→push），冲突四策略 2.0 自动 / 2.1 云端 / 2.2 本地 / 2.3 都保留（原文件留本地 + 云端另存「(云端)」）；git 一律走主进程白名单 execFile（无 shell、令牌只在单次 argv 且全链路脱敏、禁交互），配置存 user-data/plugins/fast-txt/cloud.json；项目版本号 → 26.2.1024 — 决策56，2026-10-24）**
 
 ---
 
@@ -168,6 +168,7 @@ src/
 │   ├── plugin-manager.js     # 插件管理器 (BrowserWindow 创建, 会话化互斥/归属, 决策45)
 │   ├── mirror-manager.js     # 镜像窗口管理器 (单镜像/升格/会话注销, 依赖注入可单测, 决策45)
 │   ├── plugin-installer.js   # 本地插件安装器 (.zip 审核 + 解压 + 落盘 + 卸载 uninstallPlugin, 决策46)
+│   ├── git-service.js        # FastTXT 云端库 git 服务 (白名单子命令/鉴权 URL/冲突解析, 决策56, 零依赖可单测)
 │   ├── plugin-preload.js     # 插件窗口预加载脚本 (window.hundun, 含 hundun.sound)
 │   ├── preload.js            # 主窗口预加载脚本 (window.electronAPI 直挂, onPlaySound/syncSoundSettings)
 │   ├── sound-settings.js     # 音效设置主进程镜像 (sound:sync / get-sync / settings-changed 广播)
@@ -253,21 +254,23 @@ electron-vite build
   ├── preload: src/main/preload.js → out/preload/preload.js
   └── renderer: src/renderer/ → out/renderer/
          ↓
-  copyMainModules() Vite 插件 (closeBundle 钩子)
-  ├── plugin-manager.js  → out/main/plugin-manager.js
-  ├── database.js        → out/main/database.js
-  ├── plugin-preload.js  → out/main/plugin-preload.js
-  ├── plugin-installer.js→ out/main/plugin-installer.js
-  ├── paths.js           → out/main/paths.js
-  ├── platform-support.js→ out/main/platform-support.js
-  ├── sound-settings.js  → out/main/sound-settings.js
-  └── plugin-loader.js   → out/main/plugin-loader.js
+  copyMainModules() Vite 插件 (closeBundle 钩子, 2026-10-24 改为目录扫描)
+  ├── src/main/*.js (除 index.js / preload.js 两个入口) → out/main/ 同名
+  │     database / git-service / mirror-manager / paths / platform-support /
+  │     plugin-installer / plugin-manager / plugin-preload / sound-settings ...
+  └── src/shared/plugin-loader.js                      → out/main/plugin-loader.js
 ```
 
 > **为什么需要 copyMainModules?**
 > `externalizeDepsPlugin` 将 `node_modules` 依赖外部化, 但 rollup 也不打包 `plugin-manager.js` 等本地模块
 > (因为 `plugin-manager.js` 内含动态 `require` 路径, rollup 无法静态分析)。
 > 因此这些文件需要从 `src/` 复制到 `out/main/`, 由 `index.js` 在运行时 `require`。
+>
+> ⚠️ **必须目录扫描, 不能硬编码清单** (决策 21 的教训): 2026-10-24 新增 `git-service.js` 时漏登记,
+> `npm run dev` 正常 (dev 直读 `src/`) 但 `npm run build` 后主进程启动即
+> `Cannot find module './git-service'` 弹窗、窗口不出来。现在 `src/main/` 下任何非入口 `.js`
+> 都会自动复制, 新增主进程模块无需改配置。
+> 自检: `node scripts/check-main-build.js` (构建后校验 `out/main/*.js` 的相对 require 是否齐全)。
 
 ### 开发/打包模式路径差异
 ```
@@ -458,7 +461,7 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 20. **设置页面键盘导航**: 左箭头键直接返回左侧栏，切换标签页时重置 detailIndex
 
 ### 已决策 (2026-09-23)
-21. **构建管线修复**: `copyMainModules()` Vite 插件自动复制未被 rollup 打包的主进程模块
+21. **构建管线修复**: `copyMainModules()` Vite 插件自动复制未被 rollup 打包的主进程模块 (2026-10-24 起改为扫描 `src/main/*.js`, 见构建管线一节)
 22. **数据目录迁移**: FastTXT 数据从插件目录 (asar 内只读) 迁移到 `userData/plugins/` (可写)
 23. **开发/打包路径分离**: `app.isPackaged` 判断运行环境，动态选择 `appRoot`/`preload`/`plugin-loader` 路径
 
@@ -550,6 +553,10 @@ UNLOADED → LOADED → RUNNING → SUSPENDED → CLOSED
 
 55. **官方样式体系 + 母子主题解耦 (取代决策54 的四主题方案, neon/gameboy 产出不保留)**: ①**主题注册表** — theme store 引入 `THEME_REGISTRY` (`id/official/base/labelKey`), 官方样式 = `hun-tun-black` 馄饨黑 (原 dark, 视觉不变) / `hun-tun-yellow` 馄饨黄 (原 light, 视觉不变), 非官方主题 = `handheld` 掌机实装; 旧主题名迁移 (`dark→hun-tun-black` / `light→hun-tun-yellow` / `neon|gameboy→hun-tun-black`) ②**设置页规则** — 官方/非官方分区展示, 官方卡带「官方」徽标; **非官方主题激活时隐藏馄饨黑/黄两张卡**, 改为显示「恢复官方样式」虚线入口卡 (点击回 hun-tun-black); 键盘导航按可见卡片序列动态伸缩 (`themeDetailActions`) ③**拨动开关语义** — `toggleTheme` 永远在官方馄饨黑/馄饨黄间切换; `isDarkMode` = 基底语义 ④**母子彻底解耦** — 撤销决策54⑤ 的主题实时广播链 (store 不再 send `theme:changed`, 主进程删转发 handler); 子程序启动时经 `theme:get-request/response` **只继承官方基底** (`hun-tun-black→dark` / `hun-tun-yellow→light`), 运行中不同步; 子程序主题由插件单独开发 (本地拨动开关/自行开发主题), `host.onThemeChange` API 保留但当前无发送方 ⑤**掌机实装主题 (非官方, 开创性要求)** — 概念「窗口不是应用, 是一台真实掌机」: 纯 CSS 全拟物零图片 (注塑塑料分层光影机身 + 顶部受光带 + 冷光/暖光渗入 + 暗角 | 呼吸电源 LED `hwLedBreath` | LCD 磷光绿点阵信息屏 | 3D 键帽按压行程: 键杆阴影 3px→0 = 按到底 | 弹簧卡带 cubic-bezier 过冲 + 贴纸标签 + 阴刻铭文 | 沉头金属螺丝 | 扬声器格栅 + 模压铭牌 | 深插槽金属导轨); **排列规则破坏**: 卡带货架整体 rotate(-1.2°), 卡带 3 周期 margin 错位打破网格; DOM/键盘导航不动, 遵守决策51 (圆角外零绘制) ⑥**架构留位** — 注册表即未来用户自定义母程序主题的挂载点 (本版不实现主题包扫描/安装) ⑦**i18n** — `settings.dark/light` 值改「馄饨黑/馄饨黄」(顶栏拨动开关), 新增 `hunTunBlack/hunTunYellow/handheld/officialThemes/communityThemes/officialBadge/restoreOfficial` (zh/en), 删 `neon/gameboy`
 
+### 已决策 (2026-10-24, FastTXT 云端文档库)
+
+56. **FastTXT 云端文档库 (git)**: ①**形态** — 底部按钮区新增 ☁ 云按钮 (刷新右侧), 打开**全屏 Cloud Link 页** (`#view-cloud`, 与 editor 同级视图, 不走弹窗); 头尾沿用子程序规范, ✕ 只回主页不退出子程序; **默认关闭** — 首次点击只显示引导, 三选项「我没有仓库, 新建一个」/「我已有云端仓库」/「暂不启用云端仓库功能」; 选 3 直接回主页且**不写任何状态** (下次点击仍从引导开始) ②**git 引擎 = 系统 git CLI** (用户拍板) — 主进程 `src/main/git-service.js` 用 `execFile` 调 git (无 shell / 参数数组 / 拒绝渲染进程传参); 未装 git 时页顶给引导 + 「重新检测」, 其余功能不受影响 ③**安全边界** — IPC 仅当 `senderPluginId(event)==='fast-txt'` 受理 (身份从 `event.sender` 反查, 沿用决策38/V3); remoteUrl 只允许 https/http/ssh, 分支名白名单, 令牌剔除空白并截断; 令牌**只出现在单次网络命令的 argv** (`https://<user>:<token>@host/...`), 不写 `.git/config`, 回传给渲染进程只有 `hasToken` 布尔; 所有 stderr 经 `sanitize()` 抹令牌; 网络命令禁交互 (`GIT_TERMINAL_PROMPT=0` + `credential.helper=`), 缺凭据立刻失败而不挂起 ④**关联语义** — 选项 1/2 同一实现 (新建或已有关联自动判定): `init` (仅新库才 `symbolic-ref HEAD`) → 写 `.gitignore` → `commit` → `fetch`; fetch 拿不到分支视为空库直接 `push`, 拿到则 `merge --allow-unrelated-histories` (两端无共同祖先) → 冲突进冲突页, 否则 `push` ⑤**同步时机 = 全手动** (用户拍板): 「立即同步」= `commit -A` → `fetch` → 必要时 `merge` → `push`; 编辑/保存完全不联网 ⑥**同步范围 = 只同步文档**: `.trash/` `.order.json` `.bookmarks.json` 写进 `.gitignore` (本地视图状态), 因此回收站不跨端同步 ⑦**冲突四策略** (用户拍板): 2.0 `auto` 让 git 合并并保留 `<<<<<<<` 标记后提交; 2.1 `cloud` 冲突文件 `checkout --theirs` (云端已删则 `rm`); 2.2 `local` `checkout --ours` **只覆盖冲突文件**, 云端其它不冲突改动照常并入 (不做 force push); 2.3 `both` 原文件留本地 + 云端内容另存 `<name> (云端).<ext>` (重名递增 `(云端2)`); 冲突清单 = `git diff --diff-filter=U`, 预览取 stage2/stage3 (`git show :2:` / `:3:`) ⑧**合并与推送分离** — 解决冲突只生成合并提交, 不自动 push; 仪表盘显示「待推送 N」, 由用户再点同步 (一次点击不产生远程副作用) ⑨**关闭/换仓库** — 关闭只置 `enabled:false`, 文档与 `.git` 历史保留 (二次确认); 换仓库走同一表单 ⑩**页面结构** — 引导 / 表单 (远程地址·分支·用户名·令牌) / 仪表盘 (LED + STATUS 六行 + ACTIONS + SYNC LOG) / 冲突页 (文件清单内部滚动 + 策略行常驻) / 忙碌遮罩; 键盘 ↑↓/WASD 选择、Enter 执行、Esc 逐层返回、表单 Tab 切换; 主题只跟随官方基底 dark/light ⑪**版本号** — 项目版本 1.0.0 → **26.2.1024** (`package.json` / `package-lock.json` / fast-txt `manifest.json`), 插件头部徽章 `v1.0` → `v26.2` ⑫**测试** — 新增 `scripts/test-fasttxt-cloud.js` (纯 Node, 本地 bare 仓库模拟远端) 覆盖首次关联 / 反向同步 / 四种冲突策略 / 忽略规则 / 令牌注入与脱敏 / 关闭, 68 项通过
+
 ### 待定
 1. 插件市场实现方案
 2. 插件签名和安全验证
@@ -619,6 +626,7 @@ chore: 构建/工具链更新
 4. 音效架构后续整改 (可选): 音效文件清单由主进程统一下发（现存母程序 `audio.js` 与插件 sdk 两份）、清理无引用死代码 `src/renderer/services/plugin-service.js`、插件窗口统一配置 `autoplayPolicy`
 5. ~~镜像模式~~ ✅ 2026-10-14 已完成 (决策45, `scripts/test-mirror.js` 61/61); 日常回归请一并跑 `npx electron --no-sandbox scripts/test-mirror.js` 与 `test-window-lifecycle`。后续可选: 双开时母程序 CPU/GPU 占用观察、镜像窗口独立窗口位置记忆
 6. ~~设置·插件页管理~~ ✅ 2026-10-14 已完成 (决策46, `scripts/test-plugin-uninstall.js` 22/22); 后续可选: 拖拽动画/排序视觉反馈增强、已移除区显示移除时间、批量移除
+7. FastTXT 云端库后续 (决策56 本版范围外): 自动/定时同步与后台重试、SSH 密钥引导页（当前 ssh 地址依赖系统 key）、冲突三方编辑视图（现为两端预览 + 四策略）、多仓库/多目录 profile、令牌改用系统凭据库而非明文 cloud.json
 
 ---
 

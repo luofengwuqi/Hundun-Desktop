@@ -23,11 +23,15 @@
       // 绑定主题切换拨动开关
       const themeToggle = document.getElementById('themeToggle');
       const themeToggleEditor = document.getElementById('themeToggleEditor');
+      const themeToggleCloud = document.getElementById('themeToggleCloud');
       if (themeToggle) {
         themeToggle.addEventListener('click', toggleTheme);
       }
       if (themeToggleEditor) {
         themeToggleEditor.addEventListener('click', toggleTheme);
+      }
+      if (themeToggleCloud) {
+        themeToggleCloud.addEventListener('click', toggleTheme);
       }
 
 

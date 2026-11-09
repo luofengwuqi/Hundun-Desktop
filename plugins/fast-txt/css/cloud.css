@@ -1,0 +1,793 @@
+    /* ============================================================
+       Cloud Link — 云端文档库 (git)
+       视觉语言: 同一台掌机里的"数据链路终端"
+       - 顶部一条会流动的虚线 = uplink
+       - 状态用 LED + 等宽字, 操作是可键盘选中的条目
+       - 不用外部图片, 全部 CSS 绘制
+       ============================================================ */
+
+    #view-cloud {
+      --cloud-line: var(--border-color);
+      --cloud-dim: var(--text-muted);
+      --cloud-ok: var(--accent-primary);
+      --cloud-warn: #ffb020;
+      --cloud-bad: var(--accent-secondary);
+      --cloud-mono: 'Cascadia Mono', 'Consolas', 'SFMono-Regular', 'Menlo', monospace;
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+    }
+
+    .light-mode #view-cloud {
+      --cloud-warn: #a05d00;
+      /* 浅色主题整体是奶油+朱红, 但「成功/在线」状态仍用低饱和绿, 免得红点被读成报错 */
+      --cloud-ok: #1f7a45;
+    }
+
+    .cloud-body {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 10px 16px 12px;
+      position: relative;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-color) transparent;
+    }
+
+    .cloud-body::-webkit-scrollbar { width: 8px; }
+    .cloud-body::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 4px;
+    }
+    .cloud-body::-webkit-scrollbar-track { background: transparent; }
+
+    /* 顶部流动虚线: 表示链路 */
+    .cloud-uplink {
+      height: 2px;
+      margin: -10px -16px 10px;
+      background-image: linear-gradient(90deg, var(--cloud-line) 0 6px, transparent 6px 12px);
+      background-size: 12px 2px;
+      opacity: 0.75;
+      animation: cloudFlow 1.6s linear infinite;
+    }
+
+    @keyframes cloudFlow {
+      from { background-position-x: 0; }
+      to { background-position-x: 12px; }
+    }
+
+    /* ========== 通用文字 ========== */
+    .cloud-kicker {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      letter-spacing: 1px;
+      color: var(--accent-tertiary);
+      line-height: 1.8;
+    }
+
+    .cloud-mono {
+      font-family: var(--cloud-mono);
+      font-size: 12px;
+      letter-spacing: 0.2px;
+    }
+
+    .cloud-muted { color: var(--cloud-dim); }
+
+    /* ========== 引导页 ========== */
+    .cloud-intro { display: flex; flex-direction: column; gap: 8px; }
+
+    .cloud-hero {
+      border: 2px solid var(--cloud-line);
+      border-radius: 14px;
+      background:
+        radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--accent-tertiary) 14%, transparent) 0%, transparent 55%),
+        var(--bg-card);
+      padding: 12px 16px 10px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cloud-hero::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image: linear-gradient(transparent 0 3px, rgba(0, 0, 0, 0.08) 3px 4px);
+      background-size: 100% 4px;
+      opacity: 0.35;
+      pointer-events: none;
+    }
+
+    .cloud-hero-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .cloud-hero h1 {
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      margin: 4px 0 6px;
+      color: var(--text-primary);
+    }
+
+    .cloud-hero p {
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      max-width: 620px;
+    }
+
+    .cloud-chips {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .cloud-chip {
+      font-family: var(--cloud-mono);
+      font-size: 11px;
+      letter-spacing: 0.4px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px dashed var(--cloud-line);
+      color: var(--text-secondary);
+    }
+
+    .cloud-options { display: flex; flex-direction: column; gap: 6px; }
+
+    .cloud-option {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      text-align: left;
+      padding: 8px 11px;
+      border-radius: 12px;
+      border: 2px solid var(--cloud-line);
+      background: var(--bg-card);
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* 入场动画只在页面首次/切换时播放（JS 在换页时给 .cloud-body 加 is-enter，
+       460ms 后移除）。不能无条件挂在 .cloud-option 上，否则每次重建 DOM 都会重播，
+       键盘上下选的时候看起来就是一闪一闪。 */
+    .cloud-body.is-enter .cloud-option {
+      animation: cloudRise 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    .cloud-body.is-enter .cloud-option:nth-child(1) { animation-delay: 0.02s; }
+    .cloud-body.is-enter .cloud-option:nth-child(2) { animation-delay: 0.08s; }
+    .cloud-body.is-enter .cloud-option:nth-child(3) { animation-delay: 0.14s; }
+
+    @keyframes cloudRise {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .cloud-option:hover,
+    .cloud-option.selected {
+      border-color: var(--accent-tertiary);
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-tertiary) 35%, transparent),
+                  0 0 18px color-mix(in srgb, var(--accent-tertiary) 22%, transparent);
+      transform: translateX(3px);
+    }
+
+    .cloud-option.selected::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 4px;
+      background: var(--accent-tertiary);
+    }
+
+    .opt-no {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 11px;
+      color: var(--cloud-dim);
+      min-width: 26px;
+      transition: color 0.16s ease;
+    }
+
+    .cloud-option.selected .opt-no { color: var(--accent-tertiary); }
+
+    .opt-main { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+
+    .opt-title {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+
+    .opt-desc {
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--text-secondary);
+    }
+
+    .opt-go {
+      font-family: var(--cloud-mono);
+      font-size: 13px;
+      color: var(--cloud-dim);
+      opacity: 0;
+      transform: translateX(-4px);
+      transition: all 0.16s ease;
+    }
+
+    .cloud-option.selected .opt-go { opacity: 1; transform: translateX(0); color: var(--accent-tertiary); }
+
+    .cloud-footnote {
+      font-size: 12px;
+      color: var(--cloud-dim);
+      line-height: 1.4;
+      padding-left: 2px;
+    }
+
+    /* ========== 表单 ========== */
+    .cloud-form-wrap { display: flex; flex-direction: column; gap: 8px; }
+
+    .cloud-back {
+      align-self: flex-start;
+      font-size: 12px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--cloud-line);
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.16s ease;
+    }
+
+    .cloud-back:hover { border-color: var(--accent-tertiary); color: var(--accent-tertiary); }
+
+    .cloud-form-head h2 {
+      font-size: 18px;
+      font-weight: 700;
+      margin: 2px 0 4px;
+      letter-spacing: 0.5px;
+    }
+
+    .cloud-form-head p {
+      font-size: 12px;
+      line-height: 1.55;
+      color: var(--text-secondary);
+      max-width: 640px;
+    }
+
+    .cloud-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px 10px;
+    }
+
+    .cloud-field { display: flex; flex-direction: column; gap: 4px; }
+    .cloud-field.wide { grid-column: 1 / -1; }
+
+    .cloud-field label {
+      font-family: var(--cloud-mono);
+      font-size: 11px;
+      letter-spacing: 0.6px;
+      color: var(--cloud-dim);
+      text-transform: uppercase;
+    }
+
+    .cloud-input-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: 2px solid var(--cloud-line);
+      border-radius: 9px;
+      background: var(--bg-slot);
+      padding: 5px 9px;
+      transition: border-color 0.16s ease, box-shadow 0.16s ease;
+    }
+
+    .cloud-input-row:focus-within {
+      border-color: var(--accent-tertiary);
+      box-shadow: 0 0 12px color-mix(in srgb, var(--accent-tertiary) 22%, transparent);
+    }
+
+    .cloud-prompt {
+      font-family: var(--cloud-mono);
+      font-size: 12px;
+      color: var(--accent-tertiary);
+      user-select: none;
+    }
+
+    .cloud-input-row input {
+      flex: 1;
+      min-width: 0;
+      border: none;
+      outline: none;
+      background: transparent;
+      color: var(--text-primary);
+      font-family: var(--cloud-mono);
+      font-size: 12px;
+      letter-spacing: 0.2px;
+    }
+
+    .cloud-input-row input::placeholder { color: var(--cloud-dim); }
+
+    .cloud-reveal {
+      border: none;
+      background: transparent;
+      color: var(--cloud-dim);
+      cursor: pointer;
+      font-size: 12px;
+      padding: 0 2px;
+    }
+
+    .cloud-reveal:hover { color: var(--accent-tertiary); }
+
+    .cloud-hint {
+      font-size: 11px;
+      line-height: 1.6;
+      color: var(--cloud-dim);
+    }
+
+    .cloud-form-actions {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 2px;
+    }
+
+    .cloud-primary {
+      font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      padding: 10px 20px;
+      border-radius: 10px;
+      border: 2px solid var(--accent-primary);
+      background: color-mix(in srgb, var(--accent-primary) 16%, var(--bg-card));
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.16s ease;
+    }
+
+    .cloud-primary:hover {
+      box-shadow: 0 0 16px var(--shadow-color);
+      transform: translateY(-1px);
+    }
+
+    .cloud-primary:disabled { opacity: 0.5; cursor: progress; transform: none; }
+
+    /* ========== 提示条 ========== */
+    .cloud-banner {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      padding: 9px 11px;
+      border-radius: 10px;
+      border: 1px solid var(--cloud-line);
+      font-size: 12px;
+      line-height: 1.65;
+      margin-bottom: 10px;
+      background: var(--bg-card);
+    }
+
+    .cloud-banner .bar { font-family: var(--cloud-mono); font-weight: 700; }
+    .cloud-banner.err { border-color: var(--cloud-bad); color: var(--cloud-bad); }
+    .cloud-banner.ok { border-color: var(--cloud-ok); color: var(--cloud-ok); }
+    .cloud-banner.warn { border-color: var(--cloud-warn); color: var(--cloud-warn); }
+
+    .cloud-banner .detail {
+      display: block;
+      margin-top: 4px;
+      font-family: var(--cloud-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 72px;
+      overflow-y: auto;
+      opacity: 0.85;
+    }
+
+    /* ========== 仪表盘 ========== */
+    .cloud-dash { display: flex; flex-direction: column; gap: 6px; }
+
+    .cloud-dash-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 9px 12px;
+      border: 2px solid var(--cloud-line);
+      border-radius: 12px;
+      background:
+        radial-gradient(100% 160% at 0% 0%, color-mix(in srgb, var(--accent-primary) 12%, transparent), transparent 60%),
+        var(--bg-card);
+    }
+
+    .cloud-repo {
+      font-family: var(--cloud-mono);
+      font-size: 13px;
+      color: var(--text-primary);
+      margin: 5px 0 3px;
+      word-break: break-all;
+    }
+
+    .cloud-sub {
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-family: var(--cloud-mono);
+      letter-spacing: 0.2px;
+    }
+
+    .cloud-led {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--cloud-ok);
+      box-shadow: 0 0 10px var(--cloud-ok), 0 0 2px var(--cloud-ok) inset;
+      flex-shrink: 0;
+      animation: cloudPulse 2.4s ease-in-out infinite;
+    }
+
+    .cloud-led.off { background: var(--cloud-dim); box-shadow: none; animation: none; }
+    .cloud-led.warn { background: var(--cloud-warn); box-shadow: 0 0 10px var(--cloud-warn); }
+
+    @keyframes cloudPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
+    }
+
+    .cloud-dash-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 8px;
+      align-items: start;
+    }
+
+    .cloud-panel {
+      border: 2px solid var(--cloud-line);
+      border-radius: 12px;
+      background: var(--bg-card);
+      padding: 8px 12px 10px;
+      min-height: 96px;
+    }
+
+    .panel-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: var(--cloud-dim);
+      margin-bottom: 5px;
+    }
+
+    .cloud-rows { display: flex; flex-direction: column; }
+
+    .cloud-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 5px 0;
+      border-bottom: 1px dashed color-mix(in srgb, var(--cloud-line) 70%, transparent);
+      font-size: 12px;
+    }
+
+    .cloud-row:last-child { border-bottom: none; }
+    .cloud-row .k { color: var(--text-secondary); font-family: var(--cloud-mono); font-size: 11px; letter-spacing: 0.4px; }
+    .cloud-row .v { font-family: var(--cloud-mono); font-size: 12px; color: var(--text-primary); text-align: right; word-break: break-all; }
+    .cloud-row .v.ok { color: var(--cloud-ok); }
+    .cloud-row .v.warn { color: var(--cloud-warn); }
+    .cloud-row .v.bad { color: var(--cloud-bad); }
+
+    .cloud-actions { display: flex; flex-direction: column; gap: 4px; }
+
+    .cloud-action {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      text-align: left;
+      padding: 7px 9px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-primary);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.14s ease;
+    }
+
+    .cloud-action .idx {
+      font-family: var(--cloud-mono);
+      font-size: 11px;
+      color: var(--cloud-dim);
+      min-width: 18px;
+    }
+
+    .cloud-action .label { flex: 1; }
+    .cloud-action .tail { font-family: var(--cloud-mono); font-size: 11px; color: var(--cloud-dim); }
+
+    .cloud-action:hover,
+    .cloud-action.selected {
+      border-color: var(--accent-tertiary);
+      background: color-mix(in srgb, var(--accent-tertiary) 10%, transparent);
+    }
+
+    .cloud-action.selected .idx,
+    .cloud-action.selected .tail { color: var(--accent-tertiary); }
+
+    .cloud-action.danger:hover,
+    .cloud-action.danger.selected {
+      border-color: var(--cloud-bad);
+      background: color-mix(in srgb, var(--cloud-bad) 12%, transparent);
+    }
+
+    .cloud-action.danger.selected .idx { color: var(--cloud-bad); }
+
+    /* 终端式日志 */
+    .cloud-log {
+      border: 2px solid var(--cloud-line);
+      border-radius: 12px;
+      background: var(--bg-slot);
+      padding: 8px 10px;
+      font-family: var(--cloud-mono);
+      font-size: 11px;
+      line-height: 1.85;
+      color: var(--text-secondary);
+      max-height: 92px;
+      overflow-y: auto;
+    }
+
+    .cloud-log .line { white-space: pre-wrap; word-break: break-all; }
+    .cloud-log .line .t { color: var(--cloud-dim); margin-right: 6px; }
+    .cloud-log .line.ok { color: var(--cloud-ok); }
+    .cloud-log .line.err { color: var(--cloud-bad); }
+    .cloud-log .line.warn { color: var(--cloud-warn); }
+
+    /* ========== 冲突页 ========== */
+    /* 冲突页不随整页滚动: 标题 + 可滚动的文件清单 + 常驻底部的策略行 */
+    .cloud-body.is-conflict {
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .cloud-conflict {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .cloud-conflict-list {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-right: 2px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-color) transparent;
+    }
+
+    .cloud-conflict-list::-webkit-scrollbar { width: 7px; }
+    .cloud-conflict-list::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+
+    .cloud-conflict-head {
+      flex-shrink: 0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 11px;
+      border: 2px solid var(--cloud-warn);
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--cloud-warn) 8%, var(--bg-card));
+    }
+
+    .cloud-conflict-head h2 {
+      font-size: 15px;
+      margin: 3px 0 4px;
+      color: var(--text-primary);
+    }
+
+    .cloud-conflict-head p { font-size: 12px; line-height: 1.7; color: var(--text-secondary); }
+
+    .cloud-file-conflict {
+      border: 2px solid var(--cloud-line);
+      border-radius: 10px;
+      background: var(--bg-card);
+      padding: 7px 9px 8px;
+    }
+
+    .cf-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--cloud-mono);
+      font-size: 12px;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+      word-break: break-all;
+    }
+
+    .cf-status {
+      font-family: var(--cloud-mono);
+      font-size: 10px;
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--cloud-warn);
+      color: var(--cloud-warn);
+      flex-shrink: 0;
+    }
+
+    .cf-panes {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .cf-pane {
+      border: 1px dashed var(--cloud-line);
+      border-radius: 8px;
+      background: var(--bg-slot);
+      padding: 6px 7px;
+      min-width: 0;
+    }
+
+    .cf-pane .tag {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+      color: var(--cloud-dim);
+    }
+
+    .cf-pane.local .tag { color: var(--accent-tertiary); }
+    .cf-pane.cloud .tag { color: var(--accent-secondary); }
+
+    .cf-pane pre {
+      font-family: var(--cloud-mono);
+      font-size: 11px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 58px;
+      overflow: auto;
+      margin: 0;
+    }
+
+    .cf-pane.empty pre { color: var(--cloud-dim); font-style: italic; }
+
+    .cloud-strategies {
+      flex-shrink: 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .cloud-strategy {
+      display: flex;
+      gap: 9px;
+      align-items: flex-start;
+      text-align: left;
+      padding: 8px 9px;
+      border-radius: 10px;
+      border: 2px solid var(--cloud-line);
+      background: var(--bg-card);
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .cloud-strategy:hover,
+    .cloud-strategy.selected {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 14px color-mix(in srgb, var(--accent-primary) 18%, transparent);
+      transform: translateY(-1px);
+    }
+
+    .cloud-strategy .code {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      color: var(--accent-primary);
+      padding-top: 2px;
+      flex-shrink: 0;
+    }
+
+    .cloud-strategy .s-title { display: block; font-size: 12px; font-weight: 600; margin-bottom: 3px; }
+    .cloud-strategy .s-desc { display: block; font-size: 11px; line-height: 1.6; color: var(--text-secondary); }
+
+    /* ========== 忙碌遮罩 ========== */
+    .cloud-busy {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      height: 100%;
+      min-height: 260px;
+      text-align: center;
+    }
+
+    .cloud-busy .blocks { display: flex; gap: 5px; }
+
+    .cloud-busy .blocks i {
+      width: 8px;
+      height: 18px;
+      background: var(--accent-tertiary);
+      animation: cloudBars 1.05s ease-in-out infinite;
+    }
+
+    .cloud-busy .blocks i:nth-child(2) { animation-delay: 0.12s; }
+    .cloud-busy .blocks i:nth-child(3) { animation-delay: 0.24s; }
+    .cloud-busy .blocks i:nth-child(4) { animation-delay: 0.36s; }
+
+    @keyframes cloudBars {
+      0%, 100% { transform: scaleY(0.35); opacity: 0.4; }
+      50% { transform: scaleY(1); opacity: 1; }
+    }
+
+    .cloud-busy .msg { font-size: 13px; letter-spacing: 1px; }
+    .cloud-busy .sub { font-size: 12px; color: var(--cloud-dim); font-family: var(--cloud-mono); }
+
+    /* ========== 页脚 ========== */
+    .cloud-footer { justify-content: space-between; }
+
+    .cloud-legend {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--cloud-mono);
+      font-size: 11px;
+      color: var(--cloud-dim);
+    }
+
+    .cloud-legend kbd {
+      font-family: var(--cloud-mono);
+      font-size: 10px;
+      border: 1px solid var(--cloud-line);
+      border-radius: 4px;
+      padding: 1px 4px;
+      color: var(--text-secondary);
+    }
+
+    .cloud-tip {
+      font-size: 11px;
+      color: var(--cloud-dim);
+      font-family: var(--cloud-mono);
+      text-align: right;
+      max-width: 46%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* 底部云按钮: 启用后带一个小绿点 */
+    .footer-btn.cloud-btn { position: relative; }
+
+    .footer-btn.cloud-btn .btn-icon { color: #ffffff; }
+    .light-mode .footer-btn.cloud-btn .btn-icon { color: var(--text-primary); }
+
+    .footer-btn.cloud-btn.linked::after {
+      content: '';
+      position: absolute;
+      right: 3px;
+      top: 3px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent-primary);
+      box-shadow: 0 0 6px var(--accent-primary);
+    }

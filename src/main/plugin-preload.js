@@ -256,6 +256,38 @@ window.hundun = {
     }
   },
 
+  // ========== 云端文档库 API (决策56: 仅 fast-txt 可用, 主进程二次校验) ==========
+  // 所有方法都不接受 git 参数, 只暴露语义化动作; 令牌只进不出。
+  cloud: {
+    detect: async (refresh) => {
+      return await ipcRenderer.invoke('fasttxt:cloud:detect', !!refresh)
+    },
+    state: async () => {
+      return await ipcRenderer.invoke('fasttxt:cloud:state')
+    },
+    setup: async (options) => {
+      const safe = options && typeof options === 'object' ? options : {}
+      return await ipcRenderer.invoke('fasttxt:cloud:setup', {
+        remoteUrl: safe.remoteUrl,
+        username: safe.username,
+        token: safe.token,
+        branch: safe.branch
+      })
+    },
+    sync: async () => {
+      return await ipcRenderer.invoke('fasttxt:cloud:sync')
+    },
+    resolve: async (strategy) => {
+      return await ipcRenderer.invoke('fasttxt:cloud:resolve', strategy)
+    },
+    disable: async () => {
+      return await ipcRenderer.invoke('fasttxt:cloud:disable')
+    },
+    conflicts: async () => {
+      return await ipcRenderer.invoke('fasttxt:cloud:conflicts')
+    }
+  },
+
   // ========== 事件系统 ==========
   events: {
     onExecute: (callback) => {

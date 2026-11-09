@@ -5,6 +5,7 @@ const { PluginManager } = require('./plugin-manager')
 const { MirrorManager } = require('./mirror-manager')
 const { pickZipFile, installFromZip, uninstallPlugin } = require('./plugin-installer')
 const { registerSoundSettingsIPC } = require('./sound-settings')
+const gitService = require('./git-service')
 
 // ========== 应用数据目录 (决策47: 安装位置自适应) ==========
 // 开发态/便携模式: exe (或项目根) 旁 user-data (原行为不变);
@@ -226,6 +227,9 @@ app.whenReady().then(() => {
   
   // 注册 FastTXT 文件系统 IPC 处理器
   registerFastTXTIPC(pluginManager)
+
+  // 注册 FastTXT 云端文档库 (git) IPC 处理器 (决策56)
+  registerFastTXTCloudIPC(pluginManager)
 
   // 注册音效设置 IPC (主进程镜像 + 跨窗口广播, 供插件直放音效读取)
   registerSoundSettingsIPC()
@@ -745,6 +749,257 @@ function getFastTXTBasePath(pluginId) {
     fs.mkdirSync(dataPath, { recursive: true })
   }
   return dataPath
+}
+
+// ========== FastTXT 云端文档库 (git) IPC ==========
+// 安全边界 (决策56):
+//  - 只接受 fast-txt 插件窗口的请求 (身份从 event.sender 反查, 不信任入参)
+//  - 渲染进程只能选语义化动作 + 少量字段, 不能传 git 参数 / 路径
+//  - 令牌只存在本地 cloud.json, 永不回传给渲染进程 (只回 hasToken 布尔)
+const CLOUD_ALLOWED_PLUGIN = 'fast-txt'
+const CLOUD_STRATEGIES = new Set(['auto', 'cloud', 'local', 'both'])
+const cloudLocks = new Map()
+
+function cloudConfigPath(pluginId) {
+  const dir = path.join(app.getPath('userData'), 'plugins', pluginId || CLOUD_ALLOWED_PLUGIN)
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+  return path.join(dir, 'cloud.json')
+}
+
+function readCloudConfig(pluginId) {
+  const empty = {
+    enabled: false,
+    remoteUrl: '',
+    username: '',
+    token: '',
+    branch: 'main',
+    lastSyncAt: null,
+    lastResult: null
+  }
+  try {
+    const raw = fs.readFileSync(cloudConfigPath(pluginId), 'utf-8')
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object') return empty
+    return {
+      enabled: !!parsed.enabled,
+      remoteUrl: String(parsed.remoteUrl || ''),
+      username: String(parsed.username || ''),
+      token: String(parsed.token || ''),
+      branch: String(parsed.branch || 'main'),
+      lastSyncAt: parsed.lastSyncAt || null,
+      lastResult: parsed.lastResult || null
+    }
+  } catch (_) {
+    return empty
+  }
+}
+
+function writeCloudConfig(pluginId, cfg) {
+  const file = cloudConfigPath(pluginId)
+  const tmp = file + '.tmp'
+  fs.writeFileSync(tmp, JSON.stringify(cfg, null, 2), { encoding: 'utf-8', mode: 0o600 })
+  fs.renameSync(tmp, file)
+}
+
+// 同一仓库串行执行 git 操作 (两次同步/同步中点解决不能并发)
+function withCloudLock(key, fn) {
+  const prev = cloudLocks.get(key) || Promise.resolve()
+  const run = prev.then(fn, fn)
+  cloudLocks.set(key, run.then(() => {}, () => {}))
+  return run
+}
+
+function cloudErrorPayload(err, cfg) {
+  const isGitError = err && err.name === 'GitError'
+  return {
+    ok: false,
+    code: isGitError ? err.code : 'GIT_FAILED',
+    message: gitService.sanitize(err && err.message ? err.message : String(err), cfg),
+    detail: gitService.sanitize(err && err.detail ? err.detail : '', cfg).slice(0, 4000)
+  }
+}
+
+function normalizeBranch(input) {
+  const branch = String(input == null || input === '' ? 'main' : input).trim()
+  if (!/^[A-Za-z0-9._\/-]{1,100}$/.test(branch) || branch.startsWith('-') || branch.includes('..')) {
+    throw new gitService.GitError('BAD_BRANCH', '分支名不合法 (只允许字母、数字、- _ . /)')
+  }
+  return branch
+}
+
+function normalizeRemoteUrl(input) {
+  const url = String(input || '').trim()
+  if (!url) throw new gitService.GitError('EMPTY_REMOTE', '请填写远程仓库地址')
+  if (url.length > 500) throw new gitService.GitError('BAD_REMOTE', '仓库地址过长')
+  const isHttps = /^https?:\/\//i.test(url)
+  const isSsh = /^ssh:\/\//i.test(url) || /^[\w.-]+@[\w.-]+:[\w./~-]+$/.test(url)
+  if (!isHttps && !isSsh) {
+    throw new gitService.GitError('BAD_REMOTE', '只支持 https:// 或 ssh 形式的仓库地址')
+  }
+  return url
+}
+
+function sanitizeCloudOptions(payload) {
+  const p = payload && typeof payload === 'object' ? payload : {}
+  const url = normalizeRemoteUrl(p.remoteUrl)
+  const username = String(p.username || '').trim().slice(0, 100)
+  // 令牌可能出现空格/换行 → 一律剔除首尾空白与换行
+  const token = String(p.token || '').replace(/\s+/g, '').slice(0, 300)
+  if (!/^https?:\/\//i.test(url) && token) {
+    throw new gitService.GitError('BAD_TOKEN', 'ssh 地址不需要填写访问令牌 (请改用系统 SSH key)')
+  }
+  return { remoteUrl: url, username, token, branch: normalizeBranch(p.branch) }
+}
+
+function registerFastTXTCloudIPC(pm) {
+  const senderPluginId = (event) => {
+    try {
+      return pm && pm._getWindowPluginId(event.sender)
+    } catch (_) {
+      return null
+    }
+  }
+  const guard = (event) => senderPluginId(event) === CLOUD_ALLOWED_PLUGIN
+  const forbidden = () => ({ ok: false, code: 'FORBIDDEN', message: '当前窗口无权访问云端文档库' })
+
+  // git 可用性 (用户可能刚装完 git → refresh 重探)
+  ipcMain.handle('fasttxt:cloud:detect', async (event, refresh) => {
+    if (!guard(event)) return forbidden()
+    const info = await gitService.detectGit(!!refresh)
+    return { ok: true, gitAvailable: info.available, gitVersion: info.version, gitPath: info.path || '' }
+  })
+
+  // 状态 + 配置 (绝不含令牌)
+  ipcMain.handle('fasttxt:cloud:state', async (event) => {
+    if (!guard(event)) return forbidden()
+    const pluginId = CLOUD_ALLOWED_PLUGIN
+    const cfg = readCloudConfig(pluginId)
+    const repoDir = getFastTXTBasePath(pluginId)
+    try {
+      const state = await withCloudLock(repoDir, () => gitService.repoState(repoDir, cfg))
+      return { ok: true, state }
+    } catch (err) {
+      return { ...cloudErrorPayload(err, cfg), state: { enabled: cfg.enabled, gitAvailable: false } }
+    }
+  })
+
+  // 关联云端仓库 (1 新建 / 2 已有 走同一实现: 远端有内容就合并, 空库就首推)
+  ipcMain.handle('fasttxt:cloud:setup', async (event, payload) => {
+    if (!guard(event)) return forbidden()
+    const pluginId = CLOUD_ALLOWED_PLUGIN
+    const repoDir = getFastTXTBasePath(pluginId)
+    let cfg = readCloudConfig(pluginId)
+    try {
+      const opts = sanitizeCloudOptions(payload)
+      const next = { ...cfg, ...opts, enabled: true, lastResult: 'pending' }
+      writeCloudConfig(pluginId, next)
+      cfg = next
+      const result = await withCloudLock(repoDir, () => gitService.setupRepo(repoDir, next))
+      const finalCfg = {
+        ...next,
+        enabled: true,
+        lastSyncAt: result.ok ? Date.now() : next.lastSyncAt,
+        lastResult: result.ok ? 'ok' : 'conflict'
+      }
+      writeCloudConfig(pluginId, finalCfg)
+      return {
+        ok: result.ok,
+        code: result.ok ? 'OK' : 'CONFLICT',
+        state: { ...result.state, enabled: true },
+        conflicts: result.conflicts || []
+      }
+    } catch (err) {
+      // 关联失败: 停用但保留地址, 方便用户修好后再点一次
+      const failed = { ...cfg, enabled: false, lastResult: 'error' }
+      try { writeCloudConfig(pluginId, failed) } catch (_) {}
+      console.error('[FastTXT Cloud] setup failed:', err && err.message)
+      return cloudErrorPayload(err, cfg)
+    }
+  })
+
+  // 手动同步: 提交 → fetch → 合并 → 推送
+  ipcMain.handle('fasttxt:cloud:sync', async (event) => {
+    if (!guard(event)) return forbidden()
+    const pluginId = CLOUD_ALLOWED_PLUGIN
+    const repoDir = getFastTXTBasePath(pluginId)
+    const cfg = readCloudConfig(pluginId)
+    if (!cfg.enabled) return { ok: false, code: 'DISABLED', message: '云端文档库未启用' }
+    try {
+      const result = await withCloudLock(repoDir, () => gitService.syncRepo(repoDir, cfg))
+      const next = {
+        ...cfg,
+        lastSyncAt: result.ok ? Date.now() : cfg.lastSyncAt,
+        lastResult: result.ok ? 'ok' : 'conflict'
+      }
+      writeCloudConfig(pluginId, next)
+      return {
+        ok: result.ok,
+        code: result.ok ? 'OK' : 'CONFLICT',
+        state: result.state,
+        conflicts: result.conflicts || []
+      }
+    } catch (err) {
+      try { writeCloudConfig(pluginId, { ...cfg, lastResult: 'error' }) } catch (_) {}
+      console.error('[FastTXT Cloud] sync failed:', err && err.message)
+      return { ...cloudErrorPayload(err, cfg), state: await safeCloudState(repoDir, cfg) }
+    }
+  })
+
+  // 解决冲突: auto(2.0) / cloud(2.1) / local(2.2) / both(2.3)
+  ipcMain.handle('fasttxt:cloud:resolve', async (event, strategy) => {
+    if (!guard(event)) return forbidden()
+    if (!CLOUD_STRATEGIES.has(strategy)) {
+      return { ok: false, code: 'BAD_STRATEGY', message: '未知的冲突处理方式' }
+    }
+    const pluginId = CLOUD_ALLOWED_PLUGIN
+    const repoDir = getFastTXTBasePath(pluginId)
+    const cfg = readCloudConfig(pluginId)
+    try {
+      const result = await withCloudLock(repoDir, () => gitService.resolveConflicts(repoDir, cfg, strategy))
+      writeCloudConfig(pluginId, { ...cfg, lastResult: 'resolved' })
+      return { ok: result.ok, code: 'OK', resolved: result.resolved || [], state: result.state }
+    } catch (err) {
+      console.error('[FastTXT Cloud] resolve failed:', err && err.message)
+      return { ...cloudErrorPayload(err, cfg), state: await safeCloudState(repoDir, cfg) }
+    }
+  })
+
+  // 关闭云同步 (文档与 .git 历史保留, 随时可重新开启)
+  ipcMain.handle('fasttxt:cloud:disable', async (event) => {
+    if (!guard(event)) return forbidden()
+    const pluginId = CLOUD_ALLOWED_PLUGIN
+    const cfg = readCloudConfig(pluginId)
+    const repoDir = getFastTXTBasePath(pluginId)
+    try {
+      const next = { ...cfg, enabled: false, lastResult: null }
+      writeCloudConfig(pluginId, next)
+      return { ok: true, state: await gitService.repoState(repoDir, next) }
+    } catch (err) {
+      return cloudErrorPayload(err, cfg)
+    }
+  })
+
+  // 冲突详情 (进入冲突页 / 重新打开时拉取)
+  ipcMain.handle('fasttxt:cloud:conflicts', async (event) => {
+    if (!guard(event)) return forbidden()
+    const pluginId = CLOUD_ALLOWED_PLUGIN
+    const cfg = readCloudConfig(pluginId)
+    const repoDir = getFastTXTBasePath(pluginId)
+    try {
+      const conflicts = await gitService.readConflicts(repoDir, cfg)
+      return { ok: true, conflicts }
+    } catch (err) {
+      return cloudErrorPayload(err, cfg)
+    }
+  })
+}
+
+async function safeCloudState(repoDir, cfg) {
+  try {
+    return await gitService.repoState(repoDir, cfg)
+  } catch (_) {
+    return { enabled: !!(cfg && cfg.enabled), initialized: false, gitAvailable: false }
+  }
 }
 
 // ========== 插件本地安装 IPC ==========

@@ -23,6 +23,7 @@ HundunDesktop 是一个以「游戏掌机」为隐喻的桌面效率应用。母
 - **键盘优先**：WASD / 方向键导航，空格 / Enter 确认，Esc 返回
 - **镜像模式**：再开一个母窗口，双人并行使用不同子程序
 - **本地优先**：数据保存在本机 JSON 文件，无需账户与网络
+- **云端文档库**：FastTXT 内可把文本目录接到自己的 git 仓库（GitHub / Gitee / 自建），手动同步、可选冲突策略，默认关闭
 - **插件安装**：从 `.zip` 安装第三方插件，设置页统一管理排序与卸载
 
 > [!IMPORTANT]
@@ -33,7 +34,7 @@ HundunDesktop 是一个以「游戏掌机」为隐喻的桌面效率应用。母
 | 卡带 | 子程序 | 尺寸 | 能做什么 |
 | --- | --- | --- | --- |
 | 🔢 `calculator` | CALC | 400×540 | 复古掌机风格计算器 |
-| 📄 `fast-txt` | FastTXT | 800×540 | 文本文件管理、编辑、Markdown 实时浏览、查找替换 |
+| 📄 `fast-txt` | FastTXT | 800×540 | 文本文件管理、编辑、Markdown 实时浏览、查找替换、git 云端文档库 |
 | 📋 `task` | TASK | 400×520 | 任务清单、截止时间、状态排序、到点提醒 |
 | ⚡ `fast-cmd` | FastCmd | 800×540 | 脚本管理：Windows `.bat` `.cmd` `.ps1` / Linux `.sh`，点击即运行 |
 
@@ -90,6 +91,26 @@ Linux 下也可以直接执行 `./start.sh`：脚本会自动安装依赖，并�
 - A / B 两个会话可以同屏并行，各自运行不同的子程序
 - 同一个子程序同一时间只属于一个会话，重复启动会被拦截
 - 镜像窗口只能运行子程序，不能修改设置；关闭 A 后 B 会自动升格为完整母窗口
+
+### 云端文档库（FastTXT）
+
+FastTXT 底部 ☁ 按钮进入 Cloud Link 页面，用**你自己的 git 仓库**给文本目录做版本历史与云端副本。功能默认关闭。
+
+- **首次进入**只有三个选项：我没有仓库（新建一个）/ 我已有云端仓库 / 暂不启用。选「暂不启用」直接回文件列表，不写任何设置
+- **新建仓库**：先在 GitHub / Gitee 建一个空仓库（不要勾初始化 README），把地址填进来即可
+- **已有仓库**：填地址后先拉取再与本地合并，两边的文件都不会丢
+- **手动同步**：只有点「立即同步」才联网 —— 提交本地改动 → 拉取 → 必要时合并 → 推送
+- **冲突处理**：同一文件两端都改过时，冲突页给出本地 / 云端预览，并提供四种策略
+  - `2.0` 自动合并（交给 git，文件里保留 `<<<<<<<` 标记）
+  - `2.1` 以云端为准（丢弃本地对冲突文件的修改）
+  - `2.2` 以本地为准（只覆盖冲突文件，云端其它改动仍保留）
+  - `2.3` 两端都保留（原文件留本地，云端另存为 `文件 (云端).txt`）
+- **只同步文档**：回收站、排序、书签属于本地视图状态，不会进版本库
+- **依赖系统 git**：未安装时页面会提示，安装后点「重新检测」即可
+- **私有仓库要填访问令牌**（只存在本机 `user-data`，不写进仓库）：
+  - **GitHub**：Settings → Developer settings → Personal access tokens，勾 `repo`；用户名填 `x-access-token`（留空也会自动用它）。GitHub 已不支持账号密码
+  - **Gitee**：设置 → 私人令牌，勾 `projects`；用户名填你的 Gitee 用户名（**不要填 oauth2**）
+  - **GitLab / 自建**：用户名 `oauth2` + Personal Access Token
 
 ### 卡片与插件管理
 
@@ -148,6 +169,7 @@ plugins/my-plugin/
 
 ```bash
 npm run build        # 构建到 out/
+npm run check:main   # 构建后自检：out/main 里每个相对 require 都能解析
 npm run build:win    # Windows NSIS 安装包
 npm run build:linux  # Linux AppImage + deb
 npm run build:setup  # 一次产出三件套
@@ -185,6 +207,7 @@ HundunDesktop/
 │   │   ├── plugin-manager.js # 插件窗口、会话归属与母子互斥
 │   │   ├── mirror-manager.js # 镜像窗口与升格
 │   │   ├── plugin-installer.js # .zip 审核、解压、安装与卸载
+│   │   ├── git-service.js    # 云端文档库 git 服务（白名单子命令 / 冲突解析）
 │   │   ├── plugin-preload.js # window.hundun 插件 API
 │   │   └── preload.js        # 主窗口 preload
 │   ├── renderer/             # Vue 3 母程序界面
@@ -215,6 +238,8 @@ HundunDesktop/
 | 插件文件数据 | `user-data/plugins/<plugin-id>/file/` |
 | 插件 JSON 存储 | `user-data/hundundesktop-data/<plugin-id>.json` |
 | 已安装插件记录 | `user-data/installed-plugins.json` |
+| FastTXT 云端库配置（含令牌） | `user-data/plugins/fast-txt/cloud.json` |
+| FastTXT 版本库 | `user-data/plugins/fast-txt/file/.git/`（同目录 `.gitignore` 排除回收站与排序/书签） |
 | 主题 / 语言 / 音效 / 插件顺序 | 渲染进程 `localStorage`（`hundundesktop-*`） |
 
 > [!NOTE]
@@ -231,10 +256,12 @@ npx electron --no-sandbox scripts/test-plugin-uninstall.js
 npx electron --no-sandbox scripts/test-task.js
 ```
 
-平台检查与路径防护等纯 Node 测试可直接执行：
+平台检查、云端库同步等纯 Node 测试可直接执行：
 
 ```bash
 node scripts/test-platform-support.js
+node scripts/test-fasttxt-cloud.js   # 本地 bare 仓库模拟远端，覆盖冲突四策略
+npm run check:main                   # 构建后校验 out/main 相对依赖是否齐全（防漏复制）
 ```
 
 ## 文档

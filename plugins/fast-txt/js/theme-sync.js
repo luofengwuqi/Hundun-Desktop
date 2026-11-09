@@ -18,11 +18,15 @@
     const updateThemeToggle = () => {
       const themeToggle = document.getElementById('themeToggle');
       const themeToggleEditor = document.getElementById('themeToggleEditor');
+      const themeToggleCloud = document.getElementById('themeToggleCloud');
       if (themeToggle) {
         themeToggle.classList.toggle('active', !isDarkMode);
       }
       if (themeToggleEditor) {
         themeToggleEditor.classList.toggle('active', !isDarkMode);
+      }
+      if (themeToggleCloud) {
+        themeToggleCloud.classList.toggle('active', !isDarkMode);
       }
     };
 

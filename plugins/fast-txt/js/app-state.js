@@ -2,6 +2,7 @@
     const appEl = document.getElementById('app');
     const viewMain = document.getElementById('view-main');
     const viewEditor = document.getElementById('view-editor');
+    const viewCloud = document.getElementById('view-cloud');
     const closeBtn = document.getElementById('closeBtn');
     const pinBtn = document.getElementById('pinBtn');
     const minBtn = document.getElementById('minBtn');
@@ -144,6 +145,12 @@
         { id: 'trash', icon: '🗑️', action: toggleTrashMode, title: isTrashMode ? FastTXTI18n.t('buttons.backToFiles') : FastTXTI18n.t('buttons.showDeleted') },
         { id: 'folder', icon: '📁', action: openFolder, title: FastTXTI18n.t('buttons.openInExplorer') },
         { id: 'refresh', icon: '<svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="21 4 21 10 15 10"/><polyline points="3 20 3 14 9 14"/><path d="M4.2 9a8.5 8.5 0 0 1 14-3.2L21 10"/><path d="M19.8 15a8.5 8.5 0 0 1-14 3.2L3 14"/></svg>', action: refreshFilesFromDisk, title: FastTXTI18n.t('buttons.refresh') },
+        {
+          id: 'cloud',
+          icon: '<svg class="btn-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 18h11a3.5 3.5 0 0 0 .4-6.98A5 5 0 0 0 8.1 9.2 4 4 0 0 0 6.5 18z"/><path d="M12 15v-4"/><path d="M10 12.5 12 10.5l2 2"/></svg>',
+          action: openCloudView,
+          title: FastTXTI18n.t('buttons.cloud')
+        },
       ];
       return btns;
     };
@@ -151,11 +158,13 @@
     // ========== 图钉按钮设置 ==========
     const setupPinButton = () => {
       const editorPinBtn = document.getElementById('editorPinBtn');
+      const cloudPinBtn = document.getElementById('cloudPinBtn');
       
       const togglePin = async () => {
         isPinned = !isPinned;
         if (pinBtn) pinBtn.classList.toggle('pinned', isPinned);
         if (editorPinBtn) editorPinBtn.classList.toggle('pinned', isPinned);
+        if (cloudPinBtn) cloudPinBtn.classList.toggle('pinned', isPinned);
         
         if (window.hundun && window.hundun.window && window.hundun.window.setAlwaysOnTop) {
           await window.hundun.window.setAlwaysOnTop(isPinned);
@@ -164,11 +173,13 @@
       
       if (pinBtn) pinBtn.addEventListener('click', togglePin);
       if (editorPinBtn) editorPinBtn.addEventListener('click', togglePin);
+      if (cloudPinBtn) cloudPinBtn.addEventListener('click', togglePin);
     };
 
     // ========== 最小化按钮设置 ==========
     const setupMinButton = () => {
       const editorMinBtn = document.getElementById('editorMinBtn');
+      const cloudMinBtn = document.getElementById('cloudMinBtn');
 
       const minimize = async () => {
         if (window.hundun && window.hundun.window && window.hundun.window.minimize) {
@@ -178,4 +189,5 @@
 
       if (minBtn) minBtn.addEventListener('click', minimize);
       if (editorMinBtn) editorMinBtn.addEventListener('click', minimize);
+      if (cloudMinBtn) cloudMinBtn.addEventListener('click', minimize);
     };

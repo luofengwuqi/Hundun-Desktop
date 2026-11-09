@@ -1,8 +1,79 @@
 # HundunDesktop - 更新日志
 
-> 最后更新: 2026-10-23
+> 最后更新: 2026-10-24
 
 ---
+
+## 2026-10-24
+
+### feat: FastTXT 云端文档库 (git) + 项目版本号 26.2.1024 (决策56)
+
+- [x] **入口**: 底部按钮区刷新右侧新增 ☁ 云按钮 → 全屏 Cloud Link 页面 (`#view-cloud`)，✕ 只回文件列表；启用后按钮带绿点
+- [x] **默认关闭 + 首次引导**: 首次进入只显示说明与三个选项 —— ① 我没有仓库，新建一个 ② 我已有云端仓库 ③ 暂不启用；选 ③ 直接返回主页且**不写任何状态**（下次点击仍从引导开始）
+- [x] **关联表单**: 远程地址（https / ssh）、分支、用户名（可空）、访问令牌（可空，可切换明文）；提示"先在 GitHub/Gitee 建空仓库（别勾初始化 README）"
+- [x] **关联语义**: 选项 ① 与 ② 同一实现 —— 新库 `git init` + 首推；云端已有内容则 `merge --allow-unrelated-histories`（两端历史无共同祖先），合并成功再 push，冲突则进冲突页
+- [x] **手动同步**: 「立即同步」= `add -A` + commit → `fetch` → 需要时 `merge` → `push`；编辑与保存完全不联网（用户拍板）
+- [x] **冲突四策略**（用户拍板）:
+  - **2.0 自动合并** — 交给 git，保留 `<<<<<<<` 标记后提交，文件留待用户手改
+  - **2.1 以云端为准** — 冲突文件 `checkout --theirs`（云端已删则跟随删除）
+  - **2.2 以本地为准** — 冲突文件 `checkout --ours`，**云端其它不冲突改动照常并入**（不做 force push，避免误删队友改动）
+  - **2.3 两端都保留** — 原文件留本地内容，云端版本另存 `文件 (云端).txt`（重名递增 `(云端2)`）
+  - 冲突页展示每个文件的 `本地 / 云端` 预览片段与 git 状态码（UU/AA/DU）
+- [x] **合并与推送分离**: 解决冲突只生成合并提交，不自动 push；仪表盘显示「待推送 N」，避免一次点击产生远程副作用
+- [x] **同步范围**: 只同步 `.txt/.md` 与文件夹结构；`.trash/`、`.order.json`、`.bookmarks.json` 写入 `.gitignore`（本地视图状态）
+- [x] **主进程 git 服务** `src/main/git-service.js`（零依赖，可纯 Node 测试）: `execFile` 参数数组调 git（无 shell）、固定基础配置（关 CRLF 转换/分页/凭据助手）、状态解析（dirty/ahead/behind/最近提交/合并中）、冲突读取（stage2/3 预览）、四策略解析、错误分类（AUTH / NETWORK / REJECTED / NO_REMOTE_BRANCH）
+- [x] **安全**: IPC 仅在 `senderPluginId === 'fast-txt'` 受理；渲染进程只能发语义化动作，不能传 git 参数或路径；令牌只出现在单次网络命令 argv，不写 `.git/config`，回传只有 `hasToken` 布尔；stderr 全量脱敏；`GIT_TERMINAL_PROMPT=0` + `credential.helper=` 保证缺凭据立刻失败不卡死；配置存 `user-data/plugins/fast-txt/cloud.json`（0600）
+- [x] **键盘**: ↑↓/WASD 选择、Enter 执行、Esc 逐层返回（表单→引导→主页面 / 冲突→状态）、表单内 Tab 切换字段、输入框内不劫持按键
+- [x] **视觉**: 官方基底（馄饨黑/馄饨黄）下都可用；链路流动虚线、呼吸 LED、等宽状态值、终端式 SYNC LOG、冲突页策略行常驻（文件清单内部滚动）
+- [x] **版本号**: `package.json` / `package-lock.json` / `plugins/fast-txt/manifest.json` → **26.2.1024**，插件头部徽章 `v1.0` → `v26.2`
+- [x] **测试**: 新增 `scripts/test-fasttxt-cloud.js`（纯 Node，本地 bare 仓库模拟远端）—— 首次关联空库 / 忽略规则 / 反向同步 / 四种冲突策略（含"2.2 保留云端非冲突改动"、"2.3 另存内容正确"）/ 令牌注入与脱敏 / 关闭后文档与历史仍在，**68/68 通过**；`npm run build` 通过；Electron `capturePage` 实拍引导/表单/仪表盘/冲突页（深浅两套）
+
+### fix: 构建产物漏复制 `git-service.js`，主进程启动即崩
+
+- [x] **现象**: `npm run build` 后启动，弹窗「A JavaScript error occurred in the main process — Error: Cannot find module './git-service'」（`out/main/index.js:9`），窗口完全不出现；`npm run dev` 却正常（dev 直读 `src/`）
+- [x] **原因**: 主进程除入口外由 `electron.vite.config.js` 的 `copyMainModules()` **原样复制**到 `out/main/`，而它是**硬编码清单**，新增 `git-service.js` 时没登记
+- [x] **修复**: 改为**目录扫描** —— `src/main/*.js`（排除入口 `index.js` / `preload.js`）+ `src/shared/plugin-loader.js` 全部复制；以后新增主进程模块无需动配置（AGENTS 构建管线一节同步补充此坑）
+- [x] **兜底**: 新增 `scripts/check-main-build.js` 与 `npm run check:main`，构建后校验 `out/main/*.js` 里每个相对 `require` 是否可解析（已实测：删掉 `git-service.js` 能准确报出 `index.js → ./git-service`，退出码 1）
+- [x] **验证**: `rm -rf out && npm run build` 后 `out/main` 11 个模块、相对依赖全部可解析；启动日志到 `[Main] Plugin manager initialized` 不再有模块错误；`test-fasttxt-cloud` 68/68、`test-platform-support` 21/21 复跑通过
+
+### fix: 云端页用方向键选择时"一闪一闪"
+
+- [x] **现象**: 首次进入 Cloud Link（引导页），按 ↑↓/WASD 切换选项时整页闪一下，三个选项卡像重新浮出来
+- [x] **原因**: 两个因素叠加 —— ① `renderCloud()` 每次都用 `innerHTML` **整块重建** DOM；② `.cloud-option` 上无条件挂着 `animation: cloudRise ... both`（入场动画）。每次按键重建 ⇒ 动画从头播 ⇒ 三个卡片从 `opacity:0` 重新浮现。同时 `body.scrollTop = 0` 和焦点也被重置；`.cloud-uplink` 流向线、仪表盘 LED 呼吸等无限动画同样被重启
+- [x] **修复**: ① 新增 `cloudUpdateSelection()`，只切 `.selected` 类 + `scrollIntoView({block:'nearest'})`，**不碰 DOM 结构**；键盘 ↑↓ 与点选冲突策略都改走它 ② 入场动画收进 `.cloud-body.is-enter .cloud-option`，只在换页时由 `renderCloud()` 加类、460ms 后移除（同一页面内的重渲染也不再重播）
+- [x] **验证**: Electron 实跑（桩宿主 API）9/9 —— ↓ 后节点标记仍在（未重建）、选中项正确、`getAnimations()` 里 CSSAnimation 为 0、连按 6 次不重建、换页时 `is-enter` 正常挂上、冲突页 ↓ 只切选中；`npm run build` + `check:main` 通过
+
+### fix: 底部按钮改为「先选中、再确认」；修好 Enter/空格打开云端页无响应；云端页打开变快
+
+- [x] **按 Enter 没反应**: 键盘 `case 'Enter'` 只调了 `btn.action()`，漏了 `updateUI()`。云按钮的 action 只是把 `currentView` 切成 `'cloud'` 并把 loading 渲染进隐藏容器 → 视图永远不切，看起来像「按了没反应」。鼠标点击路径本来就有 `updateUI()`，所以只有键盘坏
+- [x] **空格无效**: 主视图的键位归一化只做了 WASD → 方向键，没做空格 → Enter（弹窗/新建菜单里是有的）。已补 `' ' / 'Spacebar' → 'Enter'`，与母程序「空格 = 执行」一致
+- [x] **两步交互**: 底部按钮改回手柄语义 —— 首次点击只选中（信息栏显示按钮名 + `btn-focused` 高亮），再点一次才执行；已是选中态时单击直接执行。避免误触设置/粉碎，也和母程序「选中 → Enter 插入」一致
+- [x] **打开变快**: `repoState()` 原来串行 spawn 6~8 次 git（Windows 每次 100~300ms）。`currentBranch / mergeInProgress / changedFiles / aheadBehind / lastCommit` 互不依赖，改 `Promise.all` 并行；`cloudRefresh` 里 `detect` 与 `state` 也并行发出。实测 804ms / 841ms → **257ms / 264ms**（约 3 倍）
+- [x] **验证**: Electron 实跑 8/8 —— ↓→→→→ 选中云按钮、Enter 打开、Esc 返回、空格打开、首点只选中、二点才进入、其他按钮同样两步；`npm run build` + `check:main` 通过；`test-fasttxt-cloud` 68/68 复跑通过
+
+### fix: 装了 git 却提示"未检测到 git"（并发探测竞态）
+
+- [x] **现象**: 本地 git 正常（`git --version` 可用、在系统 PATH 里），但云端页一直显示"未检测到 git"
+- [x] **原因**: 上一条把 `cloudRefresh` 的 `detect()` 与 `state()` 改成并行，而 `state → repoState → detectGit()` 与之并发。`detectGit()` 的结构是「已检查就早退」在前、探测在后：A 调用把 `_gitChecked` 置 true 并清空 `_gitPath` 后 await 探测，B 调用立刻走早退分支读到 `_gitPath === null`，返回 `available: false` → `state.gitAvailable = false` → 横幅报未检测到。实测 `Promise.all([detectGit(), detectGit()])` 必现 `[true, false]`
+- [x] **修复**: 引入进行中的探测 Promise `_gitProbe`，并把判断顺序改为「先共享进行中的探测，再看已检查缓存」，`finally` 里清空。现在多路并发、强制重探与普通调用混合都返回同一结果
+- [x] **回归**: `scripts/test-fasttxt-cloud.js` 新增 `[0] 并发探测` —— 三路并发 detectGit 全部可用、版本一致、`detect` 与 `repoState` 并发时 `gitAvailable` 不丢（用例总数 68 → 71）
+- [x] **验证**: 单独脚本实测三路并发 `[true,true,true]`、强制重探 + 普通调用并发 `[true,true]`；`npm run build` + `check:main` 通过。**注意**: 已装的包需重新构建/重启（探测结果缓存在进程内）
+
+### style: 云端文档库字号上调（最小 8px → 11px 可读基线）
+
+- [x] **问题**: 页面里大量 6~10px 的文字（选项描述、状态键值、冲突预览、策略说明、页脚提示），在 800×540 下明显偏小
+- [x] **字号**: ≤10px 一律 +2（6→8 / 7→9 / 8→10 / 9→11 / 10→12），11~13 +1，标题类 +2（Hero 24→22 先按视觉收敛、面板标题 9→10、序号 9→10）；正文描述统一 **12px**，键值 11→12px
+- [x] **留白重排**: 字号变大后四屏都会溢出，逐屏压缩垂直空间 —— 页面内边距 14/18/18 → 10/16/12、引导页 hero 内边距与标题外边距收紧、选项内边距 12/14 → 8/11、表单字段间距 10 → 7、仪表盘 gap 10 → 6、面板内边距与标题间距收紧；并把 hero 的三个 chip 从独立一行挪到 kicker 同一行（省 28px）
+- [x] **验证**: 逐屏量 `body.scrollHeight vs clientHeight` —— 引导 387/387、表单 387/387、仪表盘 387/387、冲突 387/387，四屏**均无纵向滚动**；Electron `capturePage` 实拍深浅两套共 8 张核对排版；确认选项卡入场动画结束后 opacity=1（截图前需等动画完成，否则拍到透明帧）
+
+### fix: 认证失败文案指路 + 按平台给正确的用户名/令牌提示
+
+- [x] **现象**: 填了 `https://github.com/<user>/<repo>.git` 直接关联，报「认证失败：请检查仓库地址、用户名与访问令牌权限」，下面是 `remote: Invalid username or token. Password authentication is not supported for Git operations.` —— 不知道到底错在哪
+- [x] **真实原因**: 令牌留空。GitHub / Gitee 早已停用账号密码，匿名 push 一定 401；而旧文案把「没填令牌」「令牌无效」「仓库不存在」混为一谈
+- [x] **文案分流** (`classifyNetworkError` 现在接收 cfg): ① 出现 `Password authentication is not supported` / `Invalid username or token`，且**没有令牌** → 「没有填写访问令牌，请填 PAT（GitHub 勾 repo；Gitee 用私人令牌）」；② 有令牌 → 「令牌无效或权限不足，确认未过期且勾 repo，用户名建议 x-access-token」；③ `Repository not found` → 「仓库不存在或无权访问，先去建空库」；④ 断网/拒绝/分支不存在等保持原分类
+- [x] **表单提示按主机变**: GitHub → PAT + `x-access-token`；Gitee → 私人令牌 + Gitee 用户名（明确写「不要填 oauth2」）；其他（GitLab/自建）→ oauth2 + PAT。用户名占位符同步变化，输入仓库地址时**原地**更新提示（不重建表单，不会闪、不丢焦点）
+- [x] **默认用户名兜底**: `buildAuthUrl` 在用户名为空时按主机选 —— github.com 用 `x-access-token`，其它用 `oauth2`（原来一律 oauth2，GitHub 上属误导）
+- [x] **回归**: `scripts/test-fasttxt-cloud.js` 新增 `[7] 认证失败文案` 5 条 + 鉴权 URL 3 条（GitHub/GitLab 默认用户名、无令牌不注入凭据），旧断言「默认用户名 oauth2」同步修正为 x-access-token，**79/79 通过**；表单在 GitHub/Gitee 两种提示下均无纵向滚动（387/387）
 
 ## 2026-10-23 (二)
 

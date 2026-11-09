@@ -3,6 +3,7 @@
       if (currentView === 'main') {
         viewMain.style.display = '';
         viewEditor.style.display = 'none';
+        if (viewCloud) viewCloud.style.display = 'none';
         // Close find bar when leaving editor
         if (findBarVisible) {
           findBarVisible = false;
@@ -24,8 +25,15 @@
       } else if (currentView === 'editor') {
         viewMain.style.display = 'none';
         viewEditor.style.display = '';
+        if (viewCloud) viewCloud.style.display = 'none';
         renderEditorStatus();
         renderLineNumbers();
+      } else if (currentView === 'cloud') {
+        // 云端文档库页 (决策56): 由 cloud.js 自行渲染内容
+        viewMain.style.display = 'none';
+        viewEditor.style.display = 'none';
+        viewCloud.style.display = '';
+        renderCloud();
       }
       clampSelection();
     };
@@ -178,13 +186,24 @@
         const el = document.createElement('button');
         el.className = 'footer-btn ' + btn.id + '-btn';
         if (btn.id === 'trash' && isTrashMode) el.classList.add('active');
+        if (btn.id === 'cloud') {
+          try { if (cloudEnabledCached()) el.classList.add('linked'); } catch (_) {}
+        }
         if (selectedRow === 1 && selectedCol === idx) el.classList.add('btn-focused');
         el.title = btn.title;
         el.innerHTML = `<span class="btn-icon">${btn.icon}</span>`;
         el.addEventListener('click', () => {
           isSearchFocused = false;
+          // 手柄式两步：第一次点击只选中（信息栏显示按钮名），再点一次才执行。
+          // 与母程序卡带「选中 → Enter 插入」的行为保持一致，也避免误触设置/粉碎。
+          const alreadySelected = selectedRow === 1 && selectedCol === idx;
           selectedRow = 1;
           selectedCol = idx;
+          if (!alreadySelected) {
+            playSound('click');
+            updateUI();
+            return;
+          }
           btn.action();
           updateUI();
         });
