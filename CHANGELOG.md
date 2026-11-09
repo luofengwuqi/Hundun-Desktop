@@ -6,6 +6,14 @@
 
 ## 2026-11-10
 
+### fix: 馄饨黑下 Music 卡带图标看不清（深色 emoji 落在近黑底）
+
+- [x] **现象**: 深色模式下母程序 `#005 Music` 卡带的图标几乎不可见；切到馄饨黄就正常
+- [x] **原因**: 图标是裸 emoji `🎵`（U+1F3B5）。Windows 的 Segoe UI Emoji 把它渲染成**深酒红色**，而卡带图标框在馄饨黑下是 `#0a0a0a`，两者几乎同亮；`🎶` 同样深。其它插件是 ⚡ 橙 / 📄 白 / 📋 浅棕 / 🔢 蓝白，都是亮色，所以只有 music 暴露
+- [x] **修复**: 换成 `🎼`（U+1F3BC 乐谱）—— 深色底上白谱纸醒目，浅色底上靠深色谱线与灰纸边勾勒依然可辨。`plugins/music/manifest.json`（母程序卡带 / 设置页 / 弹窗）与 `plugins/music/main.html` 的 `.logo-icon`（插件自身头部）同步替换
+- [x] **验证**: Electron 实拍 —— 母程序深色下 Music 图标亮度与 📄 / 📋 持平；浅色下乐谱轮廓清楚；插件头部 18px 呈浅色小方块可辨；`npm run build` + `check:main` 通过
+- [x] **经验**: emoji 配色由系统字体决定（Windows Segoe UI Emoji / macOS Apple Color Emoji / Linux Noto Color Emoji），选图标要避开深色字形，否则换个主题或换个系统就会重现同类问题
+
 ### feat: 合入 Music 插件（远端 5f5ce5b）+ 与云端文档库并存
 
 - [x] **改动来源**: 远端 `origin/master` 新增 `5f5ce5b`（音乐插件，2026-11-09 提交）。本地 决策56 的云端文档库尚未入库，先提交为 `ca760e7` 再合并，避免工作区被覆盖
