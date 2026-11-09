@@ -193,7 +193,13 @@
   text-align: center;
 }
 
-.drop-hint-icon { font-size: 34px; margin-bottom: 8px; }
+.drop-hint-icon { margin-bottom: 8px; line-height: 0; color: var(--accent-primary); }
+
+.drop-hint-icon svg {
+  width: 34px;
+  height: 34px;
+  filter: drop-shadow(0 0 8px var(--shadow-color));
+}
 
 .drop-hint-text {
   font-size: 13px;

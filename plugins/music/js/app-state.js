@@ -20,14 +20,9 @@
       return dot > 0 ? fileName.slice(dot + 1) : '';
     };
 
-    // 文件名 → { title, artist }
-    // 「歌手 - 歌名」命名约定下拆出演唱者, 其余情况整体作为曲名
-    const parseTrackName = (fileName) => {
-      const stem = displayStem(fileName).replace(/\s+/g, ' ').trim();
-      const m = stem.match(/^(.{1,40}?)\s*[-–—]\s*(.+)$/);
-      if (m && m[2] && m[1]) return { artist: m[1].trim(), title: m[2].trim() };
-      return { artist: '', title: stem };
-    };
+    // 文件名 → 展示用曲名: 完整文件名去掉扩展名, 只压缩多余空白。
+    // 不拆「歌手 - 歌名」, 不截断 —— 换行交给布局 (标题向上长, 不推挤下方控件)。
+    const trackTitle = (fileName) => displayStem(fileName).replace(/\s+/g, ' ').trim();
 
     let libraryFiles = [];        // 曲目文件名数组 (磁盘事实)
     let groups = [];              // [{id, name, tracks:[fileName]}] — 'all' 虚拟分组不在此列
@@ -37,7 +32,7 @@
     let queue = [];               // 播放队列 [fileName]
     let queueIndex = -1;          // 当前播放位置
     let isPlaying = false;
-    let playMode = 'sequence';    // 'sequence' | 'shuffle'
+    let playMode = 'sequence';    // 'sequence' | 'shuffle' | 'loop'
 
     let drawer1Open = false;      // 音乐库抽屉
     let drawer2Open = false;      // 播放队列抽屉

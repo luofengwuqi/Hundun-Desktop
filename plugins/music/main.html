@@ -61,27 +61,11 @@
             </div>
           </div>
 
-          <div class="deck-base">
-            <div class="deck-eq" aria-hidden="true">
-              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
-            </div>
-            <div class="deck-side">
-              <span class="deck-side-key">SIDE A</span>
-              <span class="deck-side-val" id="deckSide">NO.00</span>
-            </div>
-          </div>
         </section>
 
         <section class="stage-panel">
           <div class="panel-inner">
-            <div class="np-kicker">
-              <span class="np-dot" aria-hidden="true"></span>
-              <span id="npKicker" data-i18n="player.nowPlaying">正在播放</span>
-            </div>
-
             <h1 class="np-title" id="npTitle" data-i18n="player.emptyTitle">还没有音乐</h1>
-            <div class="np-artist" id="npArtist"></div>
-            <div class="np-chips" id="npChips"></div>
 
             <div class="np-progress">
               <div class="np-row">
@@ -110,17 +94,15 @@
               <button class="tp-btn tp-mode" id="btnMode" title="顺序播放">
                 <svg class="tp-svg tp-icon-seq" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h9M4 12h9M4 18h9"/><path d="M16 8l4 4-4 4"/></svg>
                 <svg class="tp-svg tp-icon-shuffle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 4h4v4"/><path d="M4 20L20 4"/><path d="M16 20h4v-4"/><path d="M4 4l6 6"/><path d="M14 14l6 6"/></svg>
+                <svg class="tp-svg tp-icon-loop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 2.6l3.4 3.4L17 9.4"/><path d="M20.4 6H6.6A2.6 2.6 0 0 0 4 8.6V10"/><path d="M7 21.4L3.6 18 7 14.6"/><path d="M3.6 18h13.8a2.6 2.6 0 0 0 2.6-2.6V14"/><path d="M12.4 10.4l1.5-1.1v5.4"/></svg>
               </button>
             </div>
 
-            <div class="np-empty" id="npEmpty">
-              <div class="np-empty-hint" data-i18n="player.emptyHint">打开下方音乐库导入歌曲</div>
-              <button class="np-empty-btn" id="npEmptyBtn" data-i18n="player.openLibrary">打开音乐库</button>
-            </div>
+            <div class="transport-wrap">
+              <div class="np-empty" id="npEmpty">
+                <button class="np-empty-btn" id="npEmptyBtn" data-i18n="player.openLibrary">打开音乐库</button>
+              </div>
 
-            <div class="np-next" id="npNext" style="display:none;">
-              <span class="np-next-key" data-i18n="player.upNext">下一首</span>
-              <span class="np-next-val" id="npNextVal">—</span>
             </div>
           </div>
         </section>
@@ -137,6 +119,14 @@
     <button class="drawer2-handle" id="drawer2Handle">
       <span class="dh2-label" data-i18n="queue.title">队列</span>
     </button>
+
+    <!-- 底部通栏电平柱: 铺满整行, 层级低于抽屉把手 (z-index 5 < 55) -->
+    <div class="mc-eq-bar" id="mcEqBar" aria-hidden="true"></div>
+
+    <!-- 顶部弹幕: 每 10s 飘过一次「下一首」 -->
+    <div class="mc-bullet" id="mcBullet" aria-hidden="true">
+      <span class="mc-bullet-text" id="mcBulletText"></span>
+    </div>
 
     <!-- 播放内核 -->
     <audio id="audioEl" preload="metadata"></audio>
@@ -202,7 +192,7 @@
     <!-- ===== 拖入提示 ===== -->
     <div class="drop-hint" id="dropHint" style="display:none;">
       <div class="drop-hint-box">
-        <div class="drop-hint-icon">🎵</div>
+        <div class="drop-hint-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><ellipse cx="7.1" cy="18.1" rx="3.7" ry="2.85" transform="rotate(-22 7.1 18.1)"/><ellipse cx="17.7" cy="16.1" rx="3.7" ry="2.85" transform="rotate(-22 17.7 16.1)"/><rect x="9.3" y="6.1" width="1.9" height="12.3" rx="0.95"/><rect x="19.9" y="4.1" width="1.9" height="12.3" rx="0.95"/><path d="M9.3 6.1 L21.8 3.85 L21.8 7.55 L9.3 9.8 Z"/></g></svg></div>
         <div class="drop-hint-text" data-i18n="import.dropHere">松手导入音乐 (源文件将被移入)</div>
       </div>
     </div>

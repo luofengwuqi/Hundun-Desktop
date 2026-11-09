@@ -58,7 +58,7 @@
       if (!api) return;
       try {
         const s = await api.get(SETTINGS_KEY, null);
-        if (s && (s.mode === 'sequence' || s.mode === 'shuffle')) playMode = s.mode;
+        if (s && ['sequence', 'shuffle', 'loop'].includes(s.mode)) playMode = s.mode;
       } catch (e) { /* ignore */ }
     };
 

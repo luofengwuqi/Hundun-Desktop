@@ -20,8 +20,10 @@
     const updatePlayingUi = () => {
       const app = appRoot();
       if (!app) return;
+      const wasPlaying = app.classList.contains('is-playing');
       app.classList.toggle('is-playing', isPlaying);
       app.classList.toggle('library-empty', libraryFiles.length === 0);
+      initEqBar();
 
       const btnPlay = document.getElementById('btnPlay');
       if (btnPlay) btnPlay.classList.toggle('is-playing', isPlaying);
@@ -29,8 +31,12 @@
       const btnMode = document.getElementById('btnMode');
       if (btnMode) {
         const shuffle = playMode === 'shuffle';
+        const loop = playMode === 'loop';
         btnMode.classList.toggle('is-shuffle', shuffle);
-        btnMode.title = shuffle ? MusicI18n.t('player.modeShuffle') : MusicI18n.t('player.modeSequence');
+        btnMode.classList.toggle('is-loop', loop);
+        btnMode.title = shuffle ? MusicI18n.t('player.modeShuffle')
+          : loop ? MusicI18n.t('player.modeLoop')
+          : MusicI18n.t('player.modeSequence');
       }
 
       const title = document.getElementById('cassetteTitle');
@@ -41,64 +47,79 @@
       if (btnPlayTitle) btnPlayTitle.title = MusicI18n.t('player.playPause');
 
       renderNowPlaying();
+
+      // 开始播放: 拉起弹幕时钟, 并立刻飘第一条; 停播/清空后收起弹幕
+      if (isPlaying && !wasPlaying) { startBulletLoop(); flyBullet(); }
+      else if (isPlaying) startBulletLoop();
+      else stopBullet();
     };
 
-    // ---------- 右侧信息栏: 曲名 / 演唱者 / 标签 / 磁带编号 ----------
-    const setText = (id, text) => {
+    // ---------- 底部通栏电平柱: 22 根, 高度与节奏随机, 播放时才跳 ----------
+    const EQ_BARS = 22;
+    const initEqBar = () => {
+      const bar = document.getElementById('mcEqBar');
+      if (!bar || bar.childElementCount) return;
+      const frag = document.createDocumentFragment();
+      for (let i = 0; i < EQ_BARS; i++) {
+        const b = document.createElement('i');
+        b.style.setProperty('--bar-h', (0.22 + Math.random() * 0.52).toFixed(2));
+        b.style.setProperty('--bar-dur', (0.55 + Math.random() * 0.75).toFixed(2) + 's');
+        b.style.setProperty('--bar-delay', (-Math.random() * 1.2).toFixed(2) + 's');
+        frag.appendChild(b);
+      }
+      bar.appendChild(frag);
+    };
+
+    // ---------- 顶部弹幕: 播放中每 10s 飘过一次「下一首」 ----------
+    const BULLET_INTERVAL = 10000;
+    let _bulletTimer = null;
+
+    const nextUpFile = () => {
+      if (playMode !== 'sequence') return null;
+      if (!queue.length || queueIndex < 0) return null;
+      return queueIndex + 1 < queue.length ? queue[queueIndex + 1] : null;
+    };
+
+    const flyBullet = () => {
+      const wrap = document.getElementById('mcBullet');
+      const text = document.getElementById('mcBulletText');
+      const nextFile = nextUpFile();
+      if (!wrap || !text || !nextFile) return;
+      text.textContent = MusicI18n.t('player.upNext') + ' · ' + trackTitle(nextFile);
+      wrap.classList.remove('is-running');
+      void wrap.offsetWidth;            // 强制重排, 让动画从头播
+      wrap.classList.add('is-running');
+    };
+
+    const startBulletLoop = () => {
+      if (_bulletTimer) return;
+      _bulletTimer = setInterval(() => { if (isPlaying) flyBullet(); }, BULLET_INTERVAL);
+    };
+
+    const stopBullet = () => {
+      const wrap = document.getElementById('mcBullet');
+      const text = document.getElementById('mcBulletText');
+      if (wrap) wrap.classList.remove('is-running');
+      if (text) text.textContent = '';
+    };
+
+    // ---------- 右侧信息栏: 曲名 ----------
+    const setText = (id, text, withTitleAttr) => {
       const el = document.getElementById(id);
-      if (el) el.textContent = text;
-    };
-
-    // 无演唱者信息时: 优先显示当前分组名, 兜底"本地音乐库"
-    const fallbackArtist = () => {
-      const g = groups.find(x => x.id === currentGroupId);
-      return g ? g.name : MusicI18n.t('player.localLibrary');
+      if (!el) return;
+      el.textContent = text;
+      if (withTitleAttr) el.title = text;
     };
 
     const renderNowPlaying = () => {
       const empty = libraryFiles.length === 0;
       const cur = currentTrack();
-      const parsed = cur ? parseTrackName(cur) : null;
 
-      setText('npKicker', cur ? MusicI18n.t('player.nowPlaying') : MusicI18n.t('player.idle'));
+      // 完整文件名 (去扩展名), 不拆歌手、不缩字、不截断;
+      // 换行时靠 CSS 让标题向上生长, 下方的进度与走带按钮位置不动
       setText('npTitle', empty
         ? MusicI18n.t('player.emptyTitle')
-        : (parsed ? parsed.title : MusicI18n.t('player.noTrack')));
-      setText('npArtist', empty
-        ? ''
-        : (parsed ? (parsed.artist || fallbackArtist()) : MusicI18n.t('player.pickHint')));
-
-      const chips = document.getElementById('npChips');
-      if (chips) {
-        chips.innerHTML = '';
-        if (cur) {
-          const mkChip = (text, accent) => {
-            const s = document.createElement('span');
-            s.className = 'np-chip' + (accent ? ' is-accent' : '');
-            s.textContent = text;
-            chips.appendChild(s);
-          };
-          mkChip(fileExt(cur).toUpperCase() || 'AUDIO');
-          if (queue.length) mkChip((queueIndex + 1) + ' / ' + queue.length, true);
-          mkChip(playMode === 'shuffle' ? MusicI18n.t('player.modeShuffle') : MusicI18n.t('player.modeSequence'));
-        }
-      }
-
-      // 磁带侧面编号 (队列位置)
-      setText('deckSide', queue.length && queueIndex >= 0
-        ? 'NO.' + String(queueIndex + 1).padStart(2, '0')
-        : 'NO.00');
-
-      // 下一首预览 (仅顺序模式且队列里确有下一首时出现)
-      const nextWrap = document.getElementById('npNext');
-      const nextVal = document.getElementById('npNextVal');
-      if (nextWrap && nextVal) {
-        const nextFile = (cur && playMode === 'sequence' && queueIndex >= 0 && queueIndex + 1 < queue.length)
-          ? queue[queueIndex + 1]
-          : null;
-        nextWrap.style.display = nextFile ? 'flex' : 'none';
-        if (nextFile) nextVal.textContent = parseTrackName(nextFile).title;
-      }
+        : (cur ? trackTitle(cur) : MusicI18n.t('player.noTrack')), true);
     };
 
     const updateSeekUi = () => {

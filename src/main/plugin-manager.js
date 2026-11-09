@@ -536,6 +536,16 @@ class PluginManager {
       
       // 设置窗口标题
       pluginWindow.setTitle(plugin.manifest.name || pluginId)
+
+      // 防线: 把外部文件拖进窗口时, Chromium 默认会导航到 file:// 并替换页面
+      // (渲染层的 preventDefault 一旦失效, 用户看到的就是"拖入无反应/页面变样")
+      pluginWindow.webContents.on('will-navigate', (event, url) => {
+        const current = pluginWindow.webContents.getURL()
+        if (url !== current) {
+          console.warn(`[PluginManager] 拦截插件窗口导航: ${pluginId} → ${url}`)
+          event.preventDefault()
+        }
+      })
       
       // 存储插件ID到窗口
       pluginWindow.pluginId = pluginId

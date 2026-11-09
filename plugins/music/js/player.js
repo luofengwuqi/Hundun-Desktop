@@ -26,13 +26,19 @@
       renderAll();
     };
 
-    // 点播: 已在队列 → 跳过去; 不在 → 追加到队尾并播放
+    // 点播: 新曲排到队尾, 不打断正在播放的内容;
+    // 队列里还没有当前曲 (首次点播 / 队列已空) 时才直接开播
     const queuePlayTrack = async (file) => {
       if (!libraryFiles.includes(file)) return;
-      const idx = queue.indexOf(file);
-      if (idx >= 0) { await playIndex(idx); return; }
+      if (queueIndex >= 0 && queue[queueIndex] === file) return;   // 点的是当前曲
+      if (queue.includes(file)) {
+        showToast(MusicI18n.t('player.alreadyQueued'), 'info');
+        return;
+      }
       queue.push(file);
-      await playIndex(queue.length - 1);
+      if (queueIndex < 0) { await playIndex(queue.length - 1); return; }
+      renderAll();
+      showToast(MusicI18n.t('player.queued'), 'ok');
     };
 
     const pausePlayback = () => {
@@ -69,6 +75,8 @@
     // auto=true: 歌曲自然播完; 顺序模式到队尾即停, 手动下一首回绕
     const nextTrack = async (auto = false) => {
       if (queue.length === 0) return;
+      // 单曲循环: 自然播完重播本曲 (手动下一首仍前进)
+      if (playMode === 'loop' && auto) { await replayCurrent(); return; }
       if (playMode === 'shuffle') { await playIndex(randomIndex(queueIndex)); return; }
       const n = queueIndex + 1;
       if (n >= queue.length) {
@@ -79,17 +87,38 @@
       await playIndex(n);
     };
 
+    // 原地重播当前曲 (不重新加载 src, 避免解码中断)
+    const replayCurrent = async () => {
+      const el = audioEl();
+      if (!el || queueIndex < 0 || queueIndex >= queue.length) return;
+      try {
+        el.currentTime = 0;
+        await el.play();
+      } catch (e) {
+        // 极端情况 (src 失效) 退回重新加载
+        await playIndex(queueIndex);
+      }
+    };
+
     const prevTrack = async () => {
       if (queue.length === 0) return;
       const p = queueIndex - 1;
       await playIndex(p < 0 ? queue.length - 1 : p);
     };
 
+    // 播放模式: 顺序 → 随机 → 单曲循环 (循环切换)
+    const PLAY_MODES = ['sequence', 'shuffle', 'loop'];
+
     const setPlayMode = async (mode) => {
-      if (mode !== 'sequence' && mode !== 'shuffle') return;
+      if (!PLAY_MODES.includes(mode)) return;
       playMode = mode;
       await saveSettings();
       updatePlayingUi();
+    };
+
+    const cyclePlayMode = async () => {
+      const next = PLAY_MODES[(PLAY_MODES.indexOf(playMode) + 1) % PLAY_MODES.length];
+      await setPlayMode(next);
     };
 
     // ---------- 队列操作 ----------

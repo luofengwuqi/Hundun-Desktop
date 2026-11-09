@@ -100,7 +100,7 @@
       document.getElementById('btnNext').addEventListener('click', () => { playSound('click'); nextTrack(false); });
       document.getElementById('btnMode').addEventListener('click', () => {
         playSound('change');
-        setPlayMode(playMode === 'sequence' ? 'shuffle' : 'sequence');
+        cyclePlayMode();
       });
 
       // 抽屉把手
