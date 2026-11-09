@@ -108,6 +108,14 @@
       document.getElementById('drawer2Handle').addEventListener('click', toggleDrawer2);
       document.getElementById('d2Close').addEventListener('click', toggleDrawer2);
 
+      // 空态入口: 直接拉开音乐库
+      const npEmptyBtn = document.getElementById('npEmptyBtn');
+      if (npEmptyBtn) {
+        npEmptyBtn.addEventListener('click', () => {
+          if (!drawer1Open) toggleDrawer1();
+        });
+      }
+
       // 音乐库: 分组 / 搜索
       document.getElementById('addGroupBtn').addEventListener('click', async () => {
         playSound('click');

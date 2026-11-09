@@ -1,25 +1,49 @@
-/* ========== Player Stage ========== */
+/* ========== Player Stage: 左 = 磁带机, 右 = 曲目信息 ========== */
 .mc-stage {
   flex: 1;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1.18fr) minmax(0, 1fr);
   align-items: center;
-  justify-content: center;
-  gap: 14px;
-  padding: 0 90px 40px 60px; /* 右侧让出队列把手 */
+  column-gap: 34px;
+  padding: 18px 68px 52px 40px; /* 右侧让出队列把手, 底部让出抽屉把手 */
   min-height: 0;
   position: relative;
 }
 
+/* ---------- 左栏: 磁带机 ---------- */
+.stage-deck {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* 磁带背后的暖光, 给左栏一点纵深 */
+.deck-glow {
+  position: absolute;
+  top: -6%;
+  left: 8%;
+  right: 8%;
+  bottom: 20%;
+  background: radial-gradient(ellipse at 50% 45%, var(--shadow-color), transparent 70%);
+  opacity: 0.6;
+  filter: blur(16px);
+  pointer-events: none;
+  z-index: 0;
+}
+
 /* ---------- 磁带 (页面唯一主角) ---------- */
 .cassette {
-  width: 264px;
+  width: min(100%, 344px);
   background: var(--bg-card);
   border: 2px solid var(--border-color);
   border-radius: 14px;
-  padding: 14px 18px 12px;
+  padding: 15px 20px 13px;
   position: relative;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+  z-index: 1;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.38);
 }
 
 /* 四角螺丝 */
@@ -43,18 +67,18 @@
   background: var(--bg-slot);
   border: 2px solid var(--border-color);
   border-radius: 8px;
-  height: 84px;
+  height: 112px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 56px;
+  gap: 72px;
   overflow: hidden;
 }
 
 /* 卷轴: 播放时旋转 (唯一的非用户触发动画, 回应"播放"这一动作) */
 .reel {
-  width: 52px;
-  height: 52px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   border: 2px solid var(--accent-primary);
   position: relative;
@@ -67,8 +91,8 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 14px;
-  height: 14px;
+  width: 17px;
+  height: 17px;
   transform: translate(-50%, -50%);
   border-radius: 50%;
   border: 2px solid var(--accent-primary);
@@ -80,7 +104,7 @@
   top: 50%;
   left: 50%;
   width: 2px;
-  height: 16px;
+  height: 20px;
   background: var(--accent-primary);
   transform-origin: center top;
 }
@@ -100,9 +124,9 @@
 .tape-band {
   position: absolute;
   top: 50%;
-  left: 44px;
-  right: 44px;
-  height: 10px;
+  left: 52px;
+  right: 52px;
+  height: 11px;
   transform: translateY(-50%);
   background: var(--border-color);
   transition: background 0.4s ease, box-shadow 0.4s ease;
@@ -110,14 +134,14 @@
 
 /* 磁带标签: 歌名写在带子上 */
 .cassette-label {
-  margin-top: 10px;
+  margin-top: 11px;
   display: flex;
   align-items: center;
   gap: 8px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  padding: 5px 10px;
+  padding: 6px 10px;
   overflow: hidden;
 }
 
@@ -139,7 +163,198 @@
   text-overflow: ellipsis;
 }
 
+/* ---------- 磁带机前脸: 电平条 + 侧面铭牌 ---------- */
+.deck-base {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 344px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+}
+
+.deck-eq {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 22px;
+}
+
+.deck-eq i {
+  display: block;
+  width: 3px;
+  height: 22px;
+  border-radius: 2px;
+  background: var(--accent-primary);
+  opacity: 0.4;
+  transform: scaleY(0.45);
+  transform-origin: bottom center;
+  transition: opacity 0.3s ease;
+}
+
+.music-app.is-playing .deck-eq i {
+  opacity: 0.92;
+  animation: deck-eq-bounce 1s ease-in-out infinite alternate;
+}
+
+/* 逐条错开, 才像真的在跳 (选择器需压过上面的简写 animation) */
+.music-app.is-playing .deck-eq i:nth-child(1) { animation-duration: 0.72s; animation-delay: -0.30s; }
+.music-app.is-playing .deck-eq i:nth-child(2) { animation-duration: 0.94s; animation-delay: -0.62s; }
+.music-app.is-playing .deck-eq i:nth-child(3) { animation-duration: 0.66s; animation-delay: -0.12s; }
+.music-app.is-playing .deck-eq i:nth-child(4) { animation-duration: 1.06s; animation-delay: -0.44s; }
+.music-app.is-playing .deck-eq i:nth-child(5) { animation-duration: 0.80s; animation-delay: -0.05s; }
+.music-app.is-playing .deck-eq i:nth-child(6) { animation-duration: 0.98s; animation-delay: -0.36s; }
+.music-app.is-playing .deck-eq i:nth-child(7) { animation-duration: 0.70s; animation-delay: -0.58s; }
+.music-app.is-playing .deck-eq i:nth-child(8) { animation-duration: 0.88s; animation-delay: -0.22s; }
+.music-app.is-playing .deck-eq i:nth-child(9) { animation-duration: 1.02s; animation-delay: -0.48s; }
+
+@keyframes deck-eq-bounce {
+  from { transform: scaleY(0.34); }
+  to   { transform: scaleY(1); }
+}
+
+/* 空态: 电平条静默熄灭 */
+.music-app.library-empty .deck-eq i { opacity: 0.14; transform: scaleY(0.18); }
+
+/* ---------- 侧面铭牌 ---------- */
+.deck-side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.deck-side-key { color: var(--text-muted); }
+.deck-side-val { font-variant-numeric: tabular-nums; }
+.music-app.is-playing .deck-side-val { color: var(--accent-primary); }
+
+/* ---------- 右栏: 曲目信息 (顶部留白, 内容整体下沉) ---------- */
+.stage-panel {
+  position: relative;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  padding-top: 88px;
+}
+
+.panel-inner {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding-left: 24px;
+}
+
+/* 左侧竖向光条, 把信息栏从磁带机里"托"出来 */
+.panel-inner::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, var(--accent-primary), transparent 92%);
+  opacity: 0.55;
+}
+
+.np-kicker {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+.np-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.music-app.is-playing .np-dot {
+  background: var(--accent-primary);
+  box-shadow: 0 0 8px var(--shadow-color);
+  animation: dot-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.np-title {
+  margin-top: 10px;
+  max-width: 100%;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.26;
+  letter-spacing: 0.5px;
+  color: var(--text-primary);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.music-app.library-empty .np-title { color: var(--text-secondary); }
+
+.np-artist {
+  margin-top: 8px;
+  max-width: 100%;
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.np-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 13px;
+  min-height: 0;
+}
+
+.np-chip {
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.np-chip.is-accent {
+  color: var(--accent-primary);
+  border-color: color-mix(in srgb, var(--accent-primary) 55%, transparent);
+}
+
 /* ---------- 时间 / 进度 ---------- */
+.np-progress {
+  width: 100%;
+  margin-top: 18px;
+}
+
 .np-row {
   display: flex;
   align-items: baseline;
@@ -196,7 +411,8 @@
 .transport {
   display: flex;
   align-items: center;
-  gap: 18px;
+  gap: 16px;
+  margin-top: 20px;
 }
 
 .tp-btn {
@@ -254,13 +470,62 @@
   color: var(--accent-secondary);
 }
 
-/* 空态 */
-.np-empty { text-align: center; display: none; }
+/* 空态: 信息栏收起进度与走带, 只留说明与入口 */
+.np-empty { display: none; margin-top: 16px; }
 .music-app.library-empty .np-empty { display: block; }
-.music-app.library-empty .np-row,
-.music-app.library-empty .seek { visibility: hidden; }
-.np-empty-title { font-size: 14px; color: var(--text-secondary); }
-.np-empty-hint { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+.music-app.library-empty .np-chips,
+.music-app.library-empty .np-progress,
+.music-app.library-empty .transport { display: none; }
+
+.np-empty-hint { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+
+.np-empty-btn {
+  margin-top: 14px;
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: var(--accent-primary);
+  background: transparent;
+  border: 2px solid var(--accent-primary);
+  border-radius: 999px;
+  padding: 7px 18px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.np-empty-btn:hover {
+  background: color-mix(in srgb, var(--accent-primary) 14%, transparent);
+  box-shadow: 0 0 14px var(--shadow-color);
+}
+
+.np-empty-btn:active { transform: scale(0.97); }
+
+/* 下一首预览 */
+.np-next {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border-color);
+  font-size: 11px;
+}
+
+.np-next-key {
+  flex-shrink: 0;
+  letter-spacing: 2px;
+  color: var(--text-muted);
+}
+
+.np-next-val {
+  min-width: 0;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* ---------- 抽屉把手 ---------- */
 /* 底部: 音乐库 */

@@ -8,6 +8,7 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "check:main": "node scripts/check-main-build.js",
+    "check:theme": "node scripts/check-plugin-theme.js",
     "preview": "electron-vite preview",
     "postinstall": "electron-builder install-app-deps",
     "gen-icon": "node scripts/gen-icon.js",

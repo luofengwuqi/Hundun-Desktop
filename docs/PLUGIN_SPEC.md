@@ -570,7 +570,39 @@ window.hundun.sound.onSettingsChanged((settings) => {
 }
 ```
 
-### 8.3 自动适配
+### 8.3 配色强约束：深色恒黑绿、浅色恒馄饨黄（决策 58 / 59）
+
+**官方子程序的两套配色都是强约束，不是建议**，任何功能迭代、视觉改版都不得改动：
+
+| 变量 | 深色模式取值 | 说明 |
+| --- | --- | --- |
+| `--bg-primary` | `#0a0a0a` | 机身黑 |
+| `--bg-secondary` | `#141414` | 面板黑 |
+| `--bg-card` | `#1a1a1a` | 卡片黑 |
+| `--bg-slot` | `#0d0d0d` | 槽位黑 |
+| `--accent-primary` | `#00ff88` | **只能是霓虹绿**，与母程序同源 |
+| `--accent-secondary` | `#ff0080` | 警示/异常（官方次要色，可保留） |
+| `--accent-tertiary` | `#00d4ff` | 次要强调（官方第三色，可保留） |
+| `--shadow-color` | `rgba(0, 255, 136, 0.3)` | 辉光必须是绿的 |
+
+| 变量 | 浅色模式取值 | 说明 |
+| --- | --- | --- |
+| `--bg-primary` | `#FFF8E8` | 馄饨黄底 |
+| `--bg-secondary` | `#FFF3D6` | 面板黄 |
+| `--bg-card` | `#FFFEFB` | 卡片近白 |
+| `--bg-slot` | `#FFEEC2` | 槽位深黄 |
+| `--text-primary` | `#C3272B` | **朱红**，三级文字同色，靠字号/字重分层 |
+| `--accent-primary` | `#C3272B` | **只能是朱红** |
+| `--accent-secondary` | `#cc0066` | 警示/异常 |
+| `--accent-tertiary` | `#0099cc` | 次要强调 |
+| `--border-color` | `#E8DCC8` | 暖灰描边 |
+| `--shadow-color` | `rgba(0, 0, 0, 0.1)` | 浅色不带彩辉光 |
+
+- 禁止把 `--accent-primary` 改成品牌色（历史坑：Music 深色曾用青 `#00d4ff`、FastCmd 曾用橙 `#ff9900`；Music 浅色曾用藏蓝 `#0077aa` + 棕字 `#3d3529`——都是与母程序割裂的漂移）。
+- 品牌色只能出现在 `manifest.json` 的 `color` / `iconColor`（卡带图标身份色）里，**不能**污染任何一套主题变量。
+- 该约束由 `npm run check:theme` 自动校验（`scripts/check-plugin-theme.js`：每个插件首个 `--accent-primary` 判深色、每个 `.light-mode {}` 块判浅色），提交前必须通过。
+
+### 8.4 自动适配
 
 ```javascript
 // 监听主题变更

@@ -34,63 +34,96 @@
         <button class="mc-close-btn" id="closeBtn" data-i18n-title="header.back" title="返回">✕</button>
       </header>
 
-      <!-- Stage -->
+      <!-- Stage: 左 = 磁带机主体, 右 = 曲目信息与控制 -->
       <main class="mc-stage" id="mcStage">
-        <div class="cassette" id="cassette">
-          <div class="cassette-window">
-            <div class="reel" id="reelL">
-              <div class="reel-spoke"></div>
-              <div class="reel-spoke"></div>
-              <div class="reel-spoke"></div>
-              <div class="reel-hub"></div>
+        <section class="stage-deck">
+          <div class="deck-glow" aria-hidden="true"></div>
+
+          <div class="cassette" id="cassette">
+            <div class="cassette-window">
+              <div class="reel" id="reelL">
+                <div class="reel-spoke"></div>
+                <div class="reel-spoke"></div>
+                <div class="reel-spoke"></div>
+                <div class="reel-hub"></div>
+              </div>
+              <div class="tape-band"></div>
+              <div class="reel" id="reelR">
+                <div class="reel-spoke"></div>
+                <div class="reel-spoke"></div>
+                <div class="reel-spoke"></div>
+                <div class="reel-hub"></div>
+              </div>
             </div>
-            <div class="tape-band"></div>
-            <div class="reel" id="reelR">
-              <div class="reel-spoke"></div>
-              <div class="reel-spoke"></div>
-              <div class="reel-spoke"></div>
-              <div class="reel-hub"></div>
+            <div class="cassette-label">
+              <span class="label-chip">MUSIC</span>
+              <span class="label-text" id="cassetteTitle">—</span>
             </div>
           </div>
-          <div class="cassette-label">
-            <span class="label-chip">MUSIC</span>
-            <span class="label-text" id="cassetteTitle">—</span>
+
+          <div class="deck-base">
+            <div class="deck-eq" aria-hidden="true">
+              <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+            </div>
+            <div class="deck-side">
+              <span class="deck-side-key">SIDE A</span>
+              <span class="deck-side-val" id="deckSide">NO.00</span>
+            </div>
           </div>
-        </div>
+        </section>
 
-        <div class="np-row">
-          <span class="np-time" id="npCur">00:00</span>
-          <span class="np-sep">/</span>
-          <span class="np-time" id="npDur">00:00</span>
-        </div>
+        <section class="stage-panel">
+          <div class="panel-inner">
+            <div class="np-kicker">
+              <span class="np-dot" aria-hidden="true"></span>
+              <span id="npKicker" data-i18n="player.nowPlaying">正在播放</span>
+            </div>
 
-        <div class="seek" id="seek">
-          <div class="seek-track"></div>
-          <div class="seek-fill" id="seekFill"></div>
-          <div class="seek-knob" id="seekKnob"></div>
-        </div>
+            <h1 class="np-title" id="npTitle" data-i18n="player.emptyTitle">还没有音乐</h1>
+            <div class="np-artist" id="npArtist"></div>
+            <div class="np-chips" id="npChips"></div>
 
-        <div class="transport">
-          <button class="tp-btn" id="btnPrev" data-i18n-title="player.prev" title="上一首">
-            <svg class="tp-svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="19,5 19,19 8,12"/><rect x="4" y="5" width="2.4" height="14"/></svg>
-          </button>
-          <button class="tp-btn tp-play" id="btnPlay" title="播放/暂停">
-            <svg class="tp-svg tp-icon-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="8,5 8,19 19,12"/></svg>
-            <svg class="tp-svg tp-icon-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="5" width="3.4" height="14"/><rect x="13.6" y="5" width="3.4" height="14"/></svg>
-          </button>
-          <button class="tp-btn" id="btnNext" data-i18n-title="player.next" title="下一首">
-            <svg class="tp-svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="5,5 5,19 16,12"/><rect x="17.6" y="5" width="2.4" height="14"/></svg>
-          </button>
-          <button class="tp-btn tp-mode" id="btnMode" title="顺序播放">
-            <svg class="tp-svg tp-icon-seq" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h9M4 12h9M4 18h9"/><path d="M16 8l4 4-4 4"/></svg>
-            <svg class="tp-svg tp-icon-shuffle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 4h4v4"/><path d="M4 20L20 4"/><path d="M16 20h4v-4"/><path d="M4 4l6 6"/><path d="M14 14l6 6"/></svg>
-          </button>
-        </div>
+            <div class="np-progress">
+              <div class="np-row">
+                <span class="np-time" id="npCur">00:00</span>
+                <span class="np-sep">/</span>
+                <span class="np-time" id="npDur">00:00</span>
+              </div>
+              <div class="seek" id="seek">
+                <div class="seek-track"></div>
+                <div class="seek-fill" id="seekFill"></div>
+                <div class="seek-knob" id="seekKnob"></div>
+              </div>
+            </div>
 
-        <div class="np-empty" id="npEmpty">
-          <div class="np-empty-title" data-i18n="player.emptyTitle">还没有音乐</div>
-          <div class="np-empty-hint" data-i18n="player.emptyHint">打开下方音乐库导入歌曲</div>
-        </div>
+            <div class="transport">
+              <button class="tp-btn" id="btnPrev" data-i18n-title="player.prev" title="上一首">
+                <svg class="tp-svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="19,5 19,19 8,12"/><rect x="4" y="5" width="2.4" height="14"/></svg>
+              </button>
+              <button class="tp-btn tp-play" id="btnPlay" title="播放/暂停">
+                <svg class="tp-svg tp-icon-play" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="8,5 8,19 19,12"/></svg>
+                <svg class="tp-svg tp-icon-pause" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="7" y="5" width="3.4" height="14"/><rect x="13.6" y="5" width="3.4" height="14"/></svg>
+              </button>
+              <button class="tp-btn" id="btnNext" data-i18n-title="player.next" title="下一首">
+                <svg class="tp-svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="5,5 5,19 16,12"/><rect x="17.6" y="5" width="2.4" height="14"/></svg>
+              </button>
+              <button class="tp-btn tp-mode" id="btnMode" title="顺序播放">
+                <svg class="tp-svg tp-icon-seq" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h9M4 12h9M4 18h9"/><path d="M16 8l4 4-4 4"/></svg>
+                <svg class="tp-svg tp-icon-shuffle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 4h4v4"/><path d="M4 20L20 4"/><path d="M16 20h4v-4"/><path d="M4 4l6 6"/><path d="M14 14l6 6"/></svg>
+              </button>
+            </div>
+
+            <div class="np-empty" id="npEmpty">
+              <div class="np-empty-hint" data-i18n="player.emptyHint">打开下方音乐库导入歌曲</div>
+              <button class="np-empty-btn" id="npEmptyBtn" data-i18n="player.openLibrary">打开音乐库</button>
+            </div>
+
+            <div class="np-next" id="npNext" style="display:none;">
+              <span class="np-next-key" data-i18n="player.upNext">下一首</span>
+              <span class="np-next-val" id="npNextVal">—</span>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
 

@@ -30,12 +30,12 @@
   width: 18px;
   height: 18px;
   display: block;
-  color: #4da3ff;
-  filter: drop-shadow(0 0 6px rgba(77, 163, 255, 0.5));
+  color: var(--accent-primary);
+  filter: drop-shadow(0 0 6px rgba(0, 255, 136, 0.45));
 }
 
 .light-mode .logo-icon svg {
-  color: #1f6fd0;
+  color: var(--accent-primary);
   filter: none;
 }
 

@@ -20,6 +20,15 @@
       return dot > 0 ? fileName.slice(dot + 1) : '';
     };
 
+    // 文件名 → { title, artist }
+    // 「歌手 - 歌名」命名约定下拆出演唱者, 其余情况整体作为曲名
+    const parseTrackName = (fileName) => {
+      const stem = displayStem(fileName).replace(/\s+/g, ' ').trim();
+      const m = stem.match(/^(.{1,40}?)\s*[-–—]\s*(.+)$/);
+      if (m && m[2] && m[1]) return { artist: m[1].trim(), title: m[2].trim() };
+      return { artist: '', title: stem };
+    };
+
     let libraryFiles = [];        // 曲目文件名数组 (磁盘事实)
     let groups = [];              // [{id, name, tracks:[fileName]}] — 'all' 虚拟分组不在此列
     let currentGroupId = 'all';   // 当前选中分组 ('all' | groupId)

@@ -242,6 +242,8 @@ var(--shadow-color)
 
 浅色模式时给根节点加 `light-mode` 类（见上方主题监听示例）。
 
+> **官方插件配色是强约束**：深色恒为黑绿（`--accent-primary: #00ff88`），浅色恒为馄饨黄（`#FFF8E8` 底 + 朱红 `#C3272B`）。不要为自己的插件挑品牌当主色，品牌色只能写进 `manifest.json` 的 `color` / `iconColor`。提交前跑 `npm run check:theme` 校验，详见 `PLUGIN_SPEC.md` §8.3。
+
 - 头部标题 / 徽章使用默认字体 `'Noto Sans SC', sans-serif`
 - 像素字体 `'Press Start 2P'` 保留给正文、弹窗标签、键位帽等元素
 - 可参考内置插件的 `css/base.css`、`css/header.css` 与 `deco-screws.css`
