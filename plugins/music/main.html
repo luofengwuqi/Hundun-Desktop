@@ -40,21 +40,101 @@
           <div class="deck-glow" aria-hidden="true"></div>
 
           <div class="cassette" id="cassette">
-            <div class="cassette-window">
-              <div class="reel" id="reelL">
-                <div class="reel-spoke"></div>
-                <div class="reel-spoke"></div>
-                <div class="reel-spoke"></div>
-                <div class="reel-hub"></div>
-              </div>
-              <div class="tape-band"></div>
-              <div class="reel" id="reelR">
-                <div class="reel-spoke"></div>
-                <div class="reel-spoke"></div>
-                <div class="reel-spoke"></div>
-                <div class="reel-hub"></div>
-              </div>
-            </div>
+            <svg class="cassette-svg" viewBox="0 0 344 260" fill="none" aria-hidden="true">
+              <defs>
+                <!-- 盘上的磁带: 极细的同心色带, 模拟一层层缠上去的带子 -->
+                <radialGradient id="packFill" cx="50%" cy="50%" r="50%">
+                  <stop offset="0" stop-opacity="0.03"/>
+                  <stop offset="0.55" stop-opacity="0.05"/>
+                  <stop offset="0.86" stop-opacity="0.07"/>
+                  <stop offset="1" stop-opacity="0.10"/>
+                </radialGradient>
+              </defs>
+
+              <!-- 后面叠的一张: 只露出上沿轮廓 -->
+              <rect class="ghost ghost-near" x="12" y="12" width="330" height="224" rx="12"/>
+
+              <!-- 外壳轮廓 -->
+              <rect class="shell" x="1" y="24" width="342" height="234" rx="14"/>
+              <!-- 顶边导轨: 走带开口 -->
+              <rect class="guide-rail" x="128" y="29" width="88" height="11" rx="3"/>
+              <rect class="guide-tab" x="136" y="33" width="16" height="3" rx="1.5"/>
+              <rect class="guide-tab" x="164" y="33" width="16" height="3" rx="1.5"/>
+              <rect class="guide-tab" x="192" y="33" width="16" height="3" rx="1.5"/>
+
+              <!-- 带仓 -->
+              <rect class="well" x="40" y="52" width="264" height="116" rx="8"/>
+              <!-- 走带路径: 带子从左盘经两个导带轮绕到右盘 -->
+              <path class="tape-path" d="M72 159H272"/>
+
+              <!-- 带仓四角定位刻线 -->
+              <path class="reg-mark" d="M52 60v10M52 60h10"/>
+              <path class="reg-mark" d="M292 60v10M292 60h-10"/>
+              <path class="reg-mark" d="M52 160v-10M52 160h10"/>
+              <path class="reg-mark" d="M292 160v-10M292 160h-10"/>
+
+              <g class="reel" id="reelL">
+                <g class="pack-wrap" style="--pack-scale: 1">
+                  <circle class="pack-fill" cx="110" cy="110" r="46"/>
+                  <circle class="pack-ring" cx="110" cy="110" r="46"/>
+                </g>
+                <g class="hub">
+                  <circle class="hub-ring" cx="110" cy="110" r="12"/>
+                  <circle class="tooth" cx="117.2" cy="110" r="1.6"/>
+                  <circle class="tooth" cx="115.1" cy="115.1" r="1.6"/>
+                  <circle class="tooth" cx="110" cy="117.2" r="1.6"/>
+                  <circle class="tooth" cx="104.9" cy="115.1" r="1.6"/>
+                  <circle class="tooth" cx="102.8" cy="110" r="1.6"/>
+                  <circle class="tooth" cx="104.9" cy="104.9" r="1.6"/>
+                  <circle class="tooth" cx="110" cy="102.8" r="1.6"/>
+                  <circle class="tooth" cx="115.1" cy="104.9" r="1.6"/>
+                  <circle class="hub-inner" cx="110" cy="110" r="4.8"/>
+                  <circle class="hub-dot" cx="110" cy="110" r="2.1"/>
+                </g>
+              </g>
+
+              <g class="reel" id="reelR">
+                <g class="pack-wrap" style="--pack-scale: 0.565">
+                  <circle class="pack-fill" cx="234" cy="110" r="46"/>
+                  <circle class="pack-ring" cx="234" cy="110" r="46"/>
+                </g>
+                <g class="hub">
+                  <circle class="hub-ring" cx="234" cy="110" r="12"/>
+                  <circle class="tooth" cx="241.2" cy="110" r="1.6"/>
+                  <circle class="tooth" cx="239.1" cy="115.1" r="1.6"/>
+                  <circle class="tooth" cx="234" cy="117.2" r="1.6"/>
+                  <circle class="tooth" cx="228.9" cy="115.1" r="1.6"/>
+                  <circle class="tooth" cx="226.8" cy="110" r="1.6"/>
+                  <circle class="tooth" cx="228.9" cy="104.9" r="1.6"/>
+                  <circle class="tooth" cx="234" cy="102.8" r="1.6"/>
+                  <circle class="tooth" cx="239.1" cy="104.9" r="1.6"/>
+                  <circle class="hub-inner" cx="234" cy="110" r="4.8"/>
+                  <circle class="hub-dot" cx="234" cy="110" r="2.1"/>
+                </g>
+              </g>
+
+              <!-- 带仓底部两个导带轮 -->
+              <circle class="roller" cx="68" cy="159" r="4"/>
+              <circle class="roller" cx="276" cy="159" r="4"/>
+
+              <!-- 图纸基准刻度尺 -->
+              <path class="ruler" d="M40 184H304 M40 184v-6 M52 184v-3 M64 184v-3 M76 184v-3 M88 184v-6 M100 184v-3 M112 184v-3 M124 184v-3 M136 184v-6 M148 184v-3 M160 184v-3 M172 184v-3 M184 184v-6 M196 184v-3 M208 184v-3 M220 184v-3 M232 184v-6 M244 184v-3 M256 184v-3 M268 184v-3 M280 184v-6 M292 184v-3 M304 184v-3 M40 184v4 M304 184v4"/>
+
+              <!-- 四角螺丝 -->
+              <g class="screw" transform="translate(14 36)">
+                <circle r="3.1"/><path d="M-2.2 0h4.4M0-2.2v4.4"/>
+              </g>
+              <g class="screw" transform="translate(330 36)">
+                <circle r="3.1"/><path d="M-2.2 0h4.4M0-2.2v4.4"/>
+              </g>
+              <g class="screw" transform="translate(14 246)">
+                <circle r="3.1"/><path d="M-2.2 0h4.4M0-2.2v4.4"/>
+              </g>
+              <g class="screw" transform="translate(330 246)">
+                <circle r="3.1"/><path d="M-2.2 0h4.4M0-2.2v4.4"/>
+              </g>
+            </svg>
+
             <div class="cassette-label">
               <span class="label-chip">MUSIC</span>
               <span class="label-text" id="cassetteTitle">—</span>

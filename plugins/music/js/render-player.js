@@ -122,6 +122,34 @@
         : (cur ? trackTitle(cur) : MusicI18n.t('player.noTrack')), true);
     };
 
+    // ---------- 磁带带量 ----------
+    // 左盘随播放变瘦、右盘变胖 (磁带从左侧卷到右侧); 盘心线速度恒定 => 半径越大转越慢
+    const TAPE_MAX_R = 46;
+    const TAPE_MIN_R = 26;
+    let _tapeTrack = null;
+
+    const setTapePacks = (ratio) => {
+      const p = isFinite(ratio) ? Math.min(1, Math.max(0, ratio)) : 0;
+      const retime = currentTrack() !== _tapeTrack;
+      _tapeTrack = currentTrack();
+
+      const paint = (id, r) => {
+        const root = document.getElementById(id);
+        if (!root) return;
+        const wrap = root.querySelector('.pack-wrap');
+        if (wrap) wrap.style.setProperty('--pack-scale', (r / TAPE_MAX_R).toFixed(3));
+        // 换曲时才改转速, 避免每次 timeupdate 都让旋转相位抖动
+        if (retime) {
+          const hub = root.querySelector('.hub');
+          if (hub) hub.style.setProperty('--reel-dur', (r * 0.058).toFixed(2) + 's');
+        }
+      };
+
+      const span = TAPE_MAX_R - TAPE_MIN_R;
+      paint('reelL', TAPE_MAX_R - span * p);
+      paint('reelR', TAPE_MIN_R + span * p);
+    };
+
     const updateSeekUi = () => {
       const el = audioEl();
       const cur = document.getElementById('npCur');
@@ -134,4 +162,5 @@
       const r = isFinite(el.duration) && el.duration > 0 ? el.currentTime / el.duration : 0;
       if (fill) fill.style.width = (r * 100).toFixed(2) + '%';
       if (knob) knob.style.left = (r * 100).toFixed(2) + '%';
+      setTapePacks(r);
     };

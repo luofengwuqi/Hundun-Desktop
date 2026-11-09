@@ -32,153 +32,191 @@
   right: 6%;
   bottom: 0;
   background: radial-gradient(ellipse at 50% 55%, var(--shadow-color), transparent 70%);
-  opacity: 0.6;
+  opacity: 0.22;
   filter: blur(16px);
   pointer-events: none;
   z-index: 0;
 }
 
-/* ---------- 磁带 (页面唯一主角) ----------
-   纵向可长高到填满左栏, 让底边落在走带按钮群同一水平线上 */
+/* ---------- 磁带 (技术图纸式线稿) ----------
+   全部 1px 细线 + 极淡填充: 不画实体外壳、不做投影/光泽/内阴影;
+   左盘带量随播放减少、右盘增加, 盘心按半径变速旋转 */
 .cassette {
   width: min(100%, 344px);
-  flex: 1 1 auto;
-  max-height: 290px;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-card);
-  border: 2px solid var(--border-color);
-  border-radius: 14px;
-  padding: 15px 20px 13px;
+  flex: none;
   position: relative;
   z-index: 1;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.38);
 }
 
-/* 四角螺丝 */
-.cassette::before, .cassette::after,
-.cassette-window::before, .cassette-window::after {
-  content: '';
-  position: absolute;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--border-color);
-  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.6);
-}
-.cassette::before { top: 6px; left: 6px; }
-.cassette::after { top: 6px; right: 6px; }
-.cassette-window::before { bottom: 6px; left: 6px; }
-.cassette-window::after { bottom: 6px; right: 6px; }
-
-.cassette-window {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 112px;
-  background: var(--bg-slot);
-  border: 2px solid var(--border-color);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 56px;
-  overflow: hidden;
+.cassette-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
 }
 
-/* 卷轴: 播放时旋转 (唯一的非用户触发动画, 回应"播放"这一动作) */
-.reel {
-  /* 随窗口长高一起放大, 避免高窗口里卷轴显得空 */
-  height: clamp(64px, 50%, 112px);
-  width: auto;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  border: 2px solid var(--accent-primary);
-  background: var(--bg-slot);   /* 遮住带子, 让带子从卷轴后方穿过 */
-  position: relative;
-  z-index: 2;
-  flex-shrink: 0;
-  animation: reel-spin 3.6s linear infinite;
+/* 后叠的一张: 只留一层轮廓线 */
+.ghost {
+  fill: none;
+  stroke: color-mix(in srgb, var(--text-primary) 20%, transparent);
+  stroke-width: 1;
+}
+.ghost-near { opacity: 0.5; }
+
+/* 外壳: 一条细轮廓线, 不填充 */
+.shell {
+  fill: none;
+  stroke: color-mix(in srgb, var(--text-primary) 34%, transparent);
+  stroke-width: 1;
+}
+
+/* 带仓: 极淡底 + 一圈细线 */
+.well {
+  fill: color-mix(in srgb, var(--text-primary) 3%, transparent);
+  stroke: color-mix(in srgb, var(--text-primary) 22%, transparent);
+  stroke-width: 1;
+}
+
+/* 卷盘: 细线圈出带量, 盘面只有极淡的一层色 */
+.pack-wrap {
+  transform: scale(var(--pack-scale, 1));
+  transform-origin: center;
+  transition: transform 0.55s cubic-bezier(0.22, 0.8, 0.28, 1);
+}
+.pack-fill { fill: url(#packFill); }
+#packFill stop { stop-color: var(--accent-primary); }
+.pack-ring {
+  fill: none;
+  stroke: var(--accent-primary);
+  stroke-opacity: 0.62;
+  stroke-width: 1.2;
+  transition: stroke-opacity 0.4s ease;
+}
+.music-app.is-playing .pack-ring { stroke-opacity: 0.82; }
+
+/* 走带路径 + 带仓四角定位刻线 */
+.tape-path,
+.reg-mark {
+  fill: none;
+  stroke: var(--accent-primary);
+  stroke-width: 1;
+  stroke-opacity: 0.3;
+}
+.reg-mark { stroke-opacity: 0.22; }
+
+/* 盘心: 八齿 + 中心孔, 播放时旋转 */
+.hub {
+  animation: reel-spin var(--reel-dur, 3.4s) linear infinite;
   animation-play-state: paused;
 }
-
-.reel-hub {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 24%;
-  aspect-ratio: 1;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  border: 2px solid var(--accent-primary);
-  background: var(--bg-slot);
-}
-
-.reel-spoke {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 2px;
-  margin-left: -1px;
-  height: 40%;
-  background: var(--accent-primary);
-  /* 轴心落在卷轴圆心, 只做旋转: 三条辐条从圆心向外发散 */
-  transform-origin: center top;
-}
-.reel-spoke:nth-child(1) { transform: rotate(0deg); }
-.reel-spoke:nth-child(2) { transform: rotate(120deg); }
-.reel-spoke:nth-child(3) { transform: rotate(240deg); }
+#reelL .hub,
+#reelL .pack-wrap { transform-origin: 110px 110px; }
+#reelR .hub,
+#reelR .pack-wrap { transform-origin: 234px 110px; }
+.music-app.is-playing .hub { animation-play-state: running; }
 
 @keyframes reel-spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
 
-/* 播放中: 卷轴转起来, 带子亮起 */
-.music-app.is-playing .reel { animation-play-state: running; }
-.music-app.is-playing .tape-band { background: var(--accent-primary); box-shadow: 0 0 8px var(--shadow-color); }
-
-.tape-band {
-  position: absolute;
-  top: 50%;
-  left: 52px;
-  right: 52px;
-  height: clamp(11px, 6%, 16px);
-  transform: translateY(-50%);
-  background: var(--border-color);
-  z-index: 1;
-  transition: background 0.4s ease, box-shadow 0.4s ease;
+.hub-ring {
+  fill: none;
+  stroke: var(--accent-primary);
+  stroke-opacity: 0.72;
+  stroke-width: 1;
+}
+.tooth {
+  fill: var(--accent-primary);
+  opacity: 0.55;
+}
+.hub-inner {
+  fill: none;
+  stroke: var(--accent-primary);
+  stroke-opacity: 0.4;
+  stroke-width: 1;
+}
+.hub-dot {
+  fill: var(--accent-primary);
+  opacity: 0.8;
 }
 
-/* 磁带标签: 歌名写在带子上 */
+.ruler {
+  fill: none;
+  stroke: color-mix(in srgb, var(--text-primary) 30%, transparent);
+  stroke-width: 1;
+  opacity: 0.5;
+}
+
+/* 走带开口 / 卡榫 / 导带轮 / 螺丝: 一律 1px 线 */
+.guide-rail {
+  fill: none;
+  stroke: color-mix(in srgb, var(--text-primary) 34%, transparent);
+  stroke-width: 1;
+}
+.guide-tab {
+  fill: none;
+  stroke: color-mix(in srgb, var(--text-primary) 20%, transparent);
+  stroke-width: 1;
+}
+.roller {
+  fill: none;
+  stroke: var(--accent-primary);
+  stroke-opacity: 0.45;
+  stroke-width: 1;
+}
+.screw circle {
+  fill: none;
+  stroke: color-mix(in srgb, var(--text-primary) 20%, transparent);
+  stroke-width: 1;
+}
+.screw path {
+  stroke: color-mix(in srgb, var(--text-primary) 20%, transparent);
+  stroke-width: 1;
+  stroke-linecap: round;
+}
+
+/* 磁带标签: 图纸式标注栏, 不再有粗左边与实心色块 */
 .cassette-label {
-  margin-top: 11px;
-  flex: none;
+  position: absolute;
+  left: 6.4%;
+  right: 6.4%;
+  bottom: 11.4%;
+  height: 13.6%;
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 6px 10px;
+  gap: 9px;
+  padding: 0 11px;
+  background: none;
+  border: 1px solid color-mix(in srgb, var(--text-primary) 20%, transparent);
+  border-left: 1px solid var(--accent-primary);
+  border-radius: 2px;
   overflow: hidden;
 }
 
 .label-chip {
   font-size: 8px;
+  font-weight: 700;
   letter-spacing: 2px;
   color: var(--accent-primary);
-  border: 1px solid var(--accent-primary);
-  border-radius: 3px;
-  padding: 1px 4px;
+  background: none;
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 55%, transparent);
+  border-radius: 2px;
+  padding: 2px 5px 1px;
   flex-shrink: 0;
 }
 
 .label-text {
-  font-size: 13px;
+  font-size: 12.5px;
+  letter-spacing: 0.2px;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hub { animation: none; }
 }
 
 /* ---------- 底部通栏电平柱 ----------
