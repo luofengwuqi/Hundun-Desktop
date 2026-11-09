@@ -37,6 +37,7 @@ HundunDesktop 是一个以「游戏掌机」为隐喻的桌面效率应用。母
 | 📄 `fast-txt` | FastTXT | 800×540 | 文本文件管理、编辑、Markdown 实时浏览、查找替换、git 云端文档库 |
 | 📋 `task` | TASK | 400×520 | 任务清单、截止时间、状态排序、到点提醒 |
 | ⚡ `fast-cmd` | FastCmd | 800×540 | 脚本管理：Windows `.bat` `.cmd` `.ps1` / Linux `.sh`，点击即运行 |
+| 🎵 `music` | Music | 800×540 | 音乐库、分组、播放队列、曲目导入（移动语义） |
 
 ## 快速开始
 

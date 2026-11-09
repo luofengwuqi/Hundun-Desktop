@@ -1,8 +1,26 @@
 # HundunDesktop - 更新日志
 
-> 最后更新: 2026-10-24
+> 最后更新: 2026-11-10
 
 ---
+
+## 2026-11-10
+
+### feat: 合入 Music 插件（远端 5f5ce5b）+ 与云端文档库并存
+
+- [x] **改动来源**: 远端 `origin/master` 新增 `5f5ce5b`（音乐插件，2026-11-09 提交）。本地 决策56 的云端文档库尚未入库，先提交为 `ca760e7` 再合并，避免工作区被覆盖
+- [x] **冲突**: 2 文件 4 处，全部是「两侧在同一位置各插一个 `registerXXX(pm)`」的**结构性**冲突 —— git 把共用的 `senderPluginId` 序言对齐了，直接「保留双方」会拼出语法错误的代码，因此改为「以本地完整版为底、把音乐那段按原位置补进去」
+- [x] **解冲突**: `src/main/index.js` —— electron 导入补 `dialog`；注册区连续调用 `registerFastTXTCloudIPC` 与 `registerMusicIPC`；FastTXT 云端 IPC 与 Music IPC 各自独立成段。`src/main/plugin-preload.js` —— `window.hundun` 下 `cloud` / `music` 两个 API 对象并存
+- [x] **验证**: 两文件 `node --check` 通过、`npm run build` 通过、`check:main` 的 11 个主进程模块相对 require 全部可解析、`test-fasttxt-cloud` **79/79 通过**
+- [x] **文档**: `.gitignore` 补 `.workbuddy/`（项目数据不入库）；README 插件表、AGENTS.md 决策57 与目录树同步音乐插件
+
+### feat: Music 子程序 (800×540, 决策57)
+
+- [x] **库** — 磁盘 `user-data/plugins/music/file/` 是曲目事实来源（`hundun.fs`），分组存 `hundun.storage` 单键 `music-library`，**播放队列仅内存**（关窗即清空）；支持全部/分组过滤 + 字符级乱序模糊搜索（`f` / `/` 唤起）
+- [x] **界面** — 音乐库 / 播放队列两个抽屉，队列支持拖拽排序；`sequence` / `shuffle` 两种播放模式
+- [x] **导入 = 移动语义** — 主进程 `music:pickAudio` / `music:pickFolder` / `music:scanFolder` / `music:importFile`，复制到插件数据目录后**删除源文件**，重名自动递增 `(2)`；身份由 `event.sender` 反查，复用 `getFastTXTBasePath` 定位数据目录
+- [x] **键盘** — WASD/方向键导航、Enter 播放/入队、Delete 移除、空格播放暂停、Esc 关抽屉
+- [x] **主题** — 只继承官方基底 dark/light（`music-theme` 本地记忆），与决策55 一致
 
 ## 2026-10-24
 
