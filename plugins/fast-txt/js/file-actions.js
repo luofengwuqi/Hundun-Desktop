@@ -513,56 +513,6 @@
     };
 
     // ========== External File Import ==========
-    const handleGlobalDrop = (e) => {
-      e.preventDefault();
-      const droppedFiles = e.dataTransfer && e.dataTransfer.files;
-      if (!droppedFiles || droppedFiles.length === 0) return;
-
-      for (let i = 0; i < droppedFiles.length; i++) {
-        const f = droppedFiles[i];
-        const name = f.name.toLowerCase();
-        if (name.endsWith('.txt') || name.endsWith('.md')) {
-          importFile(f, f.path);
-        }
-      }
-    };
-
-    const importFile = (file, originalPath) => {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const content = e.target.result;
-        const api = fsAPI();
-        const subPath = isFolderMode ? `${currentFolderPath}/${file.name}` : file.name;
-        if (api) {
-          // 写入磁盘
-          await api.writeFile(subPath, content);
-          // 刷新文件列表
-          await loadFilesFromDisk();
-        } else {
-          // fallback: 内存
-          const id = isFolderMode ? `${currentFolderPath}/${file.name}` : file.name;
-          const newFile = {
-            id: id,
-            name: file.name,
-            content: content,
-            deleted: false,
-            order: files.length,
-            isFolder: false,
-            parentPath: currentFolderPath
-          };
-          files.push(newFile);
-        }
-        // 导入成功后删除原始文件
-        if (originalPath) {
-          try {
-            require('fs').unlinkSync(originalPath);
-          } catch (err) {
-            console.warn('[FastTXT] 删除原始文件失败:', err.message);
-          }
-        }
-        saveFiles();
-        playSound('OK');
-        updateUI();
-      };
-      reader.readAsText(file);
-    };
+    // 导入已迁移到 js/importer.js (决策58): 与 Music 同一套规范 —— 主进程字节级复制 +
+    // 重名加序号 + 移动语义 + 批量成功/失败回报 + Linux uri-list 兜底 + 文件夹展开。
+    // 旧的 FileReader 重写盘 / 渲染层 unlinkSync 已移除 (会丢 BOM、覆盖重名、写失败仍删源)。

@@ -1,0 +1,47 @@
+/* ========== Toast Notification (决策58: 导入结果反馈) ========== */
+.ftxt-toast {
+  position: fixed;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-card);
+  border: 2px solid var(--accent-primary);
+  border-radius: 10px;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 300;
+  animation: ftxtToastIn 0.3s ease-out;
+  box-shadow: 0 0 20px var(--shadow-color);
+  max-width: 400px;
+}
+
+.ftxt-toast.hiding {
+  animation: ftxtToastOut 0.3s ease-in forwards;
+}
+
+.ftxt-toast-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.ftxt-toast-message {
+  font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+  font-size: 10px;
+  color: var(--text-primary);
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@keyframes ftxtToastIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@keyframes ftxtToastOut {
+  from { opacity: 1; transform: translateX(-50%) translateY(0); }
+  to { opacity: 0; transform: translateX(-50%) translateY(20px); }
+}

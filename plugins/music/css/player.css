@@ -305,8 +305,19 @@
 
 .music-app.library-empty .np-title { color: var(--text-secondary); }
 
-/* 空态内容少, 不再贴底, 回到视觉中心 */
-.music-app.library-empty .stage-panel { justify-content: center; padding-bottom: 0; }
+/* 空态: 右栏内容块的垂直中心对准「磁带的垂直中心线」。
+   注意不是 justify-content:center —— 那是相对整个 stage-panel 居中,
+   而磁带是贴底摆放的, 两个中心差着半个磁带高度, 看着就是一高一低。
+   做法: 先把内容块底边压到磁带中心线 (底边内缩 = 共用基线 18px + 磁带半高),
+   再用 translateY(50%) 把块自身的中线抬到那条线上, 与块内容多少无关。 */
+.music-app.library-empty .stage-panel {
+  justify-content: flex-end;
+  padding-bottom: calc(18px + 130px);   /* 18 = .stage-deck 的 margin-bottom, 130 = 磁带 260px 高的一半 */
+}
+
+.music-app.library-empty .panel-inner {
+  transform: translateY(50%);
+}
 
 /* ---------- 时间 / 进度 ---------- */
 .np-progress {

@@ -616,6 +616,11 @@ class PluginManager {
       // 注入插件预加载脚本
       pluginWindow.webContents.on('did-finish-load', () => {
         console.log(`[PluginManager] Plugin page loaded: ${pluginId}`)
+        // 焦点描边兜底 (宿主侧): 干掉 UA 默认描边。
+        // Chromium 的 :focus 描边色取系统 GTK 主题高亮色，部分主题下会冒出
+        // 一圈与本界面毫无关系的黄/橙色框；内置插件各自 base.css 里也有同款规则，
+        // 这里是为了兜住用户自己安装的第三方插件（.zip）。
+        pluginWindow.webContents.insertCSS(':focus, :focus-visible { outline: none; }')
         // 注入插件 ID 到窗口
         // 安全 (V4): JSON.stringify 序列化注入，杜绝 pluginId 拼接造成的 JS 源码注入
         pluginWindow.webContents.executeJavaScript(`

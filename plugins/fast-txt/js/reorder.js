@@ -18,7 +18,13 @@
 
     const handleListDragOver = (e) => {
       e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
+      // Linux/GTK 文件管理器拖入的 effectAllowed 只有 'copy'。若这里写死 'move',
+      // Chromium 判定 dropEffect 与 effectAllowed 不兼容 → 直接取消放置, drop 事件
+      // 根本不派发, 外部文件拖入表现为"完全无反应"(实测 Electron 28 + XWayland)。
+      // Windows 拖入常为 'all'(含 move), 所以这个 Bug 只在 Linux 暴露。
+      const ea = (e.dataTransfer && e.dataTransfer.effectAllowed) || 'all';
+      const canMove = ea === 'all' || ea === 'uninitialized' || String(ea).includes('move');
+      e.dataTransfer.dropEffect = canMove ? 'move' : 'copy';
     };
 
     const handleListDrop = (e) => {

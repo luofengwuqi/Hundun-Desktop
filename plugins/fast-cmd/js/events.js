@@ -1,6 +1,6 @@
     // ========== Event Listeners ==========
-    document.addEventListener('dragover', (e) => e.preventDefault());
-    document.addEventListener('drop', handleGlobalDrop);
+    // 外部文件拖入由 js/importer.js 在 document 捕获阶段统一接管 (决策58)。
+    // 下方 fileList / trashZone / shredderZone 的监听只处理应用内拖拽 (排序 / 回收站 / 粉碎)。
 
     // Search
     searchInput.addEventListener('focus', () => { isSearchFocused = true; updateUI(); });

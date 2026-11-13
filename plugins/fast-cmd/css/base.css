@@ -35,6 +35,12 @@
     /* ========== Base ========== */
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
+    /* 焦点描边: 点击后不画 UA 默认描边 —— Chromium 的 -webkit-focus-ring-color
+       取自系统 GTK 主题高亮色, 部分主题下是一圈与本界面无关的黄/橙色框.
+       键盘操作由 JS 处理 (.selected 类做反馈), 输入框改靠 :focus 变边框色 */
+    :focus,
+    :focus-visible { outline: none; }
+
     html { background: transparent; }
 
     body {

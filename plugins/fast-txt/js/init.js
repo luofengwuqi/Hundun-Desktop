@@ -3,6 +3,8 @@
       // 窗口按钮先绑定 (不依赖后续异步初始化, 避免 fs 初始化失败时按钮失效)
       setupPinButton();
       setupMinButton();
+      // 外部文件拖入导入 (决策58): 捕获阶段监听, 不依赖后续异步初始化
+      setupDragImport();
 
       const api = fsAPI();
       if (api) {

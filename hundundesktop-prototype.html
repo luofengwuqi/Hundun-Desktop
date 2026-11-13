@@ -122,6 +122,10 @@
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
+        /* 焦点描边: 不画 UA 默认描边 (跟随系统高亮色, 常见黄/橙框) */
+        :focus,
+        :focus-visible { outline: none; }
+
         body {
             font-family: 'Noto Sans SC', sans-serif;
             background: var(--bg-primary);

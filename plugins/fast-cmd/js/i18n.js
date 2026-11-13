@@ -62,6 +62,13 @@ const FastCmdI18n = (() => {
       scriptExitCode: '脚本异常退出 (退出码 {code}): {name}',
       scriptSuccess: '✅ 运行成功: {name}',
     },
+    import: {
+      imported: '已导入 {count} 个脚本',
+      failed: '{count} 个脚本导入失败',
+      none: '没有可导入的脚本',
+      skipped: '已跳过 {count} 个不支持的文件',
+      dropHint: '松开以导入 (源文件会被移入)',
+    },
     defaults: {
       bat: '@echo off\nchcp 65001 >nul\necho Hello from FastCmd!\npause',
       ps1: '# Hello from FastCmd!\nWrite-Host "Hello from FastCmd!"',
@@ -128,6 +135,13 @@ const FastCmdI18n = (() => {
       scriptError: 'Failed to start: {name}',
       scriptExitCode: 'Script exited abnormally (code {code}): {name}',
       scriptSuccess: '✅ Script succeeded: {name}',
+    },
+    import: {
+      imported: 'Imported {count} scripts',
+      failed: '{count} imports failed',
+      none: 'No scripts to import',
+      skipped: 'Skipped {count} unsupported files',
+      dropHint: 'Drop to import (source files will be moved in)',
     },
     defaults: {
       bat: '@echo off\nchcp 65001 >nul\necho Hello from FastCmd!\npause',

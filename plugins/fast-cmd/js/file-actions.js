@@ -178,37 +178,6 @@
     };
 
     // ========== External File Import ==========
-    const handleGlobalDrop = (e) => {
-      e.preventDefault();
-      const droppedFiles = e.dataTransfer && e.dataTransfer.files;
-      if (!droppedFiles || droppedFiles.length === 0) return;
-      for (let i = 0; i < droppedFiles.length; i++) {
-        const f = droppedFiles[i];
-        // 只导入当前系统支持的脚本后缀 (不支持的不显示也不收, 见 platform.js)
-        if (isScriptFile(f.name)) {
-          importFile(f, f.path);
-        }
-      }
-    };
-
-    const importFile = (file, originalPath) => {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const content = e.target.result;
-        const api = fsAPI();
-        if (api) {
-          await api.writeFile(file.name, content);
-          await loadFilesFromDisk();
-        } else {
-          files.push({ id: file.name, name: file.name, content, deleted: false, order: files.length, isFolder: false });
-        }
-        if (originalPath) {
-          try { require('fs').unlinkSync(originalPath); }
-          catch (err) { console.warn('[FastCmd] 删除原始文件失败:', err.message); }
-        }
-        saveFiles();
-        playSound('OK');
-        updateUI();
-      };
-      reader.readAsText(file);
-    };
+    // 导入已迁移到 js/importer.js (决策58): 与 Music 同一套规范 —— 主进程字节级复制 +
+    // 重名加序号 + 移动语义 + 批量成功/失败回报 + Linux uri-list 兜底 + 文件夹展开。
+    // 平台感知后缀过滤仍以 platform.js / isScriptFile 为单一来源。

@@ -90,6 +90,13 @@ const FastTXTI18n = (() => {
     },
 
     // 弹窗
+    import: {
+      imported: '已导入 {count} 个文件',
+      failed: '{count} 个文件导入失败',
+      none: '没有可导入的 .txt / .md 文件',
+      skipped: '已跳过 {count} 个不支持的文件',
+      dropHint: '松开以导入 (源文件会被移入)',
+    },
     modal: {
       ok: '确定',
       cancel: '取消',
@@ -352,6 +359,13 @@ const FastTXTI18n = (() => {
     },
 
     // Modal
+    import: {
+      imported: 'Imported {count} files',
+      failed: '{count} imports failed',
+      none: 'No .txt / .md files to import',
+      skipped: 'Skipped {count} unsupported files',
+      dropHint: 'Drop to import (source files will be moved in)',
+    },
     modal: {
       ok: 'OK',
       cancel: 'Cancel',

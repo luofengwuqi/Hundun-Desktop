@@ -65,6 +65,35 @@
       try { return require('fs').statSync(p).isDirectory(); } catch (_) { return false; }
     };
 
+    // Linux 文件管理器(XDND/Wayland)有时只给文本目标 text/uri-list 等, Chromium
+    // 未必转成 dataTransfer.files; 且这类数据在 dragenter/dragover 阶段受保护模式
+    // 限制读不到, 只能在 drop 处理里当场解析。
+    const uriToPath = (u) => {
+      try {
+        const s = String(u || '').trim();
+        if (!s) return null;
+        if (s.startsWith('file://')) {
+          const rest = s.slice(7);
+          const slash = rest.indexOf('/');
+          return decodeURIComponent(slash >= 0 ? rest.slice(slash) : '/' + rest);
+        }
+        return s.startsWith('/') ? s : null;
+      } catch (_) { return null; }
+    };
+
+    const pathsFromText = (dt) => {
+      const out = [];
+      for (const type of ['text/uri-list', 'text/x-moz-url', 'text/plain']) {
+        let text = '';
+        try { text = dt.getData(type) || ''; } catch (_) { continue; }
+        for (const line of String(text).split(/\r?\n/)) {
+          const p = uriToPath(line);
+          if (p) out.push(p);
+        }
+      }
+      return out;
+    };
+
     // 文件系统 Entry 遍历 (仅作为拿不到路径时的兜底)
     const _walkEntry = (entry, out, depth) => new Promise((resolve) => {
       if (!entry || depth > 4) { resolve(); return; }
@@ -90,12 +119,18 @@
       const paths = [];
       const dirs = [];
       const entries = [];
-      for (const f of dt.files || []) {
-        const p = filePathOf(f);
-        if (!p) continue;
+      const seen = new Set();
+      const add = (p) => {
+        if (!p || seen.has(p)) return;
+        seen.add(p);
         if (isDirPath(p)) dirs.push(p);
-        else paths.push(p);
-      }
+        else {
+          try { if (require('fs').statSync(p).isFile()) paths.push(p); } catch (_) { /* 不存在的路径忽略 */ }
+        }
+      };
+      for (const f of dt.files || []) add(filePathOf(f));
+      // 兜底: files 为空但拖放数据里带 file:// URI / 绝对路径 (Linux 常见)
+      for (const p of pathsFromText(dt)) add(p);
       if (dt.items && dt.items.length) {
         for (const item of dt.items) {
           if (item.kind !== 'file') continue;
@@ -129,20 +164,29 @@
       const hint = document.getElementById('dropHint');
       let dragDepth = 0;
 
-      const hasFiles = (e) => !!(e.dataTransfer && [...(e.dataTransfer.types || [])].includes('Files'));
+      // Linux 文件管理器除 'Files' 外还可能只声明 text/uri-list / text/x-moz-url,
+      // 只认 'Files' 会漏掉拖入 (dragover 不 preventDefault → Chromium 直接导航到 file://)。
+      const hasFiles = (e) => {
+        const dt = e.dataTransfer;
+        if (!dt) return false;
+        return [...(dt.types || [])].some(t => t === 'Files' || /uri-list|x-moz-url/i.test(t));
+      };
       const showHint = (on) => { if (hint) hint.style.display = on ? 'flex' : 'none'; };
 
       // 捕获阶段挂在 document 上: 不受子元素 stopPropagation 影响, 且必然早于默认导航
       const onDragEnter = (e) => {
-        if (!hasFiles(e)) return;
+        // 无条件拦默认导航: 拖入文件时 Chromium 会尝试导航到 file:// 把页面替换掉
         e.preventDefault();
+        if (!hasFiles(e)) return;
         dragDepth++;
         showHint(true);
       };
       const onDragOver = (e) => {
-        if (!hasFiles(e)) return;
         e.preventDefault();
-        e.dataTransfer.dropEffect = 'copy';
+        if (!hasFiles(e)) return; // 内部队列拖拽不干预, 保留其 effectAllowed='move'
+        // Linux XDND 的 effectAllowed 常只有 'copy', 必须声明 copy; 写成 move 会让
+        // Chromium 判定不兼容并取消放置 → drop 事件根本不派发。
+        try { e.dataTransfer.dropEffect = 'copy'; } catch (_) {}
         showHint(true);
       };
       const onDragLeave = (e) => {

@@ -325,6 +325,29 @@ window.hundun = {
     }
   },
 
+  // ========== 通用文件导入 API (决策58: 与 music API 同构) ==========
+  // FastTXT / FastCmd 的外部文件拖入统一走主进程白名单 IPC, 插件身份由主进程反查。
+  imports: {
+    /**
+     * 递归扫描文件夹, 只返回当前插件允许导入的文件绝对路径
+     * @param {string} folderPath - 文件夹绝对路径
+     * @returns {Promise<string[]>}
+     */
+    scanFolder: async (folderPath) => {
+      return await ipcRenderer.invoke('files:scanFolder', folderPath)
+    },
+
+    /**
+     * 导入文件 (移动语义: 复制原始字节到插件数据目录后删除源文件)
+     * @param {string} srcPath - 源文件绝对路径
+     * @param {string} [targetDir] - 相对插件数据目录的子目录 (FastTXT 文件夹视图), 缺省为根
+     * @returns {Promise<{ok: boolean, name?: string, relPath?: string, error?: string}>}
+     */
+    importFile: async (srcPath, targetDir = '') => {
+      return await ipcRenderer.invoke('files:importFile', srcPath, targetDir)
+    }
+  },
+
   // ========== 事件系统 ==========
   events: {
     onExecute: (callback) => {

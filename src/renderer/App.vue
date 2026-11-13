@@ -764,7 +764,11 @@ const handleDragEnd = () => {
 
 const handleDragOver = (e) => {
   e.preventDefault()
-  e.dataTransfer.dropEffect = 'move'
+  // 外部文件在 Linux 下 effectAllowed 常为 'copy'; 写死 'move' 会让 Chromium
+  // 取消放置(drop 不派发)。仅当拖拽源允许 move 时才声明 move。
+  const ea = e.dataTransfer?.effectAllowed || 'all'
+  const canMove = ea === 'all' || ea === 'uninitialized' || String(ea).includes('move')
+  e.dataTransfer.dropEffect = canMove ? 'move' : 'copy'
   isDragOver.value = true
 }
 

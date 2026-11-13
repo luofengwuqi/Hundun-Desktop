@@ -668,7 +668,11 @@ const onDragStart = (e, plugin) => {
 }
 
 const onDragOver = (e, plugin) => {
-  e.dataTransfer.dropEffect = 'move'
+  // 外部文件在 Linux 下 effectAllowed 常为 'copy'; 写死 'move' 会让 Chromium
+  // 取消放置(drop 不派发)。仅当拖拽源允许 move 时才声明 move。
+  const ea = e.dataTransfer?.effectAllowed || 'all'
+  const canMove = ea === 'all' || ea === 'uninitialized' || String(ea).includes('move')
+  e.dataTransfer.dropEffect = canMove ? 'move' : 'copy'
   if (dragPluginId.value === plugin.id) {
     dropTargetId.value = null
     return
@@ -1841,16 +1845,8 @@ onUnmounted(() => {
   padding-right: 12px;
 }
 
-/* Remove focus outline */
-button:focus,
-.nav-tab:focus,
-.theme-option:focus,
-.language-option:focus,
-.test-sound-btn:focus,
-.toggle-switch:focus,
-.settings-close-btn:focus {
-  outline: none;
-}
+/* 焦点描边统一在 main.css 的 `:focus, :focus-visible { outline: none }` 里处理,
+   组件内不再各自声明 (原先这里按类名逐个 outline:none, 漏一个就会冒出系统黄框) */
 
 /* Toggle with status */
 .toggle-with-status {

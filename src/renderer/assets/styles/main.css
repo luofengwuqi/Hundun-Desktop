@@ -77,6 +77,18 @@
   box-sizing: border-box;
 }
 
+/* ========== 焦点描边 ==========
+   点击按钮后不画任何 UA 默认描边。原因: Chromium 的 :focus/:focus-visible
+   描边用 -webkit-focus-ring-color, 这个值取自系统 GTK 主题的高亮色 ——
+   在部分主题下是一圈跟界面完全无关的黄/橙色框, 看着像 bug.
+   本应用的键盘操作自成体系 (WASD/方向键 + Enter 由 JS 处理, 靠 .selected
+   类做视觉反馈, 不依赖 DOM 焦点), 所以统一关掉描边;
+   输入类元素仍靠 :focus / :focus-within 改边框色给提示, 不会丢焦点反馈. */
+:focus,
+:focus-visible {
+  outline: none;
+}
+
 /* html 必须透明，否则透明窗口会被 html 背景盖住 */
 html {
   background: transparent;

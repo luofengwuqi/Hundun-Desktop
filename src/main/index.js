@@ -234,6 +234,9 @@ app.whenReady().then(() => {
   // 注册 Music 插件 IPC 处理器 (文件选择 / 导入 / 目录扫描)
   registerMusicIPC(pluginManager)
 
+  // 注册通用文件导入 IPC (FastTXT / FastCmd 外部文件拖入, 与 Music 同一套导入规范)
+  registerImportIPC(pluginManager)
+
   // 注册音效设置 IPC (主进程镜像 + 跨窗口广播, 供插件直放音效读取)
   registerSoundSettingsIPC()
   
@@ -1114,6 +1117,124 @@ function registerMusicIPC (pm) {
       return { ok: true, name: path.basename(dest) }
     } catch (err) {
       console.error('[Music] importFile failed:', err)
+      return { ok: false, error: err.message }
+    }
+  })
+}
+
+// ========== 通用文件导入 IPC (决策58) ==========
+// 规范来源: music:scanFolder / music:importFile。FastTXT / FastCmd 的外部文件拖入
+// 全部收敛到主进程, 与 Music 保持同一套语义:
+//   1) 扩展名白名单由主进程按 pluginId + 平台决定 (渲染层只做展示预过滤)
+//   2) 插件身份从 event.sender 反查, 数据只落该插件自己的 user-data 目录
+//   3) 移动语义: 复制原始字节 → 成功后删源文件 (跨盘安全, 保留 BOM / 原编码)
+//   4) 重名自动加 " (2)", 绝不覆盖已有文件
+// 旧实现用 FileReader 读文本再写盘 + 渲染层直接 unlinkSync: 丢 BOM/编码、覆盖重名、
+// 写失败仍删源文件、无批量反馈 —— 全部由这里替代。
+const IMPORT_EXTS = {
+  'fast-txt': ['.txt', '.md'],
+  // FastCmdPlatform 允许用 FASTCMD_PLATFORM 覆盖平台做回归测试, 主进程读同一个 env 保持一致
+  'fast-cmd': (() => {
+    const platform = process.env.FASTCMD_PLATFORM || process.platform
+    if (platform === 'linux') return ['.sh']
+    if (platform === 'win32') return ['.bat', '.cmd', '.ps1']
+    return []
+  })()
+}
+const IMPORT_ALLOWED_PLUGINS = new Set(['fast-txt', 'fast-cmd'])
+
+function importExtsFor (pluginId) {
+  return IMPORT_ALLOWED_PLUGINS.has(pluginId) ? (IMPORT_EXTS[pluginId] || []) : []
+}
+
+function isImportableFileName (pluginId, name) {
+  const n = String(name || '').toLowerCase()
+  return importExtsFor(pluginId).some(ext => n.endsWith(ext))
+}
+
+function registerImportIPC (pm) {
+  const senderId = (event) => {
+    try {
+      return pm && pm._getWindowPluginId(event.sender)
+    } catch (_) {
+      return null
+    }
+  }
+
+  // 与 registerFastTXTIPC 的 safeJoin 同规则: 相对路径解析后必须仍落在 base 内
+  const resolveInside = (base, rel) => {
+    const target = path.resolve(base, String(rel == null ? '' : rel))
+    if (target !== base && !target.startsWith(base + path.sep)) {
+      throw new Error('非法路径 (越界): ' + rel)
+    }
+    return target
+  }
+
+  // 递归扫描文件夹 (深度 4 / 上限 2000 / 忽略隐藏), 过滤逻辑与导入单文件同源
+  ipcMain.handle('files:scanFolder', (event, folderPath) => {
+    const pid = senderId(event)
+    if (!IMPORT_ALLOWED_PLUGINS.has(pid)) return []
+    const out = []
+    const walk = (dir, depth) => {
+      if (depth > 4 || out.length > 2000) return
+      let entries
+      try { entries = fs.readdirSync(dir, { withFileTypes: true }) } catch (_) { return }
+      for (const e of entries) {
+        if (e.name.startsWith('.')) continue
+        const full = path.join(dir, e.name)
+        if (e.isDirectory()) walk(full, depth + 1)
+        else if (e.isFile() && isImportableFileName(pid, e.name)) out.push(full)
+      }
+    }
+    try {
+      if (typeof folderPath === 'string' && folderPath &&
+        fs.existsSync(folderPath) && fs.statSync(folderPath).isDirectory()) {
+        walk(folderPath, 0)
+      }
+    } catch (_) { /* 返回空 */ }
+    return out
+  })
+
+  // 导入单个文件: 白名单 → 复制到插件数据目录(重名加序号) → 删除源文件
+  ipcMain.handle('files:importFile', (event, srcPath, targetDir) => {
+    const pid = senderId(event)
+    if (!IMPORT_ALLOWED_PLUGINS.has(pid)) return { ok: false, error: 'no-permission' }
+    if (typeof srcPath !== 'string' || srcPath.length === 0) return { ok: false, error: 'bad-path' }
+    try {
+      const src = path.resolve(srcPath)
+      const stat = fs.statSync(src)
+      if (!stat.isFile()) return { ok: false, error: 'not-file' }
+      // basename 已不含路径分隔, 再防御 Windows 保留字符与控制字符
+      const base = path.basename(src).replace(/[\\/:*?"<>|\x00-\x1f]/g, '_').trim()
+      if (!base || !isImportableFileName(pid, base)) return { ok: false, error: 'not-allowed' }
+
+      const dataDir = getFastTXTBasePath(pid)
+      // targetDir 是相对插件数据目录的子路径 (FastTXT 文件夹视图), 必须仍落在目录内
+      let destDir
+      try { destDir = resolveInside(dataDir, targetDir || '') } catch (_) { return { ok: false, error: 'bad-target' } }
+      // 源文件已在库内: 复制后再删源会破坏原文件, 直接拒绝
+      if (src === destDir || src.startsWith(destDir + path.sep)) {
+        return { ok: false, error: 'already-in-library' }
+      }
+      if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true })
+
+      let dest = path.join(destDir, base)
+      let counter = 2
+      while (fs.existsSync(dest)) {
+        const ext = path.extname(base)
+        const stem = base.slice(0, base.length - ext.length)
+        dest = path.join(destDir, `${stem} (${counter})${ext}`)
+        counter++
+      }
+      fs.copyFileSync(src, dest)
+      fs.unlinkSync(src)
+      return {
+        ok: true,
+        name: path.basename(dest),
+        relPath: path.relative(dataDir, dest).split(path.sep).join('/')
+      }
+    } catch (err) {
+      console.error('[Import] importFile failed:', err)
       return { ok: false, error: err.message }
     }
   })
