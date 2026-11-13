@@ -1,8 +1,52 @@
 # HundunDesktop - 更新日志
 
-> 最后更新: 2026-11-10
+> 最后更新: 2026-11-13
 
 ---
+
+## 2026-11-13
+
+### chore: 主程序版本号改为「年.季度.次数」（决策59）
+
+- [x] **规则**: 一次发行 = 一个版本号 `YYYY.Q.N`。`YYYY` = 发行年份（4 位），`Q` = 发行日所在自然季度（`1` = 1–3 月 / `2` = 4–6 月 / `3` = 7–9 月 / `4` = 10–12 月），`N` = 该季度内第几次发行（从 `1` 起，每次发行 +1，换季度归零）。例：2026 年 Q4 首次发行 = `2026.4.1`，同季度再发一次 = `2026.4.2`，2027 年 Q1 首次 = `2027.1.1`。**只数发行次数，与发行当天是几号无关**，替代原「主版本.年.月日」的 `26.2.1024` 式日期版本
+- [x] **本次迁移**: `26.2.1024` → **`2026.4.1`**（2026 Q4 第 1 次发行）；同步 `package.json`、`package-lock.json`（顶层 + `packages[""]` 两处）、`plugins/fast-txt/manifest.json`、FastTXT 头部徽章 `v26.2` → `v2026.4.1`
+- [x] **文档**: `README.md` 新增「版本号规则」小节（季度对照表、示例、唯一事实源）；`AGENTS.md` 追加决策59 并更新最后更新日期
+- [x] **不改**: 其他内置卡带 manifest 的 `1.0.0`（插件自身版本）；决策56 与 2026-10-24 日志中的旧版本号（历史留痕）；其他馄饨系列软件（用户要求暂不动）
+
+## 2026-11-11
+
+### refactor: 以 Music 为规范统一 FastTXT / FastCmd 的文件导入（决策58）
+
+- [x] **背景**: FastTXT / FastCmd 的拖入导入还是最早期的写法 —— `FileReader.readAsText()` 读文本再 `api.writeFile()` 重写盘，然后在渲染层 `require('fs').unlinkSync()` 删源文件；Music 的 `importer.js` 已经是一套成熟规范，三者不一致
+- [x] **旧实现的问题**: 丢 BOM / 改编码（PowerShell 5.1 依赖 UTF-8 BOM）、重名直接覆盖、写盘失败仍删源文件、不支持文件夹、无成功/失败反馈、Linux `text/uri-list` 无兜底、类型过滤各写一份
+- [x] **主进程**: 新增 `registerImportIPC()` —— `files:scanFolder` 递归扫描（深度 4 / 上限 2000 / 忽略隐藏）、`files:importFile` 白名单终审 → 字节级复制 → 成功后删源。扩展名白名单按 `pluginId` + 平台决定（FastTXT `.txt/.md`；FastCmd Linux `.sh` / Windows `.bat/.cmd/.ps1`，读 `FASTCMD_PLATFORM` 与插件内平台覆盖保持一致）；重名加 `" (2)"` 不覆盖；`targetDir` 走越界校验；源文件已在库内直接拒绝，防止复制后删源破坏原文件；返回 `relPath`
+- [x] **preload**: `window.hundun.imports = { scanFolder, importFile }`，与 `music` API 同构
+- [x] **插件**: 新增 `plugins/{fast-txt,fast-cmd}/js/importer.js`，与 Music 同构 —— 同步 `snapshotDrop`（`Files` / `webUtils` / `File.path` / `text/uri-list` / `text/x-moz-url` / `text/plain`）、`webkitGetAsEntry` 文件夹兜底、批量 `importPaths` 计数 + `finalizeFsChange` 收尾 + toast、动态拖入蒙层（主题变量自适应）、捕获阶段 `dropEffect='copy'`
+- [x] **不破坏内部拖拽**: 捕获阶段 `onDrop` 用 `hasFiles()` 区分 —— 外部文件才 `stopPropagation()`，应用内排序/回收站/碎纸机的 drop 原样放行
+- [x] **入口收拢**: 删除 `file-actions.js` 里的 `handleGlobalDrop` / `importFile` 与 `events.js` 里 document 级的 dragover/drop 监听；`init.js` 调 `setupDragImport()`；`main.html` 引入 `importer.js`
+- [x] **配套**: FastTXT 新增 `toast.js` + `toast.css`（独立类名前缀，深浅色变量自适应）；两插件 i18n（zh/en）新增 `import.*` 键
+- [x] **验证**: 20 项自动检查全绿（14 个 JS 语法、两页脚本合并编译无重复顶层声明、i18n 键、渲染层 uri-list/快照/过滤/批量、主进程真实代码的 BOM 保留 / 重名 / 白名单 / 越界 / 库内拒绝 / 身份反查 / 子目录 / 目录扫描 / FastCmd 平台白名单）；真实 XDND 端到端：外部拖入 → `importFile` 调用 + 成功 toast + 统一收尾，同时应用内拖拽冒泡 drop 未被误拦
+- [x] **未移植**: Music 的「文件/文件夹选择对话框」菜单入口未加 —— 两插件的 `+` 菜单是新建专用，加入口要改键盘导航与 i18n，本轮聚焦拖入链路；如需可用主进程 dialog 能力补上
+
+### fix: 全局清除点击后的 UA 焦点描边（那圈黄框）
+
+- [x] **现象**: 点击按钮 / 输入框后，元素边缘出现一圈突兀的黄橙色边框，和界面配色完全不搭
+- [x] **原因**: 全项目（母程序 + 4 个子程序）都没有 `:focus` 复位。Chromium 默认描边用 `-webkit-focus-ring-color`，这个值取自**系统 GTK 主题的高亮色** —— 换台机器/换个主题就变成黄、橙、蓝；另外 `element.focus()` 这类程序化聚焦也会被判为键盘模态而画出描边
+- [x] **修复**: 统一在样式入口加 `:focus, :focus-visible { outline: none }` —— `src/renderer/assets/styles/main.css`（母程序）、`plugins/{music,task,fast-txt,fast-cmd}/css/base.css`、`plugins/calculator/index.html` 内联样式、`hundundesktop-prototype.html`
+- [x] **兜底**: `plugin-manager.js` 的 `did-finish-load` 里 `insertCSS` 同一条规则，覆盖用户自己装的第三方插件（内置插件仍保留各自那份，方便插件作者在更高优先级下自定义）
+- [x] **清理**: 删掉 `Settings.vue` 里按类名逐个 `outline: none` 的补丁（`button/nav-tab/theme-option/...` 列了一串，漏一个就冒框），改由全局规则做唯一来源
+- [x] **文档**: `docs/PLUGIN_SPEC.md` 新增 4.4「焦点描边（必加）」，告诉插件作者带上这两行、键盘反馈改用类名或 `border-color`
+- [x] **验证**: postcss 解析 6 处样式全部通过；`out/renderer` 实拍点击 `.slot-btn`、music 点击 `#pinBtn`，`document.activeElement` 的 `outline` 均为 `none 0px`；`npm run build` + `check:main` 通过
+- [x] **备注**: 本机无头环境复现不出黄框（Chromium 对鼠标点击 `<button>` 不套 `:focus-visible`），黄框来自系统主题高亮色、属于环境相关，所以按根因做全局兜底而不是逐个元素打补丁
+
+### fix: Music 空态右栏相对磁带垂直居中
+
+- [x] **现象**: 音乐库为空时，右栏「还没有音乐」+「打开音乐库」看起来比左侧磁带偏上一截，两块内容对不齐
+- [x] **原因**: `player.css` 的空态覆盖 `.music-app.library-empty .stage-panel { justify-content: center }` 居中的是**整个 stage-panel 盒子**（中心 257px），而磁带是贴底摆放的（中心 300px），两者天然差着约半个磁带高度；内容越少，这点偏差越明显
+- [x] **走错的弯路**: 先按「底部对齐」改成 `flex-end + padding-bottom:18px`，实测按钮底边与磁带底边同为 430px 是齐了，但短内容整块沉到右下角，构图偏沉 —— 否决，改为居中
+- [x] **修复**: `padding-bottom: calc(18px + 130px)` 把内容块底边压到磁带中心线（18 = 与左栏共用的底边内缩，130 = 磁带 260px 高的一半），再用 `.panel-inner { transform: translateY(50%) }` 把块自身中线抬到该线上。用 translateY 而不是算 padding，块高度随文案/i18n 变化都不用重调
+- [x] **验证**: Electron 实拍 + `getBoundingClientRect()` —— `.panel-inner` 中心 300px = `#cassette` 中心 300px（深/浅色一致）；播放态不受影响（选择器只作用于 `.library-empty`）
+- [x] **坑**: 无头截图里浅色主题的按钮会是荧光绿 —— `--accent-primary` 过渡未重绘的旧图层缓存，改窗口尺寸强制重绘后即恢复 `rgb(195,39,43)`，不是样式问题
 
 ## 2026-11-10
 
