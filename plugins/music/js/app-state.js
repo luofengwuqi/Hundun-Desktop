@@ -40,6 +40,16 @@
     let libSelectedIdx = -1;      // 库列表键盘选中行
     let queueSelectedIdx = -1;    // 队列键盘选中行
 
+    // ---------- 键盘焦点模型 ----------
+    // 主页面: 第一行 走带群 (上一首/播放暂停/下一首/播放模式/队列) + 第二行 音乐库把手
+    let uiFocus = 'transport';    // 'transport' | 'library'
+    let transportIdx = 1;         // 0 上一首 / 1 播放暂停 / 2 下一首 / 3 播放模式 / 4 队列
+
+    // 音乐库: 分组列 (左) / 歌曲列 (右) / 底部按钮群
+    let libZone = 'songs';        // 'groups' | 'songs' | 'footer' ('search' 由输入框真实焦点表达)
+    let groupIdx = 1;             // 分组列: 0 新建分组 / 1 全部音乐 / 2+ 其他分组
+    let footerIdx = 0;            // 0 导入 / 1 打开文件夹 / 2 刷新
+
     let draggingQueueIdx = -1;    // 队列拖拽排序中
     let _audioBasePath = null;    // 数据目录绝对路径缓存
 

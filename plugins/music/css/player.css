@@ -419,12 +419,10 @@
 .tp-btn .tp-icon-shuffle,
 .tp-btn .tp-icon-loop { display: none; }
 
+/* 播放键只大一圈, 边框/文字与其它走带键一致 —— "当前选中"完全交给键盘焦点环表达 */
 .tp-play {
   width: 56px;
   height: 56px;
-  border-width: 3px;
-  border-color: var(--accent-primary);
-  color: var(--accent-primary);
 }
 
 .tp-play .tp-svg { width: 26px; height: 26px; }

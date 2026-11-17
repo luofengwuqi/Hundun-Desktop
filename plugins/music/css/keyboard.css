@@ -1,0 +1,35 @@
+/* ========== 键盘焦点环 ==========
+   单环: 只把边框点亮成主色 (+ 一点弱辉光), 不再叠第二层外环.
+   纯鼠标操作时 JS 不渲染 (kbdActive=false). */
+
+.tp-btn.kbd-focus,
+.footer-btn.kbd-focus {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  box-shadow: 0 0 12px var(--shadow-color);
+}
+
+.footer-btn.kbd-focus .btn-icon { color: var(--accent-primary); }
+
+/* 分组列: 亮边框即可 (选中组本身也有主色边框, 焦点时再多一层弱辉光区分) */
+.group-item.kbd-focus,
+.d1-add-group.kbd-focus {
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 10px var(--shadow-color);
+}
+
+/* 贴边的抽屉把手: 外环会被窗口边缘裁掉, 靠边框 + 底色点亮 */
+.drawer1-handle.kbd-focus,
+.drawer2-handle.kbd-focus {
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+  background: color-mix(in srgb, var(--accent-primary) 14%, var(--bg-card));
+}
+
+.drawer1-handle.kbd-focus .dh-grip { background: var(--accent-primary); }
+
+/* 空库时焦点环落在搜索框上 */
+.d1-search.kbd-focus {
+  border-color: var(--accent-primary);
+}

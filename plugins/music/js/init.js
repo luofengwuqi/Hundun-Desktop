@@ -21,6 +21,10 @@
 
       renderAll();
       updateSeekUi();
+      // 键盘默认选中「播放/暂停」
+      uiFocus = 'transport';
+      transportIdx = 1;
+      renderKeyboardFocus();
 
       // 母程序主题跟随 (用户未手动设定过时)
       if (window.hundun && window.hundun.host) {

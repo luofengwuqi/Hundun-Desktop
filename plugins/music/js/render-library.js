@@ -26,9 +26,12 @@
         item.addEventListener('click', (e) => {
           if (e.target.closest('.group-del')) return; // ✕ 单独处理
           currentGroupId = id;
-          libSelectedIdx = -1;
+          libSelectedIdx = getVisibleTracks().length ? 0 : -1;  // 换组默认选中第一首
+          libZone = 'songs';
+          groupIdx = currentGroupIdx();
           playSound('click');
           renderLibrary();
+          scrollToSelectedSong();
         });
         if (!isAll) {
           const del = item.querySelector('.group-del');
@@ -45,6 +48,8 @@
       for (const g of groups) {
         mk(g.id, g.name, g.tracks.filter(f => libraryFiles.includes(f)).length, false);
       }
+
+      renderKeyboardFocus();   // 分组列重绘后补回键盘焦点环
     };
 
     const renderSongs = () => {
@@ -53,6 +58,8 @@
       wrap.innerHTML = '';
       const list = getVisibleTracks();
       const playingFile = currentTrack();
+      // 删歌 / 切组 / 搜索过滤后, 选中行可能越界: 收到最后一条, 空列表则清空
+      if (libSelectedIdx >= list.length) libSelectedIdx = list.length - 1;
 
       if (!list.length) {
         const empty = document.createElement('div');
@@ -68,6 +75,7 @@
         empty.querySelector('.d1-empty-text').textContent = text;
         empty.querySelector('.d1-empty-hint').textContent = hint;
         wrap.appendChild(empty);
+        renderKeyboardFocus();
         return;
       }
 
@@ -95,6 +103,7 @@
 
         card.addEventListener('click', () => {
           libSelectedIdx = idx;
+          libZone = 'songs';
           renderSongs();
         });
         card.addEventListener('dblclick', () => { queuePlayTrack(file); });
@@ -114,6 +123,8 @@
         });
         wrap.appendChild(card);
       });
+
+      renderKeyboardFocus();   // 歌曲列重绘后补回键盘焦点环
     };
 
     const scrollToSelectedSong = () => {
