@@ -6,6 +6,7 @@ const { MirrorManager } = require('./mirror-manager')
 const { pickZipFile, installFromZip, uninstallPlugin } = require('./plugin-installer')
 const { registerSoundSettingsIPC } = require('./sound-settings')
 const gitService = require('./git-service')
+const updateService = require('./update-service')
 
 // ========== 应用数据目录 (决策47: 安装位置自适应) ==========
 // 开发态/便携模式: exe (或项目根) 旁 user-data (原行为不变);
@@ -1329,6 +1330,12 @@ ipcMain.on('theme:get-response', (event, theme) => {
 // 获取应用版本
 ipcMain.handle('get-app-version', () => {
   return app.getVersion()
+})
+
+// 检查更新 (决策62): 渲染层经由 preload 的 checkForUpdate() 调用,
+// 主进程侧用真实 process.platform 选安装包资产
+ipcMain.handle('update:check', async () => {
+  return updateService.checkForUpdate(app.getVersion(), process.platform)
 })
 
 // 获取应用信息

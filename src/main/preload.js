@@ -18,6 +18,8 @@ window.electronAPI = {
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   getAppInfo: () => ipcRenderer.invoke('get-app-info'),
   getPlatform: () => process.platform,
+  // 检查更新 (决策62): 主进程访问 GitHub Releases latest API, 渲染层拿结果弹窗
+  checkForUpdate: () => ipcRenderer.invoke('update:check'),
   
   // ========== 插件系统 API ==========
   

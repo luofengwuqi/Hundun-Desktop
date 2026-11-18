@@ -1,8 +1,41 @@
 # HundunDesktop - 更新日志
 
-> 最后更新: 2026-11-17
+> 最后更新: 2026-11-18
 
 ---
+
+## 2026-11-18
+
+### feat: 设置 → 关于页「检查更新」真实可用（GitHub Releases 更新源，决策62）
+
+- [x] **更新源**: 暂用 GitHub Releases `api.github.com/repos/luofengwuqi/Hundun-Desktop/releases/latest`（公开仓库匿名限额 60 次/小时/IP，检查频度足够）；`UPDATE_FEED` 抽象预留自建服务器切换 —— 后续只需换 feed 配置并在 `ALLOWED_HOSTS` 放行域名，渲染层与 IPC 契约不变
+- [x] **主进程**: 新增 `src/main/update-service.js` 零依赖模块（与 git-service 同风格）—— URL 白名单（必须 https 且 host ∈ `api.github.com` / `github.com`）、`AbortController` 10s 超时、版本按数字三段比较（2026.4.10 > 2026.4.9）、按平台选安装包资产（win32→.exe / linux→.deb 优先退 .AppImage / darwin→.dmg，blockmap 不误中）、全链路 `{ ok }` 结构不抛异常、fetchImpl 注入可单测；`index.js` 注册 `update:check` IPC（传入 `app.getVersion()` + `process.platform`）
+- [x] **接线**: preload 新增 `electronAPI.checkForUpdate()`；Settings.vue `checkUpdate` 由「开发中」占位改为异步真实流程 —— `checkingUpdate` 防重入 → 先弹「🔍 检查中」→ 发现新版本弹「🆕 v{latest}」带「前往下载」（系统浏览器打开 Release 页）/「以后再说」→ 已最新弹「✅」→ 失败弹「⚠️」附 reason
+- [x] **i18n**: zh/en 移除 `updateTitle` / `updateMsg`（开发中），新增 `updateChecking*` / `updateFound*` / `updateGoDownload` / `updateLater` / `updateLatest*` / `updateFail*`（占位 `{version}` / `{current}` / `{reason}`）
+- [x] **测试**: 新增 `scripts/test-check-update.js`（纯 Node，无 electron 依赖），46 项断言全过 —— 版本解析/比较、URL 白名单、pickAsset、payload 抽取、全部失败路径（url 不放行 / http-N / timeout / network / bad-payload）、checkForUpdate 端到端（同版本 / 远端新 / 本地新 / 当前版本非法 / 服务器错误）；另做真实 API 冒烟：本机直连 api.github.com 超时时正确走 `timeout` 降级路径，不卡死
+- [x] **已知**: tag 必须为 `v?数字.数字.数字`（prerelease 后缀拒绝）；网络不通时弹「检查失败 (timeout)」，用户可重试
+
+### feat: 新增非官方主题「接触印样 / CONTACT SHEET」（布局级重排，决策61）
+
+- [x] **概念**: 母程序换成一册摊在灯箱上的 35mm 接触印样 —— 卡带货架 = 一条斜过整张纸的胶片，卡带 = 一格横向画幅，选中 = 红墨框住这一格，插槽 = 待装帧的空位，底栏 = 片边压字
+- [x] **布局破坏（DOM 与键盘导航零改动，仅 CSS 层）**: 内容区左右留白归零 → 胶片条**整幅出血**并整体倾斜 -1.5°（两端被窗口边缘裁掉，像片还在窗外）；卡带 128×192 竖卡 → **162×108 横画幅**（3:2 片格），间距收窄到 6px 只剩片基；信息栏从居中 24px 像素字改为**左对齐 33px 压缩体 + 蜡笔划线**，右上补 `SHEET 01 / 35MM / ISO 400` 注记；底部三个圆按钮改为**滚花旋钮**（`repeating-conic-gradient` 齿纹）+ LOAD/SET/MIRROR 铭牌，整行与插槽同轴；插槽换成斜纹占位 + 虚线裁切框（转 1.2°）
+- [x] **材质**: `.console::before` 由 CRT 扫描线改为 24px/120px 双层**灯箱坐标纸**；胶片条上下**齿孔按 35mm 片规**（间距 20px ≈ 4.75mm，背光透白）；每格左下角留一道插件主色**校色块**；机身 50px 圆角 → 3px 纸张倒角 + 四角十字规；弹窗 = 裁好的相纸（1px 墨线 + 硬投影 + 虚线分隔）
+- [x] **选中态**: 画幅内侧 2.5px 红墨描边（保留画幅自带 1px 墨边）+ 格号转红加粗 + 画幅提亮上浮；格名仅悬停时浮在片边。早期试过「手绘椭圆蜡笔圈」，粗且必然溢出画幅压到片基与邻格，已弃用
+- [x] **接入**: `THEME_REGISTRY` 新增条目（带 `preview` 字段）→ `themeBodyClass` / `THEME_BODY_CLASSES` 支持 `contact-mode`；i18n `settings.contactSheet`（馄饨…→「接触印样」/ CONTACT SHEET）；设置页非官方卡预览皮改由注册表驱动，新增 `.theme-preview.contact`（斜置胶片 + 红圈）
+- [x] **修复（溢出）**: ①`.cartridge-row` 只写 `min-width:100%` 会覆盖基样式 `max-content`，而它是 `.cartridge-shelf`（flex 容器）的 flex item、默认 `flex-shrink:1` → 片基被压回窗口宽度、画幅仍按内容宽排出去，滚到末端就出现「画幅悬在纸面上」（实测 #004 之后没有片基）；改为 `width:max-content + min-width:100% + flex-shrink:0`：少卡时铺满整幅，多卡时片基跟着内容走。②信息栏标题补 `min-width:0`，长插件名才会省略号截断，不至于把右侧 `SHEET 01 / 35MM / ISO 400` 顶出纸外
+- [x] **修复（信息栏大字顶部被裁）**: `.cartridge-info-name` 为做省略号带 `overflow: hidden`，而 `line-height: 1.04` 比字形还矮 —— CJK 墨迹顶出行盒就被裁平，「设」字最上一笔削掉约 1.5px（`overflow: visible` 对照渲染实测高出 3 个设备像素）。改 `line-height: 1.22` + `padding-top: 2px` 给足行盒余量，同时把 `.cartridge-info` 的 `margin-top` 由 14px 提到 19px，整行大字往下挪 8px、离头部不再贴边
+- [x] **修复（头部与四角）**: ①机身圆角 `3px` → **`18px`**（设置页 `settings-view` 同步，开关时圆角不跳），内圈纸边细框随之给 `9px` 内圆角，看得出是"切圆的相纸"；②撤掉 `.console::after` 上那 8 道十字规短线 —— 实际尺寸下它们只在角落空白处露头，左上那道竖线正好落在「馄饨黑」标签下方，像掉了个标点；③顶栏那条实心通栏细线改为**两端 9% 淡出的折痕线**，不再和纸边细框凑成"双层框"（底栏仍保留实线，它是片边压字的地脚）
+- [x] **验证**: 无头 Chromium 按 800×540 实拍主界面 / 设置页 / 弹窗三屏核对，修掉三处问题（选中圈被基样式底色填成灰椭圆、滚花过厚、遮罩被 scoped 样式压回 0.85 黑）；`esbuild` 语法校验 theme.js / i18n / main.css 全通过
+
+### feat: 关于页「检查更新」真接通 GitHub Releases（决策62）
+
+- [x] **更新源**: 主进程新增 `src/main/update-service.js`，拉 `api.github.com/repos/luofengwuqi/Hundun-Desktop/releases/latest`；feed 抽成 `UPDATE_FEED` 常量（`type/owner/repo/api/page`），日后换自建服务器只需换配置 + 放行域名，IPC 与渲染层契约不变
+- [x] **安全约束**: URL 白名单（必须 https 且 host ∈ `api.github.com` / `github.com`）；10s `AbortController` 超时；返回 `{ ok, reason }` 结构不抛异常；零依赖、`fetchImpl` 注入以便单测
+- [x] **版本比较**: 版本号按「年.季度.次数」三段**数字**比较（`2026.4.10 > 2026.4.9`，不是字符串比较）；`v` 前缀归一；带 prerelease 后缀或非三段号一律判为不可用
+- [x] **按平台选包**: win32 → `.exe`（`.exe.blockmap` 不会误中）、linux → `.deb` 优先退回 `.AppImage`、darwin → `.dmg`；选中资产的 `browser_download_url` 一并返回
+- [x] **交互**: 点「检查更新」先弹「正在检查」→ 结果分四态弹窗（发现新版本 / 已是最新 / 检查失败含 reason / API 缺失），发现新版本给「前往下载」直接 `shell.openExternal` 打 Release 页；流程内用 `closeModalSilent` 切换弹窗，避免叠 exit 音效；`checkingUpdate` 防重入
+- [x] **IPC**: 主进程 `ipcMain.handle('update:check')` → `updateService.checkForUpdate(app.getVersion(), process.platform)`（平台取主进程真实值）；preload 暴露 `electronAPI.checkForUpdate()`
+- [x] **测试**: 新增 `scripts/test-check-update.js`（纯 Node，不依赖 electron），覆盖版本解析/比较、白名单、平台选包、payload 抽取、六条失败路径（URL 不放行 / 404 / 403 限流 / 超时 / 网络 / 坏 payload）与端到端四场景，46 项断言全通过
 
 ## 2026-11-17
 

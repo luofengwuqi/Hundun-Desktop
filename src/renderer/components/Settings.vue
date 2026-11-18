@@ -504,11 +504,59 @@ const selectDetail = (index) => {
   currentSide.value = 'right'
 }
 
-// ========== 关于页: 检查更新 (暂未实现) ==========
-const checkUpdate = () => {
+// ========== 关于页: 检查更新 (决策62, GitHub Releases 更新源) ==========
+const checkingUpdate = ref(false)
+const checkUpdate = async () => {
   playSound('click')
-  showModal('🚧', t('settings.updateTitle'), t('settings.updateMsg'),
-    [{ text: t('cartridge.ok'), class: 'primary', action: closeModal }])
+  if (checkingUpdate.value) return
+  checkingUpdate.value = true
+  // 先弹"检查中"提示框 (请求最长 10s 超时, 不会卡死)
+  showModal('🔍', t('settings.updateCheckingTitle'), t('settings.updateCheckingMsg'), [])
+  try {
+    const res = (window.electronAPI && window.electronAPI.checkForUpdate)
+      ? await window.electronAPI.checkForUpdate()
+      : { ok: false, reason: 'api-missing' }
+    if (res && res.ok) {
+      if (res.hasUpdate) {
+        playSound('OK')
+        showModal('🆕', t('settings.updateFoundTitle'),
+          t('settings.updateFoundMsg', { version: res.latest.version, current: res.currentVersion }),
+          [
+            { text: t('settings.updateGoDownload'), class: 'primary', action: () => { closeModalSilent(); openExternalSilent(res.latest.htmlUrl || res.feedPage) } },
+            { text: t('settings.updateLater'), action: closeModal }
+          ])
+      } else {
+        playSound('OK')
+        showModal('✅', t('settings.updateLatestTitle'),
+          t('settings.updateLatestMsg', { version: res.currentVersion }),
+          [{ text: t('cartridge.ok'), class: 'primary', action: closeModal }])
+      }
+    } else {
+      playSound('error')
+      showModal('⚠️', t('settings.updateFailTitle'),
+        t('settings.updateFailMsg', { reason: escapeHtml((res && res.reason) || 'unknown') }),
+        [{ text: t('cartridge.ok'), class: 'primary', action: closeModal }])
+    }
+  } catch (e) {
+    console.error('[Settings] checkForUpdate failed:', e)
+    playSound('error')
+    showModal('⚠️', t('settings.updateFailTitle'),
+      t('settings.updateFailMsg', { reason: escapeHtml((e && e.message) || 'error') }),
+      [{ text: t('cartridge.ok'), class: 'primary', action: closeModal }])
+  } finally {
+    checkingUpdate.value = false
+  }
+}
+
+// 检查更新流程内跳转下载页 (流程中切换弹窗, 避免叠加 exit 音效)
+const openExternalSilent = (url) => {
+  try {
+    if (window.electronAPI && window.electronAPI.openExternal) {
+      window.electronAPI.openExternal(url)
+    }
+  } catch (e) {
+    console.error('[Settings] openExternal failed:', e)
+  }
 }
 
 // ========== 关于页: 打开作者主页 (系统浏览器) ==========
