@@ -139,7 +139,7 @@ FastTXT 底部 ☁ 按钮进入 Cloud Link 页面，用**你自己的 git 仓库
 
 例如 2026 年第四季度第一次发行 = `2026.4.1`，同季度第二次发行 = `2026.4.2`，2027 年第一季度首次发行 = `2027.1.1`。**只数发行次数，不按具体日期编号**，同一天发两次也依次递增。
 
-当前版本：`2026.4.1`。唯一事实源是 `package.json` 的 `version`（关于页经主进程 `app.getVersion()` 读取）；改版本时同步 `package-lock.json`、`plugins/fast-txt/manifest.json` 与 FastTXT 头部徽章。其他内置卡带 `manifest.json` 里的 `1.0.0` 是插件自身版本，不跟随主程序。
+当前版本：`2026.4.2`。唯一事实源是 `package.json` 的 `version`（关于页经主进程 `app.getVersion()` 读取）；改版本时同步 `package-lock.json`、`plugins/fast-txt/manifest.json` 与 FastTXT 头部徽章。其他内置卡带 `manifest.json` 里的 `1.0.0` 是插件自身版本，不跟随主程序。
 
 ## 插件系统
 

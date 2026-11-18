@@ -6,6 +6,12 @@
 
 ## 2026-11-18
 
+### release: 2026.4.2 发行（2026 Q4 第 2 次发行）
+
+- [x] **包含**: 决策61 非官方主题「接触印样」+ 决策62 检查更新接通 GitHub Releases + 决策63 Windows 数据目录改落 `%APPDATA%`
+- [x] **产物**: `HundunDesktop Setup 2026.4.2.exe`（NSIS，x64）、`hundundesktop_2026.4.2_amd64.deb`
+- [x] **升级注意（重要）**: 2026.4.1 及更早的 Windows 用户数据仍在 `<安装目录>\user-data`，**必须先运行 2026.4.2 安装包**（安装器的 `customInit` 会在旧卸载器动手前把数据复制到 `%APPDATA%\hundundesktop`）；**不要先手动卸载旧版**，否则数据会随安装目录一起被删除
+
 ### fix: Windows 卸载 / 覆盖安装会清空 user-data（数据目录改落 %APPDATA%，决策63）
 
 - [x] **问题定位**: 决策47 的便携判定是「exe 旁目录可写即便携」，而 electron-builder 默认 `perMachine:false` → per-user 装到 `%LOCALAPPDATA%\Programs\HundunDesktop`（用户可写）→ 判为便携 → 数据放 `<安装目录>/user-data`。而 NSIS 卸载器执行 `RMDir /r $INSTDIR`，**覆盖安装（升级）也会先跑旧卸载器** → 数据随安装目录一起被删。wine 实测复现：卸载清空、重新安装同样清空
@@ -17,11 +23,15 @@
 
 ### feat: 设置 → 关于页「检查更新」真实可用（GitHub Releases 更新源，决策62）
 
-- [x] **更新源**: 暂用 GitHub Releases `api.github.com/repos/luofengwuqi/Hundun-Desktop/releases/latest`（公开仓库匿名限额 60 次/小时/IP，检查频度足够）；`UPDATE_FEED` 抽象预留自建服务器切换 —— 后续只需换 feed 配置并在 `ALLOWED_HOSTS` 放行域名，渲染层与 IPC 契约不变
-- [x] **主进程**: 新增 `src/main/update-service.js` 零依赖模块（与 git-service 同风格）—— URL 白名单（必须 https 且 host ∈ `api.github.com` / `github.com`）、`AbortController` 10s 超时、版本按数字三段比较（2026.4.10 > 2026.4.9）、按平台选安装包资产（win32→.exe / linux→.deb 优先退 .AppImage / darwin→.dmg，blockmap 不误中）、全链路 `{ ok }` 结构不抛异常、fetchImpl 注入可单测；`index.js` 注册 `update:check` IPC（传入 `app.getVersion()` + `process.platform`）
-- [x] **接线**: preload 新增 `electronAPI.checkForUpdate()`；Settings.vue `checkUpdate` 由「开发中」占位改为异步真实流程 —— `checkingUpdate` 防重入 → 先弹「🔍 检查中」→ 发现新版本弹「🆕 v{latest}」带「前往下载」（系统浏览器打开 Release 页）/「以后再说」→ 已最新弹「✅」→ 失败弹「⚠️」附 reason
+- [x] **更新源**: 暂用 GitHub Releases `api.github.com/repos/luofengwuqi/Hundun-Desktop/releases/latest`（公开仓库匿名限额 60 次/小时/IP，检查频度足够）；feed 抽成 `UPDATE_FEED` 常量（`type/owner/repo/api/page`），日后换自建服务器只需换配置 + 在 `ALLOWED_HOSTS` 放行域名，IPC 与渲染层契约不变
+- [x] **主进程模块**: 新增 `src/main/update-service.js`，零依赖、`fetchImpl` 注入以便单测
+- [x] **安全约束**: URL 白名单（必须 https 且 host ∈ `api.github.com` / `github.com`）；10s `AbortController` 超时；返回 `{ ok, reason }` 结构不抛异常
+- [x] **版本比较**: 按「年.季度.次数」三段**数字**比较（`2026.4.10 > 2026.4.9`，不是字符串比较）；`v` 前缀归一；带 prerelease 后缀或非三段号一律判为不可用
+- [x] **按平台选包**: win32 → `.exe`（`.exe.blockmap` 不会误中）、linux → `.deb` 优先退回 `.AppImage`、darwin → `.dmg`；选中资产的 `browser_download_url` 一并返回
+- [x] **交互**: 点「检查更新」先弹「🔍 正在检查」→ 结果分态弹窗（🆕 发现新版本带「前往下载」/ 以后再说、✅ 已是最新、⚠️ 检查失败含 reason）；「前往下载」直接打开 Release 页；流程内用 `closeModalSilent` 切换弹窗避免叠 exit 音效，`checkingUpdate` 防重入
+- [x] **IPC**: 主进程 `ipcMain.handle('update:check')` → `updateService.checkForUpdate(app.getVersion(), process.platform)`（平台取主进程真实值）；preload 暴露 `electronAPI.checkForUpdate()`
 - [x] **i18n**: zh/en 移除 `updateTitle` / `updateMsg`（开发中），新增 `updateChecking*` / `updateFound*` / `updateGoDownload` / `updateLater` / `updateLatest*` / `updateFail*`（占位 `{version}` / `{current}` / `{reason}`）
-- [x] **测试**: 新增 `scripts/test-check-update.js`（纯 Node，无 electron 依赖），46 项断言全过 —— 版本解析/比较、URL 白名单、pickAsset、payload 抽取、全部失败路径（url 不放行 / http-N / timeout / network / bad-payload）、checkForUpdate 端到端（同版本 / 远端新 / 本地新 / 当前版本非法 / 服务器错误）；另做真实 API 冒烟：本机直连 api.github.com 超时时正确走 `timeout` 降级路径，不卡死
+- [x] **测试**: `scripts/test-check-update.js`（纯 Node）46 项断言 —— 版本解析/比较、白名单、平台选包、payload 抽取、六条失败路径（URL 不放行 / 404 / 403 限流 / 超时 / 网络 / 坏 payload）与端到端四场景；另 `scripts/test-check-update-ipc.js`（Electron）5 项验证 preload 暴露与 IPC 往返
 - [x] **已知**: tag 必须为 `v?数字.数字.数字`（prerelease 后缀拒绝）；网络不通时弹「检查失败 (timeout)」，用户可重试
 
 ### feat: 新增非官方主题「接触印样 / CONTACT SHEET」（布局级重排，决策61）
@@ -35,16 +45,6 @@
 - [x] **修复（信息栏大字顶部被裁）**: `.cartridge-info-name` 为做省略号带 `overflow: hidden`，而 `line-height: 1.04` 比字形还矮 —— CJK 墨迹顶出行盒就被裁平，「设」字最上一笔削掉约 1.5px（`overflow: visible` 对照渲染实测高出 3 个设备像素）。改 `line-height: 1.22` + `padding-top: 2px` 给足行盒余量，同时把 `.cartridge-info` 的 `margin-top` 由 14px 提到 19px，整行大字往下挪 8px、离头部不再贴边
 - [x] **修复（头部与四角）**: ①机身圆角 `3px` → **`18px`**（设置页 `settings-view` 同步，开关时圆角不跳），内圈纸边细框随之给 `9px` 内圆角，看得出是"切圆的相纸"；②撤掉 `.console::after` 上那 8 道十字规短线 —— 实际尺寸下它们只在角落空白处露头，左上那道竖线正好落在「馄饨黑」标签下方，像掉了个标点；③顶栏那条实心通栏细线改为**两端 9% 淡出的折痕线**，不再和纸边细框凑成"双层框"（底栏仍保留实线，它是片边压字的地脚）
 - [x] **验证**: 无头 Chromium 按 800×540 实拍主界面 / 设置页 / 弹窗三屏核对，修掉三处问题（选中圈被基样式底色填成灰椭圆、滚花过厚、遮罩被 scoped 样式压回 0.85 黑）；`esbuild` 语法校验 theme.js / i18n / main.css 全通过
-
-### feat: 关于页「检查更新」真接通 GitHub Releases（决策62）
-
-- [x] **更新源**: 主进程新增 `src/main/update-service.js`，拉 `api.github.com/repos/luofengwuqi/Hundun-Desktop/releases/latest`；feed 抽成 `UPDATE_FEED` 常量（`type/owner/repo/api/page`），日后换自建服务器只需换配置 + 放行域名，IPC 与渲染层契约不变
-- [x] **安全约束**: URL 白名单（必须 https 且 host ∈ `api.github.com` / `github.com`）；10s `AbortController` 超时；返回 `{ ok, reason }` 结构不抛异常；零依赖、`fetchImpl` 注入以便单测
-- [x] **版本比较**: 版本号按「年.季度.次数」三段**数字**比较（`2026.4.10 > 2026.4.9`，不是字符串比较）；`v` 前缀归一；带 prerelease 后缀或非三段号一律判为不可用
-- [x] **按平台选包**: win32 → `.exe`（`.exe.blockmap` 不会误中）、linux → `.deb` 优先退回 `.AppImage`、darwin → `.dmg`；选中资产的 `browser_download_url` 一并返回
-- [x] **交互**: 点「检查更新」先弹「正在检查」→ 结果分四态弹窗（发现新版本 / 已是最新 / 检查失败含 reason / API 缺失），发现新版本给「前往下载」直接 `shell.openExternal` 打 Release 页；流程内用 `closeModalSilent` 切换弹窗，避免叠 exit 音效；`checkingUpdate` 防重入
-- [x] **IPC**: 主进程 `ipcMain.handle('update:check')` → `updateService.checkForUpdate(app.getVersion(), process.platform)`（平台取主进程真实值）；preload 暴露 `electronAPI.checkForUpdate()`
-- [x] **测试**: 新增 `scripts/test-check-update.js`（纯 Node，不依赖 electron），覆盖版本解析/比较、白名单、平台选包、payload 抽取、六条失败路径（URL 不放行 / 404 / 403 限流 / 超时 / 网络 / 坏 payload）与端到端四场景，46 项断言全通过
 
 ## 2026-11-17
 

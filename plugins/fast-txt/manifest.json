@@ -4,7 +4,7 @@
   "description": "Text file manager & editor",
   "icon": "📄",
   "color": "#00d4ff",
-  "version": "2026.4.1",
+  "version": "2026.4.2",
   "author": "HundunDesktop",
   "entry": "main.html",
   "windowSize": {
