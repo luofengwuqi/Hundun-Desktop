@@ -50,25 +50,50 @@ function resolveAppRoot () {
     : path.join(__dirname, '..', '..')
 }
 
-// ========== 可写根决策 (决策47: 打包安装位置自适应) ==========
-// 便携模式 = "exe 旁目录可写" (开发态恒为真 → 项目根/user-data 与项目根/plugins, 行为不变;
-//            Windows 默认 per-user 安装同样可写 → 维持 exe旁/user-data 便携语义)
-// 回退模式 = AppImage (execPath 是只读临时挂载) 或 exe 目录不可写 (Program Files / /opt deb):
-//            userData → Electron 默认 (~/.config/<name> / %APPDATA%);
-//            用户插件安装目录 → <userData>/installed-plugins
-//            (不能用 <userData>/plugins — 与插件数据目录 <userData>/plugins/<id>/file 同名冲突)
+// ========== 可写根决策 (决策47 原始 / 决策63 修订) ==========
+// 决策63 修订原因: Windows per-user 安装 (默认 %LOCALAPPDATA%\Programs) 目录**可写**,
+//   原逻辑因此判为便携模式 → 数据落 <安装目录>/user-data; 而 NSIS 卸载器执行
+//   `RMDir /r $INSTDIR`, 覆盖安装 (升级) 也会先跑旧卸载器 → 数据随安装目录一起被删。
+// 现策略:
+//   - 开发态: 恒便携 (项目根/user-data), 行为不变
+//   - Windows 打包态: **一律** 用 Electron 默认 userData (%APPDATA%\hundundesktop), 与安装位置无关
+//   - 便携需求改为**显式开关**: 启动参数 `--portable` 或环境变量 HUNDUN_PORTABLE=1
+//     (显式便携 = 用户自担"卸载会清空数据"的风险)
+//   - Linux AppImage: execPath 是只读临时挂载 → 回退
+//   - deb (/opt 归 root 不可写) → 试写探测失败 → 回退
+const PORTABLE_ENV = 'HUNDUN_PORTABLE'
+
+/** 是否显式要求便携模式 (--portable / HUNDUN_PORTABLE=1) */
+function isPortableRequested (argv = process.argv, env = process.env) {
+  if (String((env && env[PORTABLE_ENV]) || '') === '1') return true
+  return (argv || []).some(a => a === '--portable' || a === '--portable-mode')
+}
+
+/**
+ * 纯函数: 是否使用便携模式 (抽出来便于单测)
+ * @param {{isPackaged?:boolean, platform?:string, isAppImage?:boolean,
+ *          portableRequested?:boolean, installDirWritable?:boolean}} opts
+ * @returns {boolean}
+ */
+function shouldUsePortableMode (opts) {
+  const o = opts || {}
+  if (!o.isPackaged) return true            // 开发态: 项目根/user-data (行为不变)
+  if (o.portableRequested) return true      // 显式便携开关 (用户自担风险)
+  if (o.platform === 'win32') return false  // 决策63: Windows 一律回落 %APPDATA%
+  if (o.isAppImage) return false            // AppImage: execPath 只读挂载
+  return !!o.installDirWritable             // deb 等: 安装目录不可写则回退
+}
+
 let _portableMode = null
 function isPackagedPortableMode () {
   if (_portableMode !== null) return _portableMode
-  if (!app.isPackaged) {
-    _portableMode = true
-    return _portableMode
-  }
-  if (process.env.APPIMAGE) {
-    _portableMode = false
-    return _portableMode
-  }
-  _portableMode = canWriteDir(path.dirname(process.execPath))
+  _portableMode = shouldUsePortableMode({
+    isPackaged: app.isPackaged,
+    platform: process.platform,
+    isAppImage: !!process.env.APPIMAGE,
+    portableRequested: isPortableRequested(),
+    installDirWritable: app.isPackaged ? canWriteDir(path.dirname(process.execPath)) : true
+  })
   return _portableMode
 }
 
@@ -105,6 +130,83 @@ function resolveUserDataDir () {
     return path.join(resolveWritableRoot(), 'user-data')
   }
   return app.getPath('userData') // setPath 前即为默认值, 直接采用
+}
+
+// ========== 决策63: 旧版数据迁移 (安装目录 → 系统 userData) ==========
+// 旧版 Windows 把数据放在 <安装目录>/user-data; 新策略改落 %APPDATA%\hundundesktop。
+// 首次启动时把遗留目录**补齐**到新位置 (已存在的文件不覆盖), 写标记避免重复。
+// 原目录**不删** (数据安全优先, 由用户自行清理)。
+const MIGRATION_MARKER = '.user-data-migrated-from-install-dir'
+
+// 纯缓存/临时目录, 迁移时跳过 (体积大且无价值)
+const MIGRATION_SKIP_DIRS = new Set([
+  'Cache', 'Code Cache', 'GPUCache', 'DawnCache', 'DawnGraphiteCache',
+  'DawnWebGPUCache', 'ShaderCache', 'GrShaderCache', 'Crashpad',
+  'Dictionaries', 'blob_storage', 'gpu-cache'
+])
+
+/** 旧版遗留数据目录 (打包态 = exe 旁 user-data; 开发态无意义 → 空串) */
+function legacyUserDataDir () {
+  if (!app.isPackaged) return ''
+  return path.join(path.dirname(process.execPath), 'user-data')
+}
+
+/**
+ * 把旧版 <安装目录>/user-data 补齐到 targetDir (决策63)
+ * @param {string} targetDir 新的 userData 目录
+ * @param {{legacyDir?:string, log?:(msg:string)=>void}} [opts]
+ * @returns {{migrated:boolean, copied:number, skipped:number, reason?:string}}
+ */
+function migrateLegacyUserData (targetDir, opts = {}) {
+  const log = typeof opts.log === 'function' ? opts.log : () => {}
+  const legacyDir = opts.legacyDir || legacyUserDataDir()
+  if (!legacyDir) return { migrated: false, copied: 0, skipped: 0, reason: 'no-legacy-dir' }
+  try {
+    if (path.resolve(legacyDir) === path.resolve(String(targetDir || ''))) {
+      return { migrated: false, copied: 0, skipped: 0, reason: 'same-dir' }
+    }
+  } catch (_) { /* resolve 失败忽略 */ }
+  if (!legacyDir || !fs.existsSync(legacyDir)) {
+    return { migrated: false, copied: 0, skipped: 0, reason: 'legacy-missing' }
+  }
+  if (fs.existsSync(path.join(targetDir, MIGRATION_MARKER))) {
+    return { migrated: false, copied: 0, skipped: 0, reason: 'already-migrated' }
+  }
+
+  let copied = 0
+  let skipped = 0
+  let entries = []
+  try {
+    fs.mkdirSync(targetDir, { recursive: true })
+    entries = fs.readdirSync(legacyDir)
+  } catch (error) {
+    return { migrated: false, copied: 0, skipped: 0, reason: 'unreadable:' + error.message }
+  }
+
+  for (const name of entries) {
+    if (name === MIGRATION_MARKER) continue
+    const src = path.join(legacyDir, name)
+    const dest = path.join(targetDir, name)
+    let isDir = false
+    try { isDir = fs.statSync(src).isDirectory() } catch (_) { /* 视为文件 */ }
+    if (isDir && MIGRATION_SKIP_DIRS.has(name)) { skipped++; continue }
+    try {
+      fs.cpSync(src, dest, { recursive: true, force: false, errorOnExist: false })
+      copied++
+    } catch (error) {
+      // 单项失败不影响其它项 (常见: 旧版文件被占用/权限不足)
+      log(`[Paths] 迁移失败 ${name}: ${error.message}`)
+      skipped++
+    }
+  }
+
+  try {
+    fs.writeFileSync(path.join(targetDir, MIGRATION_MARKER),
+      `migrated-from=${legacyDir}\nat=${new Date().toISOString()}\ncopied=${copied} skipped=${skipped}\n`)
+  } catch (_) { /* 标记写失败不影响本次迁移结果 */ }
+
+  log(`[Paths] 旧数据已迁移: ${legacyDir} → ${targetDir} (新增 ${copied} 项, 跳过 ${skipped} 项; 原目录保留)`)
+  return { migrated: true, copied, skipped, legacyDir }
 }
 
 /**
@@ -195,6 +297,14 @@ module.exports = {
   resolveWritableRoot,
   isPackagedPortableMode,
   canWriteDir,
+  // 决策63: 便携模式判定 + 旧数据迁移
+  PORTABLE_ENV,
+  MIGRATION_MARKER,
+  MIGRATION_SKIP_DIRS,
+  isPortableRequested,
+  shouldUsePortableMode,
+  legacyUserDataDir,
+  migrateLegacyUserData,
   MAIN_PRELOAD,
   PLUGIN_PRELOAD
 }

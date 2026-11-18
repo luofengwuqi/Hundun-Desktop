@@ -246,16 +246,28 @@ HundunDesktop/
 
 ## 数据与配置
 
-开发模式和便携安装下，数据位于项目 / 可执行文件旁的 `user-data/`；安装到 `Program Files`、`/opt` 或 AppImage 等只读位置时，自动回退到系统用户数据目录。
+开发模式下，数据位于项目根目录的 `user-data/`。
 
-| 内容 | 位置 |
+打包后的位置（决策63）：
+
+| 平台 / 安装方式 | 数据目录 |
 | --- | --- |
-| 插件文件数据 | `user-data/plugins/<plugin-id>/file/` |
-| 插件 JSON 存储 | `user-data/hundundesktop-data/<plugin-id>.json` |
-| 已安装插件记录 | `user-data/installed-plugins.json` |
-| FastTXT 云端库配置（含令牌） | `user-data/plugins/fast-txt/cloud.json` |
-| FastTXT 版本库 | `user-data/plugins/fast-txt/file/.git/`（同目录 `.gitignore` 排除回收站与排序/书签） |
-| 主题 / 语言 / 音效 / 插件顺序 | 渲染进程 `localStorage`（`hundundesktop-*`） |
+| Windows（任何安装位置，默认 `%LOCALAPPDATA%\Programs`） | `%APPDATA%\hundundesktop` |
+| Linux deb（`/opt/HundunDesktop`）、AppImage | `~/.config/hundundesktop` |
+| 显式便携（启动参数 `--portable` 或环境变量 `HUNDUN_PORTABLE=1`） | 可执行文件旁的 `user-data/` |
+
+> Windows 之所以固定不放安装目录：NSIS 卸载器会递归删除整个安装目录（`RMDir /r $INSTDIR`），覆盖安装（升级）时也会先运行旧卸载器 —— 数据放在里面会随卸载/升级一起消失。Windows 便携版请显式加 `--portable`，此时卸载会清空数据，需自行备份。
+>
+> 旧版（≤ 2026.4.1）Windows 用户的数据在 `<安装目录>\user-data`：新版安装器会在运行旧卸载器**之前**把它复制到 `%APPDATA%\hundundesktop`，应用首次启动时也会再做一次补齐（已存在的文件不覆盖，原目录保留不删）。
+
+| 内容 | 位置（相对上面的数据目录） |
+| --- | --- |
+| 插件文件数据 | `plugins/<plugin-id>/file/` |
+| 插件 JSON 存储 | `hundundesktop-data/<plugin-id>.json` |
+| 已安装插件记录 | `installed-plugins.json`（清单）+ `installed-plugins/`（用户安装的插件本体，仅打包态） |
+| FastTXT 云端库配置（含令牌） | `plugins/fast-txt/cloud.json` |
+| FastTXT 版本库 | `plugins/fast-txt/file/.git/`（同目录 `.gitignore` 排除回收站与排序/书签） |
+| 主题 / 语言 / 音效 / 插件顺序 | 渲染进程 `localStorage`（`hundundesktop-*`，落在同一数据目录） |
 
 > [!NOTE]
 > 开发期数据键统一为 `hundundesktop-*`，不提供旧版 `hundun-lite-*` 数据迁移。

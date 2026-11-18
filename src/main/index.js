@@ -8,15 +8,25 @@ const { registerSoundSettingsIPC } = require('./sound-settings')
 const gitService = require('./git-service')
 const updateService = require('./update-service')
 
-// ========== 应用数据目录 (决策47: 安装位置自适应) ==========
-// 开发态/便携模式: exe (或项目根) 旁 user-data (原行为不变);
-// 回退模式 (AppImage / Program Files / /opt 等不可写安装位置): Electron 默认 userData
+// ========== 应用数据目录 (决策47: 安装位置自适应 / 决策63: Windows 固定落 %APPDATA%) ==========
+// 开发态/显式便携 (--portable): exe (或项目根) 旁 user-data;
+// 其他打包态 (Windows 全部 / AppImage / /opt 等不可写安装位置): Electron 默认 userData
 //   (Linux ~/.config/<name>, Windows %APPDATA%\<name>)
-const { resolveUserDataDir, isPackagedPortableMode } = require('./paths')
+// 决策63 原因: 数据放安装目录内会被 NSIS 卸载 (RMDir /r $INSTDIR) 与覆盖安装一并清空。
+const { resolveUserDataDir, isPackagedPortableMode, migrateLegacyUserData } = require('./paths')
 const userDataDir = resolveUserDataDir()
 
 // 覆盖 Electron 的默认 userData 路径
 app.setPath('userData', userDataDir)
+
+// 决策63: 旧版 Windows 数据在 <安装目录>/user-data, 首次启动补齐到新的 userData 目录
+if (app.isPackaged && !isPackagedPortableMode()) {
+  try {
+    migrateLegacyUserData(userDataDir, { log: (msg) => console.log(msg) })
+  } catch (error) {
+    console.warn('[Main] 旧数据迁移出错 (已忽略):', error.message)
+  }
+}
 
 const gpuCacheDir = path.join(userDataDir, 'gpu-cache')
 if (!fs.existsSync(gpuCacheDir)) {

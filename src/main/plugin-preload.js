@@ -157,7 +157,8 @@ window.hundun = {
     /**
      * 获取插件数据目录的基础路径（userData 下的可写目录，不写 asar）
      * 开发: <项目根>\user-data\plugins\<pluginId>\file
-     * 打包: <exe目录>\user-data\plugins\<pluginId>\file
+     * 打包 (决策63): Linux ~/.config/hundundesktop、Windows %APPDATA%\hundundesktop、
+     *               显式便携 (--portable) 时才是 <exe目录>\user-data
      * @returns {Promise<string>} 数据根目录绝对路径
      */
     getBasePath: async () => {

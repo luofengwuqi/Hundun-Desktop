@@ -6,6 +6,15 @@
 
 ## 2026-11-18
 
+### fix: Windows 卸载 / 覆盖安装会清空 user-data（数据目录改落 %APPDATA%，决策63）
+
+- [x] **问题定位**: 决策47 的便携判定是「exe 旁目录可写即便携」，而 electron-builder 默认 `perMachine:false` → per-user 装到 `%LOCALAPPDATA%\Programs\HundunDesktop`（用户可写）→ 判为便携 → 数据放 `<安装目录>/user-data`。而 NSIS 卸载器执行 `RMDir /r $INSTDIR`，**覆盖安装（升级）也会先跑旧卸载器** → 数据随安装目录一起被删。wine 实测复现：卸载清空、重新安装同样清空
+- [x] **新策略**: `paths.js` 抽出纯函数 `shouldUsePortableMode()` —— 开发态恒便携；**Windows 打包态一律非便携**（数据固定落 `%APPDATA%\hundundesktop`，与安装位置无关）；AppImage 非便携；deb 按安装目录可写性判定（行为不变）。便携需求改为**显式开关** `--portable` / `--portable-mode` / `HUNDUN_PORTABLE=1`，此时卸载清空数据由用户自担
+- [x] **旧数据迁移**: 新增 `migrateLegacyUserData()` —— 打包态非便携时首次启动把 `<exe目录>/user-data` **补齐**到新目录（`force:false` 不覆盖已有文件、跳过 Cache/GPUCache/Crashpad 等纯缓存目录、写标记 `.user-data-migrated-from-install-dir` 只迁一次、原目录保留不删）
+- [x] **安装器救援**: 新增 `build/installer.nsh` 的 `customInit` —— 升级跑的是**旧版卸载器**，应用侧迁移来不及，故在 `.onInit`（install Section 之前）先 `xcopy` 复制 `$INSTDIR\user-data` 到 `$APPDATA\${APP_PACKAGE_NAME}`；失败只记日志不中断安装。（`customUnInstall` 在 `RMDir` 之后执行，救不了；只有 `customRemoveFiles` 能替换 RMDir）
+- [x] **验证**: `scripts/test-userdata-policy.js` 25 项断言（策略矩阵 / 开关解析 / 迁移补齐·不覆盖·跳缓存·标记·幂等·同目录·缺目录）；wine 端到端「装旧版 → 造数据 → 装新版」数据出现在 `%APPDATA%\hundundesktop` 且内容正确、安装目录 user-data 已消失；「卸载」后 `%APPDATA%` 数据幸存；打包态启动实测使用 `%APPDATA%\hundundesktop`（生成 Cache/Local Storage/installed-plugins），启动迁移补齐遗留文件并写标记
+- [x] **注意**: 已发布 2026.4.1 及更早的 Windows 用户，升级前**不要手动先卸载**（否则新版安装器没机会兜底）；升级完成后数据才真正搬到 `%APPDATA%`
+
 ### feat: 设置 → 关于页「检查更新」真实可用（GitHub Releases 更新源，决策62）
 
 - [x] **更新源**: 暂用 GitHub Releases `api.github.com/repos/luofengwuqi/Hundun-Desktop/releases/latest`（公开仓库匿名限额 60 次/小时/IP，检查频度足够）；`UPDATE_FEED` 抽象预留自建服务器切换 —— 后续只需换 feed 配置并在 `ALLOWED_HOSTS` 放行域名，渲染层与 IPC 契约不变
