@@ -71,6 +71,7 @@ export default {
     hunTunBlack: 'WONTON BLACK',
     hunTunYellow: 'WONTON YELLOW',
     handheld: 'HANDHELD',
+    contactSheet: 'CONTACT SHEET',
     officialThemes: 'OFFICIAL',
     communityThemes: 'COMMUNITY THEMES',
     officialBadge: 'OFFICIAL',

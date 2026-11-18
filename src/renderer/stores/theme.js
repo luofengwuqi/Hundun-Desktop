@@ -8,7 +8,9 @@ import { ref, watch } from 'vue'
 export const THEME_REGISTRY = [
   { id: 'hun-tun-black', official: true, base: 'dark', labelKey: 'settings.hunTunBlack' },
   { id: 'hun-tun-yellow', official: true, base: 'light', labelKey: 'settings.hunTunYellow' },
-  { id: 'handheld', official: false, base: 'dark', labelKey: 'settings.handheld' }
+  { id: 'handheld', official: false, base: 'dark', labelKey: 'settings.handheld', preview: 'handheld' },
+  // 决策61: 接触印样 —— 灯箱 + 35mm 胶片整条, 卡带横向重排为底片画幅 (布局级破坏)
+  { id: 'contact-sheet', official: false, base: 'dark', labelKey: 'settings.contactSheet', preview: 'contact' }
 ]
 
 export const ALL_THEMES = THEME_REGISTRY.map(t => t.id)
@@ -26,8 +28,12 @@ const LEGACY_THEME_MAP = {
 const themeBodyClass = (name) => {
   if (name === 'hun-tun-yellow') return 'light-mode'
   if (name === 'handheld') return 'handheld-mode'
+  if (name === 'contact-sheet') return 'contact-mode'
   return null
 }
+
+// 主题切换时需要清掉的旧 body class (新增非官方主题时同步追加)
+const THEME_BODY_CLASSES = ['light-mode', 'handheld-mode', 'contact-mode']
 
 export const useThemeStore = defineStore('theme', () => {
   // 状态 (isDarkMode = 基底语义: 拨动开关/子程序继承均基于官方黑黄)
@@ -38,7 +44,7 @@ export const useThemeStore = defineStore('theme', () => {
   const isOfficial = () => themeMeta().official
 
   const applyBodyClass = (name) => {
-    document.body.classList.remove('light-mode', 'handheld-mode')
+    document.body.classList.remove(...THEME_BODY_CLASSES)
     const cls = themeBodyClass(name)
     if (cls) document.body.classList.add(cls)
   }

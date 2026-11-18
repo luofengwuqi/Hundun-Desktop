@@ -71,6 +71,7 @@ export default {
     hunTunBlack: '馄饨黑',
     hunTunYellow: '馄饨黄',
     handheld: '掌机实装',
+    contactSheet: '接触印样',
     officialThemes: '官方样式',
     communityThemes: '非官方主题',
     officialBadge: '官方',

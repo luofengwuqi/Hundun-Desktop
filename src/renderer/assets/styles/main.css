@@ -1165,3 +1165,766 @@ svg.slot-btn-icon {
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.07);
   letter-spacing: 3px;
 }
+
+/* ==================================================================
+   接触印样 · CONTACT SHEET (决策61, 非官方主题)
+   ------------------------------------------------------------------
+   概念: 这不是一台机器, 是一张摊在灯箱上的 35mm 接触印样。
+   卡带货架 → 一条斜过整张纸的胶片, 卡带 → 横向画幅 (重排, 不再竖立);
+   选中 → 红墨框住那一格; 插槽 → 待装帧的空位; 底栏 → 片边压字。
+
+   布局级破坏点 (相对官方样式):
+   1. 内容区左右留白取消 → 胶片条整幅出血, 从窗口左沿流到右沿
+   2. 卡带 128×192 竖卡 → 162×108 横画幅, 中间只隔 6px 片基
+   3. 信息栏居中 24px 像素字 → 左对齐 33px 压缩体蜡笔手写体
+   4. 底栏品牌居中 → 三栏片边字 (胶片牌号 / 片名 / 张次)
+   5. 机身 50px 圆角 → 3px 纸张倒角 + 四角十字规
+
+   铁律照旧 (决策51): 圆角/纸边之外零绘制; DOM 与键盘导航不动, 只换皮肤层。
+   注意: base 取 'dark' 是刻意的 —— 避免 .console 落上 .light-mode 类,
+   把官方浅色的一整套覆盖规则引进来打架 (掌机实装同法)。
+   ================================================================== */
+
+.contact-mode {
+  /* 字形: 技术图纸用等宽, 大标题用压缩体 (Windows/Linux 各有可用字体) */
+  --cs-mono: ui-monospace, 'DejaVu Sans Mono', 'Liberation Mono', Consolas, 'Noto Sans SC', monospace;
+  --cs-cond: 'Bahnschrift SemiCondensed', 'Roboto Condensed', 'Liberation Sans Narrow',
+    'DejaVu Sans Condensed', 'Noto Sans SC', sans-serif;
+  --cs-ink: #241f19;
+  --cs-ink-soft: rgba(58, 44, 28, 0.42);
+
+  --bg-primary: #f4efe3;
+  --bg-secondary: #f1ebdc;
+  --bg-card: #fcf8ec;
+  --bg-slot: #e8e1ce;
+  --text-primary: #241f19;
+  --text-secondary: #6c6153;
+  --text-muted: #9c9284;
+  --accent-primary: #d8472b;    /* 蜡笔红: 选中 / 圈注 / 强调 */
+  --accent-secondary: #2e7d8f;  /* 冷青光: 镜像 / 置顶 */
+  --accent-tertiary: #c08a2e;   /* 灯箱琥珀 */
+  --border-color: #d8ccb4;
+  --shadow-color: rgba(72, 52, 32, 0.18);
+  --shadow-glow: 0 0 14px rgba(216, 71, 43, 0.26);
+  --toggle-bg: #e0d7c2;
+  --toggle-knob: #3a332a;
+  --cartridge-body: #14110e;
+  --cartridge-label: #d8472b;
+  --scanline-opacity: 0;
+  --console-shadow:
+    inset 0 0 0 1px rgba(58, 44, 28, 0.2),
+    inset 0 0 80px rgba(124, 96, 56, 0.1);
+}
+
+/* ---- 纸张: 灯箱暖白, 中心更亮, 四角沉下去 ---- */
+.contact-mode .console {
+  border: none;
+  /* 3px 时期四角几乎还是直角, 和里面那圈细框叠在一起像没画完的框;
+     18px 才读得出"切圆的相纸" (再大会让内框和纸边角脱开) */
+  border-radius: 18px;
+  background:
+    radial-gradient(ellipse 74% 58% at 50% 28%, #fffdf6 0%, #faf5e7 44%, #efe7d3 80%, #ded4ba 100%);
+}
+
+/* ---- 格纸: 24px 细格 + 120px 粗格 + 纸纹 (取代 CRT 扫描线) ---- */
+.contact-mode .console::before {
+  z-index: 0;
+  opacity: 1;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(120, 96, 60, 0.055) 0 1px, transparent 1px 24px),
+    repeating-linear-gradient(90deg, rgba(120, 96, 60, 0.055) 0 1px, transparent 1px 24px),
+    repeating-linear-gradient(0deg, rgba(120, 96, 60, 0.1) 0 1px, transparent 1px 120px),
+    repeating-linear-gradient(90deg, rgba(120, 96, 60, 0.1) 0 1px, transparent 1px 120px);
+}
+
+/* ---- 纸边细框 (压在内容之下, 胶片条会盖住它 → 物理正确) ---- */
+/* 原来四角还挂了 8 道十字规短线, 在实际尺寸下它们只出现在角落空白处:
+   左上那道的竖线正好落在「馄饨黑」标签下方, 看着像掉了个标点, 于是撤掉,
+   只留一圈跟着相纸切角走的细框 (内圆角 = 外圆角 18 - 内缩 10 再放宽一点) */
+.contact-mode .console::after {
+  content: '';
+  position: absolute;
+  inset: 10px;
+  z-index: 600;
+  pointer-events: none;
+  border: 1px solid rgba(58, 44, 28, 0.16);
+  border-radius: 9px;
+}
+
+/* 螺丝装饰换成纸上规线, 不再出现拟物螺丝 */
+.contact-mode .deco-screw {
+  display: none;
+}
+
+/* ---- 顶栏: 不是色块, 是纸的装订线 ---- */
+.contact-mode .header {
+  height: 46px;
+  padding: 0 20px;
+  background-color: transparent;
+  border-bottom: none;
+  /* 实心通栏细线会跟里面那圈纸边细框凑成"双层框", 显得整块头像被 box 住;
+     改成两端淡出的折痕线, 只在中间实, 两头化进纸里 */
+  box-shadow: none;
+  background-image: linear-gradient(
+    90deg,
+    rgba(58, 44, 28, 0) 0%,
+    rgba(58, 44, 28, 0.2) 9%,
+    rgba(58, 44, 28, 0.2) 91%,
+    rgba(58, 44, 28, 0) 100%
+  );
+  background-size: 100% 1px;
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+}
+
+.contact-mode .toggle-label {
+  font-family: var(--cs-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--text-secondary);
+}
+
+/* 拨动开关 → 机械拨杆: 方轨道 + 方滑块 */
+.contact-mode .toggle-switch {
+  width: 44px;
+  height: 22px;
+  border-radius: 2px;
+  border: 1px solid rgba(58, 44, 28, 0.38);
+  background: #e6ddc8;
+  box-shadow: inset 0 1px 3px rgba(58, 44, 28, 0.22);
+}
+
+.contact-mode .toggle-knob {
+  width: 16px;
+  height: 16px;
+  top: 2px;
+  left: 3px;
+  border-radius: 1px;
+  background: linear-gradient(180deg, #4d4336 0%, #2a241c 100%);
+  box-shadow: 0 2px 3px rgba(58, 40, 22, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.contact-mode .toggle-switch.active .toggle-knob {
+  left: 24px;
+}
+
+.contact-mode .toggle-switch:active .toggle-knob {
+  width: 18px;
+}
+
+/* 状态灯 → 灯箱指示灯 (琥珀, 平缓呼吸) */
+.contact-mode .status-dot {
+  width: 9px;
+  height: 9px;
+  background: radial-gradient(circle at 35% 30%, #ffe3b0, #e08a2b 58%, #8a4e10 100%);
+  box-shadow: 0 0 7px rgba(224, 138, 43, 0.8), 0 0 2px rgba(58, 40, 22, 0.5);
+  animation: csLamp 3.2s ease-in-out infinite;
+}
+
+@keyframes csLamp {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.72; }
+}
+
+.contact-mode .header-pin-btn,
+.contact-mode .header-min-btn,
+.contact-mode .header-close-btn {
+  color: var(--text-secondary);
+}
+
+.contact-mode .header-pin-btn:hover,
+.contact-mode .header-min-btn:hover,
+.contact-mode .header-close-btn:hover {
+  color: var(--accent-primary);
+  transform: none;
+  background: rgba(216, 71, 43, 0.1);
+}
+
+.contact-mode .header-pin-btn {
+  filter: grayscale(1);
+  opacity: 0.75;
+}
+
+.contact-mode .header-pin-btn:hover,
+.contact-mode .header-pin-btn.pinned {
+  filter: grayscale(1);
+  opacity: 1;
+}
+
+.contact-mode .header-pin-btn.pinned {
+  color: var(--accent-secondary);
+  text-shadow: none;
+  filter: none;
+}
+
+/* ---- 内容区: 左右留白归零, 让胶片条整幅出血 ---- */
+.contact-mode .content {
+  position: relative;
+  padding: 0;
+}
+
+/* ---- 选中项不是标题, 是蜡笔写在纸上的那行字 ---- */
+.contact-mode .cartridge-info {
+  height: auto;
+  /* 离头部再远一点: 大字贴着上边会显得顶到窗口边 */
+  margin: 19px 24px 0;
+  justify-content: flex-start;
+  background: none;
+  border: none;
+  border-radius: 0;
+}
+
+.contact-mode .cartridge-info-name {
+  display: inline-block;
+  /* min-width:0 才能让 flex item 收缩: 否则长名字不肯缩, 把右边那句片单注记顶出纸外 */
+  min-width: 0;
+  max-width: 100%;
+  /* 上内边距 + 松行高: 下面有 overflow:hidden (省略号要它), 行盒必须比字形高,
+     否则 CJK 字形的顶笔会被裁平 —— 1.04 行高时实测顶部被削掉约 1.5px */
+  padding: 2px 2px 9px;
+  font-family: var(--cs-cond);
+  font-size: 33px;
+  font-weight: 700;
+  line-height: 1.22;
+  letter-spacing: 0.02em;
+  color: var(--accent-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transform: rotate(-1.2deg);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.55);
+  position: relative;
+}
+
+/* 蜡笔划线: 手绘感来自两端不同的透明度与轻微歪斜 */
+.contact-mode .cartridge-info-name::after {
+  content: '';
+  position: absolute;
+  left: -4px;
+  right: -6px;
+  bottom: 1px;
+  height: 4px;
+  border-radius: 3px 2px 3px 2px;
+  background: linear-gradient(90deg,
+    rgba(216, 71, 43, 0.72) 0%,
+    rgba(216, 71, 43, 0.58) 62%,
+    rgba(216, 71, 43, 0.14) 100%);
+  transform: rotate(-0.5deg);
+}
+
+.contact-mode .cartridge-info-empty {
+  font-family: var(--cs-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--text-muted);
+  transform: rotate(-1deg);
+}
+
+/* ---- 胶片条: 斜置于灯箱上, 两端出血 ---- */
+.contact-mode .cartridge-shelf {
+  min-height: 0;
+  padding: 0;
+  align-items: center;
+  overflow-y: hidden;
+}
+
+.contact-mode .cartridge-row {
+  position: relative;
+  height: auto;
+  /* 片基必须跟着内容走: .cartridge-shelf 是 flex 容器, 片条是它的 flex item,
+     默认 flex-shrink:1 + 只写 min-width:100% 会把它压回窗口宽度 ——
+     画幅仍按内容宽排出去, 末端就成了"画幅悬在纸面上"(实测 #004 之后无片基)。
+     width:max-content 撑满内容, min-width:100% 保证少卡时也铺满整幅, flex-shrink:0 禁止压缩 */
+  width: max-content;
+  min-width: 100%;
+  flex-shrink: 0;
+  gap: 6px;
+  padding: 30px 24px 30px 20px;
+  transform: rotate(-1.5deg);
+  background: linear-gradient(180deg, #2a2520 0%, #171310 46%, #0d0b09 100%);
+  box-shadow:
+    0 22px 36px -14px rgba(58, 40, 22, 0.52),
+    0 2px 0 rgba(255, 255, 255, 0.06) inset,
+    0 -2px 0 rgba(255, 255, 255, 0.04) inset;
+}
+
+/* 齿孔: 背光从灯箱透上来。间距按 35mm 片规 (画幅 36mm ≈ 152px → 孔距 4.75mm ≈ 20px) */
+.contact-mode .cartridge-row::before,
+.contact-mode .cartridge-row::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 15px;
+  background-image: radial-gradient(circle at 6px 7.5px,
+    rgba(252, 248, 236, 0.9) 3.9px,
+    rgba(252, 248, 236, 0) 4.3px);
+  background-size: 20px 15px;
+  background-repeat: repeat-x;
+  pointer-events: none;
+}
+
+.contact-mode .cartridge-row::before { top: 4px; }
+.contact-mode .cartridge-row::after { bottom: 4px; }
+
+/* ---- 画幅: 由竖卡改为横置底片格 ---- */
+.contact-mode .cartridge {
+  width: 162px;
+  height: 108px;
+  border: 1px solid rgba(14, 11, 9, 0.85);
+  border-radius: 1px;
+  background: linear-gradient(180deg, #fdf6e4 0%, #f6ead0 62%, #efdfc0 100%);
+  box-shadow:
+    inset 0 0 14px rgba(196, 138, 52, 0.16),
+    0 1px 2px rgba(0, 0, 0, 0.35);
+  transition:
+    transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.22s ease,
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+/* 底部标签带取消 (画幅里不需要"卡带贴纸") */
+.contact-mode .cartridge::after {
+  content: none;
+}
+
+/* 色标: 每格左下角一小道插件主色, 像印样上的校色块 */
+.contact-mode .cartridge::before {
+  content: '';
+  top: auto;
+  right: auto;
+  left: 7px;
+  bottom: 7px;
+  width: 18px;
+  height: 3px;
+  border-radius: 1px;
+  background: var(--cartridge-color, var(--accent-primary));
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.45);
+  opacity: 0.9;
+}
+
+.contact-mode .cartridge-icon {
+  width: auto;
+  height: auto;
+  background: none;
+  border: none;
+  border-radius: 0;
+  font-size: 32px;
+  z-index: 1;
+}
+
+.contact-mode .cartridge-icon .icon-svg svg {
+  width: 48px;
+  height: 48px;
+  filter: saturate(0.8) contrast(1.05) drop-shadow(0 1px 0 rgba(255, 255, 255, 0.5));
+}
+
+/* 画幅编号: 像片边压的格号 */
+.contact-mode .cartridge-id {
+  bottom: 6px;
+  right: 7px;
+  font-family: var(--cs-mono);
+  font-size: 7px;
+  letter-spacing: 0.1em;
+  color: rgba(126, 96, 54, 0.85);
+  text-shadow: none;
+}
+
+/* 悬停: 格名浮在片边 (只在悬停时出现, 不占版面) */
+.contact-mode .cartridge-title {
+  display: block;
+  position: absolute;
+  left: 50%;
+  bottom: -21px;
+  transform: translateX(-50%);
+  padding: 2px 6px;
+  font-family: var(--cs-mono);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  color: rgba(250, 245, 231, 0.95);
+  background: rgba(16, 13, 10, 0.88);
+  border-radius: 1px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+
+.contact-mode .cartridge:hover .cartridge-title {
+  opacity: 1;
+}
+
+.contact-mode .cartridge:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    inset 0 0 14px rgba(196, 138, 52, 0.16),
+    0 7px 14px -6px rgba(0, 0, 0, 0.55);
+}
+
+.contact-mode .cartridge:active {
+  transform: translateY(-1px);
+}
+
+.contact-mode .cartridge.dragging {
+  opacity: 0.35;
+  transform: scale(0.94) rotate(-3deg);
+}
+
+/* ---- 选中: 红墨描边 + 红格号 (不用圈: 圈会溢出画幅压到片基与邻格) ---- */
+.contact-mode .cartridge.selected {
+  z-index: 12;
+  transform: translateY(-3px);
+  /* 画幅自带的 1px 墨边保留 (那才是"印在片上的框"), 红墨线描在它内侧 */
+  border-color: rgba(14, 11, 9, 0.85);
+  background: linear-gradient(180deg, #fffcf1 0%, #fbf1d9 60%, #f4e5c4 100%);
+  box-shadow:
+    inset 0 0 0 2.5px var(--accent-primary),
+    0 8px 16px -6px rgba(58, 40, 22, 0.5);
+}
+
+.contact-mode .cartridge.selected .cartridge-id {
+  color: var(--accent-primary);
+  font-weight: 700;
+}
+
+.contact-mode .cartridge.selected:hover {
+  transform: translateY(-4px);
+}
+
+/* 运行中徽标 (镜像互斥): 片边贴的小红签 */
+.contact-mode .cartridge-running {
+  top: 5px;
+  right: 5px;
+  padding: 1px 4px;
+  border-radius: 1px;
+  font-family: var(--cs-mono);
+  font-size: 6.5px;
+  letter-spacing: 0.1em;
+  color: #fff8ec;
+  background: var(--accent-primary);
+  /* 一圈纸色描边: 徽标压住选中红框时不会糊成一片红 */
+  box-shadow:
+    0 0 0 1.5px rgba(253, 246, 228, 0.8),
+    0 1px 3px rgba(90, 30, 10, 0.45);
+}
+
+/* ---- 底栏行: 旋钮 + 待装帧的空位 ---- */
+.contact-mode .slot-row {
+  align-items: center;
+  gap: 18px;
+  padding: 0 24px 16px;
+}
+
+.contact-mode .slot-buttons {
+  gap: 20px;
+  align-items: center;
+}
+
+/* 按钮 → 滚花旋钮: 外圈滚花 + 内圈纸面 */
+.contact-mode .slot-btn {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  border: none;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 46%,
+      #fbf6e7 0 17px,
+      #e8dec7 17px 18.6px,
+      rgba(251, 246, 231, 0) 19px),
+    repeating-conic-gradient(from 6deg, #4c4335 0 5deg, #6f624d 5deg 10deg);
+  box-shadow:
+    0 3px 7px rgba(58, 40, 22, 0.32),
+    inset 0 0 0 1px rgba(18, 14, 11, 0.7),
+    inset 0 2px 3px rgba(255, 255, 255, 0.1);
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.contact-mode .slot-btn .slot-btn-icon {
+  color: #2a241c;
+}
+
+/* 旋钮铭牌: 等宽小字压在旋钮上方 */
+.contact-mode .slot-btn::before {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--cs-mono);
+  font-size: 8px;
+  line-height: 1;
+  letter-spacing: 0.16em;
+  white-space: nowrap;
+  color: rgba(90, 74, 52, 0.78);
+  pointer-events: none;
+}
+
+.contact-mode .slot-btn:disabled::before {
+  opacity: 0.45;
+}
+
+.contact-mode .slot-btn:nth-child(1)::before { content: 'LOAD'; }
+.contact-mode .slot-btn:nth-child(2)::before { content: 'SET'; }
+.contact-mode .slot-btn:nth-child(3)::before { content: 'MIRROR'; }
+
+.contact-mode .slot-btn:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 5px 10px rgba(58, 40, 22, 0.34),
+    inset 0 0 0 1px rgba(18, 14, 11, 0.7),
+    inset 0 2px 3px rgba(255, 255, 255, 0.1);
+}
+
+.contact-mode .slot-btn.selected {
+  transform: none;
+  box-shadow:
+    0 0 0 2px var(--accent-primary),
+    0 0 0 5px rgba(216, 71, 43, 0.16),
+    0 3px 7px rgba(58, 40, 22, 0.32);
+}
+
+.contact-mode .slot-btn.selected .slot-btn-icon {
+  color: var(--accent-primary);
+}
+
+.contact-mode .slot-btn.selected::before {
+  color: var(--accent-primary);
+}
+
+.contact-mode .slot-btn.mirror-btn.active {
+  box-shadow:
+    0 0 0 2px var(--accent-secondary),
+    0 0 0 5px rgba(46, 125, 143, 0.16),
+    0 3px 7px rgba(58, 40, 22, 0.32);
+}
+
+.contact-mode .slot-btn.mirror-btn.active .slot-btn-icon {
+  color: var(--accent-secondary);
+}
+
+/* ---- 插槽 → 待装帧的空位: 斜纹占位 + 虚线裁切框 ---- */
+.contact-mode .cartridge-slot {
+  width: 120px;
+  height: 118px;
+  border: 1px dashed rgba(58, 44, 28, 0.45);
+  border-radius: 2px;
+  background:
+    repeating-linear-gradient(45deg, rgba(120, 96, 60, 0.08) 0 1px, transparent 1px 7px),
+    rgba(255, 252, 242, 0.55);
+  box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.35);
+  transform: rotate(1.2deg);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+}
+
+.contact-mode .cartridge-slot.selected {
+  border-color: var(--accent-primary);
+  box-shadow:
+    0 0 0 2px rgba(216, 71, 43, 0.16),
+    inset 0 0 0 3px rgba(255, 255, 255, 0.4);
+}
+
+.contact-mode .cartridge-slot.drag-over {
+  border-color: var(--accent-primary);
+  background:
+    repeating-linear-gradient(45deg, rgba(216, 71, 43, 0.18) 0 1px, transparent 1px 7px),
+    rgba(255, 250, 238, 0.72);
+  box-shadow: inset 0 0 26px rgba(216, 71, 43, 0.16);
+}
+
+.contact-mode .slot-label {
+  font-family: var(--cs-mono);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  color: rgba(120, 100, 70, 0.9);
+}
+
+/* 空槽提示: 用蜡笔写在位子上 (旋转与插槽反向, 像手写歪的) */
+.contact-mode .slot-empty {
+  font-family: var(--cs-mono);
+  font-size: 8px;
+  letter-spacing: 0.14em;
+  color: var(--accent-primary);
+  opacity: 0.85;
+  transform: rotate(-1.6deg);
+}
+
+/* 已插入的卡带: 一小格同样底片 */
+.contact-mode .slot-cartridge {
+  border: 1px solid rgba(14, 11, 9, 0.75);
+  border-radius: 1px;
+  background: linear-gradient(180deg, #fdf6e4 0%, #f1e2c4 100%);
+  box-shadow: 0 3px 6px -2px rgba(58, 40, 22, 0.4);
+}
+
+.contact-mode .slot-cartridge::before {
+  height: 3px;
+  border-radius: 0;
+  background: var(--cartridge-color, var(--accent-primary));
+}
+
+.contact-mode .slot-cartridge-name {
+  font-family: var(--cs-mono);
+  font-size: 6px;
+  letter-spacing: 0.08em;
+  color: #3a3128;
+}
+
+/* ---- 底栏 → 片边压字 (胶片牌号 / 片名 / 张次) ---- */
+.contact-mode .footer {
+  height: 34px;
+  padding: 0 20px;
+  justify-content: space-between;
+  background: transparent;
+  border-top: none;
+  box-shadow: inset 0 1px 0 rgba(58, 44, 28, 0.18);
+}
+
+.contact-mode .footer::before,
+.contact-mode .footer::after {
+  font-family: var(--cs-mono);
+  font-size: 7.5px;
+  letter-spacing: 0.16em;
+  white-space: nowrap;
+  color: rgba(120, 100, 70, 0.85);
+}
+
+.contact-mode .footer::before {
+  content: 'HUNDUN PHOTO SUPPLY · 35MM · SAFETY FILM';
+}
+
+.contact-mode .footer::after {
+  content: 'CONTACT 01';
+  color: rgba(216, 71, 43, 0.7);
+}
+
+.contact-mode .footer-info {
+  font-family: var(--cs-mono);
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  color: var(--text-secondary);
+  text-shadow: none;
+}
+
+/* ---- 片单注记: 填右上空处, 像印样角落写的规格 ---- */
+.contact-mode .cartridge-info::after {
+  content: 'SHEET 01 / 35MM / ISO 400';
+  margin-left: auto;
+  align-self: center;
+  font-family: var(--cs-mono);
+  font-size: 8px;
+  letter-spacing: 0.16em;
+  white-space: nowrap;
+  color: rgba(120, 100, 70, 0.75);
+  transform: rotate(-1.2deg);
+}
+
+/* ---- 弹窗: 一张裁好的相纸, 不是发光盒子 ---- */
+/* 遮罩: 比 scoped 基样式多一层 .console, 保证压过 Vue 的 .modal-overlay[data-v] */
+.contact-mode .console .modal-overlay {
+  background: rgba(46, 32, 18, 0.4);
+  backdrop-filter: blur(1.5px) saturate(0.92);
+}
+
+.contact-mode .modal-overlay .modal {
+  border: 1px solid rgba(58, 44, 28, 0.5);
+  border-radius: 2px;
+  background: #fcf8ec;
+  box-shadow:
+    8px 8px 0 rgba(58, 44, 28, 0.1),
+    0 18px 40px rgba(28, 18, 8, 0.45);
+}
+
+.contact-mode .modal-overlay .modal-left {
+  border-right: 1px dashed rgba(58, 44, 28, 0.3);
+}
+
+.contact-mode .modal-overlay .modal-right {
+  background: rgba(58, 44, 28, 0.05);
+}
+
+.contact-mode .modal-overlay .modal-title {
+  letter-spacing: 0.01em;
+}
+
+.contact-mode .modal-overlay .modal-btn {
+  border-radius: 1px;
+  box-shadow: 2px 2px 0 rgba(58, 44, 28, 0.28);
+}
+
+.contact-mode .modal-overlay .modal-btn.primary {
+  color: #fff9ec;
+}
+
+.contact-mode .modal-overlay .modal-btn.secondary {
+  background: #7d7261;
+}
+
+.contact-mode .modal-overlay .modal-btn.danger {
+  background: #a32a18;
+}
+
+.contact-mode .modal-overlay .modal-btn.selected {
+  border-color: var(--accent-primary);
+  box-shadow:
+    0 0 0 2px rgba(216, 71, 43, 0.22),
+    2px 2px 0 rgba(58, 44, 28, 0.28);
+}
+
+/* ---- 设置页: 同一张纸继续 ---- */
+.contact-mode .console .settings-view {
+  border: none;
+  /* 与母程序纸边同一刀切 (18px), 开关设置页时圆角不会跳一下 */
+  border-radius: 18px;
+  background-color: #f6f1e3;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(120, 96, 60, 0.055) 0 1px, transparent 1px 24px),
+    repeating-linear-gradient(90deg, rgba(120, 96, 60, 0.055) 0 1px, transparent 1px 24px),
+    repeating-linear-gradient(0deg, rgba(120, 96, 60, 0.1) 0 1px, transparent 1px 120px),
+    repeating-linear-gradient(90deg, rgba(120, 96, 60, 0.1) 0 1px, transparent 1px 120px),
+    radial-gradient(ellipse 74% 58% at 50% 28%, #fffdf6 0%, #faf5e7 44%, #efe7d3 80%, #ded4ba 100%);
+  box-shadow: inset 0 0 0 1px rgba(58, 44, 28, 0.2);
+}
+
+.contact-mode .console .settings-header {
+  background: transparent;
+  border-bottom: 1px solid rgba(58, 44, 28, 0.18);
+}
+
+.contact-mode .console .logo-text {
+  font-family: var(--cs-cond);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+.contact-mode .console .theme-option,
+.contact-mode .console .language-option,
+.contact-mode .console .plugin-item,
+.contact-mode .console .nav-tab {
+  border-radius: 2px;
+}
+
+/* 卡片边线收细到 1px: 纸上的框线不该有塑料厚度 */
+.contact-mode .console .setting-group,
+.contact-mode .console .theme-option,
+.contact-mode .console .language-option,
+.contact-mode .console .plugin-item {
+  border-width: 1px;
+  border-style: solid;
+  border-color: rgba(58, 44, 28, 0.28);
+  border-radius: 2px;
+}
+
+/* 选中态的红线不能被上面的 1px 规则压掉 */
+.contact-mode .console .theme-option.active,
+.contact-mode .console .language-option.active {
+  border-color: var(--accent-primary);
+}
+
+/* ---- 镜像受限提示: 片边同样走等宽字 ---- */
+.contact-mode .mirror-notice {
+  font-family: var(--cs-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+}

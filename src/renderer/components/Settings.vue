@@ -327,7 +327,7 @@ const officialThemeCards = computed(() =>
 const communityThemeCards = computed(() =>
   THEME_REGISTRY
     .filter(t => !t.official)
-    .map(t => ({ id: t.id, labelKey: t.labelKey, previewClass: 'handheld' }))
+    .map(t => ({ id: t.id, labelKey: t.labelKey, previewClass: t.preview || 'handheld' }))
 )
 
 // 非官方卡在键盘导航扁平序列中的起始下标 (官方卡显示时排在其后)
@@ -1289,6 +1289,55 @@ onUnmounted(() => {
   background:
     repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 3px),
     linear-gradient(180deg, #081108 0%, #0d1c0f 100%);
+}
+
+/* 接触印样预览 (决策61): 灯箱暖白 + 斜置胶片条 + 选中格的红墨框 */
+.theme-preview.contact {
+  background:
+    repeating-linear-gradient(0deg, rgba(120, 96, 60, 0.10) 0 1px, transparent 1px 8px),
+    repeating-linear-gradient(90deg, rgba(120, 96, 60, 0.10) 0 1px, transparent 1px 8px),
+    radial-gradient(ellipse 90% 80% at 50% 30%, #FFFDF4 0%, #F1EBDC 100%);
+  border-color: #D8CCB4;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 胶片条: 斜穿预览, 两端出血; 画幅 = 中段暖白, 齿孔 = 上下背光点 */
+.theme-preview.contact .preview-body {
+  position: absolute;
+  left: -14px;
+  right: -14px;
+  top: 22px;
+  height: 30px;
+  background-image:
+    radial-gradient(circle at 3px 3px, rgba(250, 245, 231, 0.95) 1.2px, transparent 1.6px),
+    radial-gradient(circle at 3px 3px, rgba(250, 245, 231, 0.95) 1.2px, transparent 1.6px),
+    repeating-linear-gradient(90deg, rgba(250, 245, 231, 0.92) 0 21px, #14110d 21px 25px),
+    linear-gradient(180deg, #24201b 0%, #100d0a 100%);
+  background-size: 8px 6px, 8px 6px, 100% 15px, 100% 100%;
+  background-position: 0 1px, 0 calc(100% - 1px), 0 50%, 0 0;
+  background-repeat: repeat-x, repeat-x, repeat-x, no-repeat;
+  transform: rotate(-6deg);
+  box-shadow: 0 4px 8px rgba(60, 42, 24, 0.28);
+}
+
+.theme-preview.contact .preview-header {
+  height: 12px;
+  background: transparent;
+  border-bottom: 1px solid rgba(58, 44, 28, 0.25);
+}
+
+/* 选中格: 与主题内一致, 用红墨描边而不是圈 (圈会溢出画幅) */
+.theme-preview.contact::after {
+  content: '';
+  position: absolute;
+  width: 21px;
+  height: 13px;
+  left: 30px;
+  top: 29px;
+  border: 1.5px solid #d8472b;
+  border-radius: 1px;
+  box-shadow: inset 0 0 0 1px rgba(248, 244, 231, 0.9);
 }
 
 /* 恢复官方样式入口预览: 半官方黑黄对角拼接 */
