@@ -1,7 +1,7 @@
 <div align="center">
   <img src="src/renderer/assets/logo-512.png" width="140" alt="HundunDesktop logo" />
   <h1>HundunDesktop</h1>
-  <p><strong>复古掌机风格的桌面效率工具</strong><br />母程序 + 卡带式子程序，一台属于你的桌面掌机</p>
+  <p><strong>复古像素风的桌面效率工具</strong><br />母程序 + 卡带式子程序，功能装进卡带、随插随用</p>
 
   <p>
     <img alt="Electron" src="https://img.shields.io/badge/Electron-28-47848F?logo=electron&logoColor=white" />
@@ -15,7 +15,7 @@
 
 ## 这是什么
 
-HundunDesktop 是一个以「游戏掌机」为隐喻的桌面效率应用。母程序是一台 800×540 的固定尺寸掌机，每个功能都是一个独立运行的**子程序卡带**：点击卡带、插入插槽，子程序就在自己的窗口中启动。
+HundunDesktop 是一个「卡带式」桌面效率应用。母程序是一个 800×540 的固定窗口，每个功能都是一个独立运行的**子程序卡带**：点击卡带、插入插槽，子程序就在自己的窗口中启动。
 
 - **插件化架构**：每个子程序运行在独立 `BrowserWindow` 中，崩溃不会拖垮母程序
 - **内置四张卡带**：计算器、文本管理器、任务清单、脚本管理器，开箱即用
@@ -33,7 +33,7 @@ HundunDesktop 是一个以「游戏掌机」为隐喻的桌面效率应用。母
 
 | 卡带 | 子程序 | 尺寸 | 能做什么 |
 | --- | --- | --- | --- |
-| 🔢 `calculator` | CALC | 400×540 | 复古掌机风格计算器 |
+| 🔢 `calculator` | CALC | 400×540 | 复古像素风计算器 |
 | 📄 `fast-txt` | FastTXT | 800×540 | 文本文件管理、编辑、Markdown 实时浏览、查找替换 |
 | 📋 `task` | TASK | 400×520 | 任务清单、截止时间、状态排序、到点提醒 |
 | ⚡ `fast-cmd` | FastCmd | 800×540 | 脚本管理：Windows `.bat` `.cmd` `.ps1` / Linux `.sh`，点击即运行 |

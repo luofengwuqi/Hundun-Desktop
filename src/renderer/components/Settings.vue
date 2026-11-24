@@ -94,7 +94,7 @@
                   :key="opt.id"
                   class="theme-option detail-item"
                   :class="{ active: themeStore.theme === opt.id, selected: currentSide === 'right' && detailIndex === i }"
-                  @click="selectDetail(i); setTheme(opt.id)"
+                  @click="selectDetail(i); activateTheme(opt.id)"
                 >
                   <div class="theme-preview" :class="opt.previewClass">
                     <div class="preview-header"></div>
@@ -114,7 +114,7 @@
                 :key="opt.id"
                 class="theme-option detail-item"
                 :class="{ active: themeStore.theme === opt.id, selected: currentSide === 'right' && detailIndex === communityIndexOffset + i }"
-                @click="selectDetail(communityIndexOffset + i); setTheme(opt.id)"
+                @click="selectDetail(communityIndexOffset + i); activateTheme(opt.id)"
               >
                 <div class="theme-preview" :class="opt.previewClass">
                   <div class="preview-header"></div>
@@ -128,7 +128,7 @@
                 v-if="!themeStore.isOfficial()"
                 class="theme-option restore detail-item"
                 :class="{ selected: currentSide === 'right' && detailIndex === communityThemeCards.length }"
-                @click="selectDetail(communityThemeCards.length); setTheme('hun-tun-black')"
+                @click="selectDetail(communityThemeCards.length); activateTheme('__restore__')"
               >
                 <div class="theme-preview restore">
                   <div class="preview-header"></div>
@@ -298,6 +298,7 @@ import { useThemeStore, THEME_REGISTRY, OFFICIAL_THEMES } from '../stores/theme'
 import { usePluginStore } from '../stores/plugin'
 import { useI18nStore } from '../stores/i18n'
 import { playSound, setGlobalVolume } from '../utils/audio'
+import { gridNavigate } from '../utils/grid-nav'
 import { loadSoundSettings, saveSoundSettings } from '../utils/sound-settings'
 import { localeOptions } from '../i18n/index.js'
 import Modal from './Modal.vue'
@@ -452,6 +453,15 @@ const toggleTheme = () => {
 const setTheme = (theme) => {
   playSound('click')
   themeStore.setTheme(theme)
+}
+
+// 应用主题动作并让键盘高亮跟上: 激活后列表形状会变 (官方/非官方分区显隐 + 恢复入口增减),
+// 原下标会指到另一张卡上, 按主题 id 在新列表里重新定位
+const activateTheme = (action) => {
+  const targetId = action === '__restore__' ? 'hun-tun-black' : action
+  setTheme(targetId)
+  const next = themeDetailActions.value.indexOf(targetId)
+  if (next !== -1) detailIndex.value = next
 }
 
 const setLanguage = (lang) => {
@@ -789,11 +799,7 @@ const executeDetailAction = () => {
     case 1: // Theme settings (决策55: 注册表驱动)
       {
         const action = themeDetailActions.value[detailIndex.value]
-        if (action === '__restore__') {
-          setTheme('hun-tun-black')
-        } else if (action) {
-          setTheme(action)
-        }
+        if (action) activateTheme(action)
       }
       break
     case 2: // Language settings
@@ -883,6 +889,24 @@ const handleKeydown = (e) => {
       e.preventDefault()
       requestRemove(plugins.value[detailIndex.value])
       return
+    }
+
+    // 主题 Tab: 主题卡是两列网格, 通用列表导航会斜着跳 —— 用网格语义
+    // (↑/↓ 整行跳, ←/→ 行内移动; 最左列按 ← 才回左侧栏)。非方向键返回 null,
+    // 落到下面通用分支 (Enter 执行选中项)
+    if (selectedTab.value === 1) {
+      const step = gridNavigate(detailIndex.value, detailItemCount.value, 2, e.key)
+      if (step) {
+        e.preventDefault()
+        if (step.exit) {
+          currentSide.value = 'left'
+          detailIndex.value = -1
+        } else {
+          detailIndex.value = step.index
+        }
+        playSound('click')
+        return
+      }
     }
 
     // 上下箭头键移动细节焦点
