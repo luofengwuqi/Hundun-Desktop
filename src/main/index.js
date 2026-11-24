@@ -1255,17 +1255,47 @@ ipcMain.handle('sync:gitee-create', async (event, payload) => {
   }
 })
 
-ipcMain.handle('sync:sync', async (event) => {
+// ========== 四个显式动作 ==========
+// 拉取 / 推送 是非破坏的; 两个「覆盖」破坏性, 必须带 confirm:true 才会执行
+// (渲染层要点两次, IPC 层再校验一次, 防误调)。
+
+const runAction = async (event, fn) => {
   if (!isMainWindowSender(event)) return syncForbidden()
   try {
-    return await syncService.sync()
+    return await fn()
   } catch (err) {
-    console.error('[Sync] sync failed:', err && err.message)
+    console.error('[Sync] action failed:', err && err.message)
     return syncErrorPayload(err)
   }
+}
+
+const needsConfirm = () => ({
+  ok: false,
+  code: 'NEED_CONFIRM',
+  message: '这是破坏性操作，需要二次确认'
 })
 
-// 冲突解决: local (保留本地) / cloud (采用云端)。不提供 reset/clean/force。
+// 从云端拉取到本地: fetch + merge (不推送)
+ipcMain.handle('sync:pull', (event) => runAction(event, () => syncService.pull()))
+
+// 从本地推送到云端: commit + push (不拉取不合并)
+ipcMain.handle('sync:push', (event) => runAction(event, () => syncService.push()))
+
+// 从云端覆盖到本地 (破坏性): 先打备份 tag 再 reset --hard
+ipcMain.handle('sync:overwrite-local', (event, payload) => {
+  const p = payload && typeof payload === 'object' ? payload : {}
+  if (p.confirm !== true) return needsConfirm()
+  return runAction(event, () => syncService.overwriteLocal())
+})
+
+// 从本地覆盖到云端 (破坏性): 先打备份 tag 再 push --force
+ipcMain.handle('sync:overwrite-remote', (event, payload) => {
+  const p = payload && typeof payload === 'object' ? payload : {}
+  if (p.confirm !== true) return needsConfirm()
+  return runAction(event, () => syncService.overwriteRemote())
+})
+
+// 冲突解决: local (保留本地) / cloud (采用云端)。只按文件取值, 不做整体 reset。
 ipcMain.handle('sync:resolve', async (event, strategy) => {
   if (!isMainWindowSender(event)) return syncForbidden()
   try {

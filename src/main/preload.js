@@ -153,6 +153,12 @@ window.electronAPI = {
     ipcRenderer.on('plugin-state-changed', handler)
     return () => ipcRenderer.removeListener('plugin-state-changed', handler)
   },
+  // 本窗口的插件实例被别的窗口接手 (决策65): 渲染层据此清空插槽, 避免 UI 上两处都显示同一应用
+  onPluginReclaimed: (callback) => {
+    const handler = (event, data) => callback(data)
+    ipcRenderer.on('plugin-reclaimed', handler)
+    return () => ipcRenderer.removeListener('plugin-reclaimed', handler)
+  },
   
   // 插件启动（带过渡动画）
   launchPlugin: (pluginId, options) => ipcRenderer.invoke('plugin-manager:launch', pluginId, options),
@@ -263,7 +269,12 @@ window.electronAPI = {
     updateConfig: (patch) => ipcRenderer.invoke('sync:update-config', patch),
     link: (payload) => ipcRenderer.invoke('sync:link', payload),
     createGiteeRepo: (payload) => ipcRenderer.invoke('sync:gitee-create', payload),
-    run: () => ipcRenderer.invoke('sync:sync'),
+    // 四个显式动作
+    pull: () => ipcRenderer.invoke('sync:pull'),
+    push: () => ipcRenderer.invoke('sync:push'),
+    // 两个「覆盖」是破坏性的 —— 主进程还会再校验一次 confirm
+    overwriteLocal: () => ipcRenderer.invoke('sync:overwrite-local', { confirm: true }),
+    overwriteRemote: () => ipcRenderer.invoke('sync:overwrite-remote', { confirm: true }),
     resolve: (strategy) => ipcRenderer.invoke('sync:resolve', strategy)
   },
 

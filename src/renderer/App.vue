@@ -1056,14 +1056,35 @@ let unsubscribePlaySound = null
 let unsubscribeMirrorState = null
 let unsubscribeRoleChange = null
 let unsubscribePluginState = null
+let unsubscribePluginReclaimed = null
 let unsubscribeConfigChanged = null
+
+// 收回插槽里的卡带 (该应用已不属于本会话)
+const releaseSlot = (pluginId) => {
+  if (!slotPlugin.value || slotPlugin.value.id !== pluginId) return
+  console.log('[App] Releasing slot:', pluginId)
+  slotPlugin.value = null
+  syncShelfWithStore()
+  if (selectedIndex.value < 0 && shelfPlugins.value.length > 0) selectedIndex.value = 0
+  updateRowSelection()
+}
+
+// 写入"在别处运行"的列表, 并自愈插槽 (决策65 修订):
+// 插槽里的卡带一旦出现在 foreign 列表里, 说明它已被另一个窗口接手 ——
+// 实例已不在本会话, 插槽必须收回, 否则界面上会出现「两边都装着同一个应用」。
+const applyForeignIds = (ids) => {
+  const list = Array.isArray(ids) ? ids : []
+  foreignIds.value = list
+  if (slotPlugin.value && list.includes(slotPlugin.value.id)) {
+    releaseSlot(slotPlugin.value.id)
+  }
+}
 
 // 拉取"在别处运行"的插件列表 (启动时初始化; 之后靠推送刷新)
 const refreshForeignPlugins = async () => {
   try {
     if (window.electronAPI && window.electronAPI.getForeignPlugins) {
-      const ids = await window.electronAPI.getForeignPlugins()
-      if (Array.isArray(ids)) foreignIds.value = ids
+      applyForeignIds(await window.electronAPI.getForeignPlugins())
     }
   } catch (e) {
     console.warn('[App] Failed to load foreign plugins:', e)
@@ -1074,7 +1095,7 @@ onMounted(async () => {
   // 确保过渡状态被重置（防止上次异常退出残留）
   isTransitioning.value = false
   maskPhase.value = 'hidden'
-  
+
   // 先初始化插件 store（确保默认插件已加载）
   await pluginStore.init()
   
@@ -1135,11 +1156,26 @@ onMounted(async () => {
   try {
     if (window.electronAPI && window.electronAPI.onPluginStateChanged) {
       unsubscribePluginState = window.electronAPI.onPluginStateChanged((ids) => {
-        foreignIds.value = Array.isArray(ids) ? ids : []
+        applyForeignIds(ids)
       })
     }
   } catch (e) {
     console.warn('[App] Failed to register plugin-state handler:', e)
+  }
+
+  // 本窗口的插件实例被别的窗口接手 → 收回插槽卡带 (决策65)
+  // 否则会出现「两边插槽都装着同一个应用」的假象
+  try {
+    if (window.electronAPI && window.electronAPI.onPluginReclaimed) {
+      unsubscribePluginReclaimed = window.electronAPI.onPluginReclaimed((data) => {
+        const id = data && data.pluginId
+        if (!id) return
+        console.log('[App] Plugin instance reclaimed by another window:', id)
+        releaseSlot(id)
+      })
+    }
+  } catch (e) {
+    console.warn('[App] Failed to register plugin-reclaimed handler:', e)
   }
 
   // 其他母窗口的插件配置变更 (排序/移除/恢复/安装) → 本窗口刷新 (决策46)
@@ -1173,6 +1209,8 @@ onUnmounted(() => {
   unsubscribeRoleChange = null
   safeUnsub(unsubscribePluginState)
   unsubscribePluginState = null
+  safeUnsub(unsubscribePluginReclaimed)
+  unsubscribePluginReclaimed = null
   safeUnsub(unsubscribeConfigChanged)
   unsubscribeConfigChanged = null
 })

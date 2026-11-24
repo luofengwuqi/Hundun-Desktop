@@ -6,17 +6,30 @@
 
 ## 2026-11-24
 
+### fix: 镜像锁改用「停放」语义，杜绝同一插件被两个窗口各开一份（决策68，修订决策65）
+
+- [x] **回归现象**: 决策65 用「窗口可见」判定占用。但过渡动画里窗口**已创建、还没 show**（那 900ms），可见性判定为"没人用" → 镜像窗口趁这个空档又建了一份，同一个插件出现两个窗口；界面上两边插槽还都装着它
+- [x] **新口径（语义标记，不看可见性）**: 新增 `parkedPlugins: Set<pluginId>` —— 只有「用户点了返回母程序」或 `suspendPlugin` 才把实例标为停放、不算占用；其余一切状态（可见 / 最小化 / 动画中未 show）都算在跑。`isPluginHeld()` 简化为「窗口存在且未停放」
+- [x] **维护点**: `returnToParent`（两个分支，按会话批量停放）/ `suspendPlugin` 置位；`startPlugin` 复用分支、`launchPluginWithTransition` 出场、`resumePlugin`、窗口 `closed`、`_discardHiddenInstance`、`removeSession` 复位
+- [x] **接管可见性**: `_discardHiddenInstance` 向原会话母窗口发 `plugin-reclaimed`，渲染层 `releaseSlot()` 收回插槽 —— 不再出现「两边插槽都装着同一个应用」
+- [x] **自愈兜底**: 渲染层把 foreign 列表写入统一走 `applyForeignIds()`，插槽里的卡带一旦出现在「别处运行」列表就自动收回（漏事件也能自愈）
+- [x] **测试**: `scripts/test-mirror-lock.js` 扩到 20 项 —— 新增「过渡中（未 show）的实例不能被镜像抢」「接管时原会话收到 plugin-reclaimed」「接管后旧实例销毁」；`test-mirror` 61 项、`test-window-lifecycle` 61 项回归全过
+- [x] **真实 UI 实测**: 主窗口启动 FastTXT → 开镜像（镜像只显示「运行中」徽章、点它是被拒）→ 主窗口返回 → 镜像接管成功、主窗口插槽自动清空、徽章转给对方；`/json` 目标确认磁盘上只有 **一个** fast-txt 子窗口
+
 ### feat: 母程序内置「用户数据仓库」同步（决策67）
 
-- [x] **入口**: 底部按钮群第 4 个「仓库」（`+ / 设置 / 仓库 / 插槽`），键盘 `←/→` 可选中，回车打开全屏仓库页（`SyncView.vue`，与设置页同壳）
+- [x] **入口**: 底部按钮群第 4 个「仓库」（`+ / 设置 / 仓库 / 插槽`），键盘 `←/→` 可选中，回车打开全屏仓库页（`SyncView.vue`，与设置页同壳：50px 头 / 圆角 50px / 主题开关复用全局 `.toggle-*`）
+- [x] **页面布局（左 1/3 四动作 + 右 2/3 详情）**: 左栏四个等分按钮 —— 「从云端拉取到本地 / 从本地推送到云端 / 从云端覆盖到本地 / 从本地覆盖到云端」；右栏上栏是扁的 Gitee 令牌输入（存/清），下栏是已关联信息 + 已装子程序勾选清单（不支持同步的置灰并标「未声明同步」），底部一条结果条 + footer 的 git 版本 LED 与 ESC 提示
 - [x] **仓库根 = userData 本身**: 直接在 `<userData>` 原地 `git init`，不做副本、不搬目录 —— 归档的位置永远是真实数据的位置，不存在「两份数据谁是准的」这种问题
 - [x] **白名单而非黑名单**: `.gitignore` 先 `*` 排除一切，再逐级 `!` 重新包含：`settings.json`、`hundundesktop-data/*.json`、用户勾选插件的目录。**Cache / Local Storage(leveldb) / 未勾选插件 / 令牌文件 / sync 配置自身** 一律不进库（已用 `git ls-tree` 逐项验证）
 - [x] **子程序靠 manifest 声明**: 新增 `sync` 字段（见 `docs/PLUGIN_SPEC.md` 3.5）。fast-txt `{paths:["file/"], ignore:[".trash/",".order.json",".bookmarks.json",".git/"]}`、fast-cmd `{paths:["file/"]}`、task 与 music `{paths:[]}`（数据全在 `hundun.storage`，只传 JSON）。不写该字段 = 不可同步
 - [x] **两种接入**: ① Gitee 代建（填令牌 → `POST /user/repos` 建私有空库 → 立即关联）② 已有仓库（填地址+令牌，拉取合并）。令牌优先 `safeStorage` 加密存 `sync/token.bin`，无系统密钥环时降级明文并标记 `tokenStorage:'plain'`
-- [x] **同步流程**: `detectGit → init → 写 .gitignore → 取消勾选项 git rm --cached → add → commit → fetch → merge → push`。**禁用 reset / clean / checkout -f / push --force**；冲突只允许 `checkout --ours/--theirs` 按文件取值，不动其他文件
+- [x] **四个动作各管一件事（不再有"全自动同步"）**: `pull` = 本地改动先落成提交 → `fetch` → `merge`，**不推**；`push` = `add -A` → 有暂存才 commit → `push`，**不拉**（被拒回 `REJECTED` 让人先拉）；`overwriteLocal` = `fetch` → 打备份 tag → `reset --hard FETCH_HEAD`（**不 clean**，未跟踪文件保留）；`overwriteRemote` = 提交 → 打备份 tag → `push --force`
+- [x] **覆盖类动作三层保护**: ① 界面上要点两次 —— 第一次"上膛"（按钮整块转品红、图标换警告三角、文案变「再点一次确认」，5 秒不点自动撤回）② preload 对这两个方法固定传 `{confirm:true}`，主进程再校验一次（不是 `true` 就回 `NEED_CONFIRM`）③ 执行前自动打本地备份 tag `hundun-backup-<动作>-<时间戳>`，结果条里把 tag 名报出来，随时 `git reset --hard <tag>` 回滚
+- [x] **云端分支不存在的判定**: 不能只看 `fetch` 的 stderr —— 本地目录远端或裸仓库没有该分支时 git 可能"静默成功"却什么都没拿到。`fetchRemoteBranch()` 之后必须再 `git rev-parse --verify --quiet FETCH_HEAD` 验一次，为空则回 `EMPTY_REMOTE`，此时「云端覆盖本地」明确拒绝、不动本地一个字节
 - [x] **不静默删东西**: 取消勾选时用 `git rm --cached` 移出索引、**本地文件保留**，结果里回报 `untracked` 清单；>50MB 文件跳过并列入 `.gitignore`，本地文件不动；任何"删除"都在返回结构里逐条说出来
-- [x] **安全**: 8 个 `sync:*` IPC 全部经 `isMainWindowSender` 守卫；错误统一过 `gitService.sanitize(err, {token})` 抹令牌；一律 `execFile` + 参数数组（无 shell），渲染进程传不进 git 参数；`GIT_TERMINAL_PROMPT=0` 禁交互
-- [x] **测试**: `scripts/test-sync-service.js` 11 项集成（本地裸仓库当远端真实跑 git）—— 白名单只放行该放的、令牌不进 `.git/config`、无改动不产生空提交、远端他人提交能合并、冲突报 CONFLICT 不自行丢改动、按「保留本地」解决后推送成功、取消勾选后文件出库但本地保留。全过
+- [x] **安全**: `sync:*` IPC 全部经 `isMainWindowSender` 守卫；错误统一过 `gitService.sanitize(err, {token})` 抹令牌；一律 `execFile` + 参数数组（无 shell），渲染进程传不进 git 参数；`GIT_TERMINAL_PROMPT=0` 禁交互
+- [x] **测试**: `scripts/test-sync-service.js` **17 项集成**（本地裸仓库当远端真实跑 git）—— 白名单只放行该放的、令牌不进 `.git/config`、无改动不产生空提交、远端他人提交能合并、冲突报 CONFLICT 不自行丢改动、按「保留本地」解决后推送成功、取消勾选后文件出库但本地保留；**另加四个动作各一项**：推送不拉取 / 拉取不推送 / 本地未提交改动先落提交再合并（不丢）/ 本地覆盖云端后远端被替换且留下备份 tag / 云端覆盖本地后本地被替换而未跟踪文件保留 / 云端为空时覆盖本地报 `EMPTY_REMOTE` 且不动本地。全过
 
 ### remove: 移除 FastTXT 云端文档库（同步能力上移母程序）
 
@@ -24,7 +37,7 @@
 - [x] **移除面（前端）**: 底部 ☁ 按钮、`css/cloud.css`、`js/cloud.js`、`main.html` 的云端视图与引用、`app-state.js` 的云按钮与标题栏绑定、`init.js`/`theme-sync.js` 的 `themeToggleCloud`、`keyboard.js` 的 `currentView === 'cloud'` 转发、`i18n.js` 中英两套 `cloud.*` 文案（约 225 行）
 - [x] **移除面（主进程）**: `registerFastTXTCloudIPC()` 整段（250 行：`readCloudConfig`/`writeCloudConfig`/`withCloudLock`/`cloudErrorPayload`/`sanitizeCloudOptions`/7 个 `fasttxt:cloud:*` 通道）、`plugin-preload.js` 的 `window.hundun.cloud`、`git-service.js` 中仅供云端库使用的 `setupRepo`/`syncRepo`/`resolveConflicts`/`repoState`/`disable`/`commitAll`/`ensureIgnoreFile`/`mergeRemote`/`fetchRemote`/`pushBranch`/`aheadBehind`/`lastCommit`/`currentBranch`/`changedFiles`/`mergeInProgress`/`cloudSiblingPath`/`IGNORE_LINES`（文件从 687 行降到 262 行，只留 `detectGit`/`runGit`/`readConflicts`/`buildAuthUrl`/`sanitize`/`classifyNetworkError` 等母程序仓库同步复用的部分）
 - [x] **老用户遗留物**: `plugins/fast-txt/cloud.json` 与 `file/.git/` **保留不删、也不再读取**。想彻底清掉可手动删除这两个，文档不受影响（`STORAGE.md` 第 14 节已写明）
-- [x] **验证**: 全插件 JS `node --check` 通过；FastTXT 页面实测初始化无 JS 错误（4 个底部按钮，无云端入口）；`test-sync-service`（11）与 `test-settings-store`（21）回归通过；`npm run build` 通过
+- [x] **验证**: 全插件 JS `node --check` 通过；FastTXT 页面实测初始化无 JS 错误（4 个底部按钮，无云端入口）；`test-sync-service`（17）与 `test-settings-store`（21）回归通过；`npm run build` 通过
 
 ### feat: 应用设置改存 `settings.json`，与子程序数据同级（决策66）
 
@@ -84,6 +97,7 @@
 - [x] **i18n**: zh/en 移除 `updateTitle` / `updateMsg`（开发中），新增 `updateChecking*` / `updateFound*` / `updateGoDownload` / `updateLater` / `updateLatest*` / `updateFail*`（占位 `{version}` / `{current}` / `{reason}`）
 - [x] **测试**: `scripts/test-check-update.js`（纯 Node）46 项断言 —— 版本解析/比较、白名单、平台选包、payload 抽取、六条失败路径（URL 不放行 / 404 / 403 限流 / 超时 / 网络 / 坏 payload）与端到端四场景；另 `scripts/test-check-update-ipc.js`（Electron）5 项验证 preload 暴露与 IPC 往返
 - [x] **已知**: tag 必须为 `v?数字.数字.数字`（prerelease 后缀拒绝）；网络不通时弹「检查失败 (timeout)」，用户可重试
+
 
 ### feat: 新增非官方主题「接触印样 / CONTACT SHEET」（布局级重排，决策61）
 
@@ -186,6 +200,7 @@
 
 ### feat: 合入 Music 插件（远端 5f5ce5b）+ 与云端文档库并存
 
+
 - [x] **改动来源**: 远端 `origin/master` 新增 `5f5ce5b`（音乐插件，2026-11-09 提交）。本地 决策56 的云端文档库尚未入库，先提交为 `ca760e7` 再合并，避免工作区被覆盖
 - [x] **冲突**: 2 文件 4 处，全部是「两侧在同一位置各插一个 `registerXXX(pm)`」的**结构性**冲突 —— git 把共用的 `senderPluginId` 序言对齐了，直接「保留双方」会拼出语法错误的代码，因此改为「以本地完整版为底、把音乐那段按原位置补进去」
 - [x] **解冲突**: `src/main/index.js` —— electron 导入补 `dialog`；注册区连续调用 `registerFastTXTCloudIPC` 与 `registerMusicIPC`；FastTXT 云端 IPC 与 Music IPC 各自独立成段。`src/main/plugin-preload.js` —— `window.hundun` 下 `cloud` / `music` 两个 API 对象并存
@@ -244,7 +259,7 @@
 - [x] **按 Enter 没反应**: 键盘 `case 'Enter'` 只调了 `btn.action()`，漏了 `updateUI()`。云按钮的 action 只是把 `currentView` 切成 `'cloud'` 并把 loading 渲染进隐藏容器 → 视图永远不切，看起来像「按了没反应」。鼠标点击路径本来就有 `updateUI()`，所以只有键盘坏
 - [x] **空格无效**: 主视图的键位归一化只做了 WASD → 方向键，没做空格 → Enter（弹窗/新建菜单里是有的）。已补 `' ' / 'Spacebar' → 'Enter'`，与母程序「空格 = 执行」一致
 - [x] **两步交互**: 底部按钮改回手柄语义 —— 首次点击只选中（信息栏显示按钮名 + `btn-focused` 高亮），再点一次才执行；已是选中态时单击直接执行。避免误触设置/粉碎，也和母程序「选中 → Enter 插入」一致
-- [x] **打开变快**: `repoState()` 原来串行 spawn 6~8 次 git（Windows 每次 100~300ms）。`currentBranch / mergeInProgress / changedFiles / aheadBehind / lastCommit` 互不依赖，改 `Promise.all` 并行；`cloudRefresh` 里 `detect` 与 `state` 也并行发出。实测 804ms / 841ms → **257ms / 264ms**（约 3 倍）
+- [x] **打开变快**: `repoState()` 原来串行 spawn 6~~8 次 git（Windows 每次 100~~300ms）。`currentBranch / mergeInProgress / changedFiles / aheadBehind / lastCommit` 互不依赖，改 `Promise.all` 并行；`cloudRefresh` 里 `detect` 与 `state` 也并行发出。实测 804ms / 841ms → **257ms / 264ms**（约 3 倍）
 - [x] **验证**: Electron 实跑 8/8 —— ↓→→→→ 选中云按钮、Enter 打开、Esc 返回、空格打开、首点只选中、二点才进入、其他按钮同样两步；`npm run build` + `check:main` 通过；`test-fasttxt-cloud` 68/68 复跑通过
 
 ### fix: 装了 git 却提示"未检测到 git"（并发探测竞态）
@@ -294,11 +309,13 @@
 - [x] **修复: 主题运行中不同步到已打开子程序** (theme-changed 事件原先无任何发送方): 现在 `setTheme` → `ipc 'theme:changed'` → 主进程校验发送方为母窗口后转发给全部运行中插件窗口; 插件不可反向驱动全局主题; `theme:get-response` 应答从二值改为真实主题名
 - [x] **验证**: node --check / npm run build 全量 / 生产产物启动冒烟 (Session added + Plugin manager initialized 正常); i18n zh/en 补 `settings.neon`/`settings.gameboy`
 
+
 ## 2026-10-21
 
 ## 2026-10-21
 
 ### 修复: deb / AppImage 安装后应用没有图标 (决策50)
+
 - [x] **症状**: `.deb` 安装后应用菜单显示通用图标 (无自有图标), 桌面/任务栏同样无图标
 - [x] **根因**: `build.linux.icon` 指向**单个 PNG** (`src/renderer/public/icon.png`) — electron-builder 的 `FpmTarget` 用 `icon.size` 拼 hicolor 目录 (`hicolor/${size}x${size}/apps/`), 而 app-builder 的 `icon --format set` 对**单文件**输入**解析不到尺寸 → 返回 `size: 0`**, 图标最终被装到 `usr/share/icons/hicolor/0x0/apps/hundundesktop.png` — `0x0` 不是合法图标尺寸目录, 桌面环境按图标主题规范查找时必然落空
   - 实测复现: `node_modules/app-builder-bin/linux/x64/app-builder icon --format set --input <任意 PNG>` 恒返回 `{"size":0}`; 换成**目录**输入 (文件名 `<size>x<size>.png`) 才解析出 16/24/32/48/64/128/256/512
@@ -308,14 +325,15 @@
 - [x] **文档**: AGENTS.md 新增决策50 + 头部状态行更新; README 构建小节补图标集说明
 
 ### 修复: 母程序圆角外有一层半透明灰色 (决策51)
+
 - [x] **症状**: 母程序窗口圆角之外 (四个窗口角的 notch 区域) 有一层半透明灰边, 期望「圆角外什么都没有」(完全透明, 直接透出桌面)
 - [x] **根因**: `.console` 的 **外阴影** `box-shadow: 0 10px 40px rgba(0,0,0,0.5)` —— 外阴影按圆角矩形的 alpha 遮罩绘制, 会溢出到圆角缺口内, 于是窗口四角出现模糊黑灰 (实测缺口 alpha 9→35 渐变, 叠在浅色桌面上是可见灰晕)
 - [x] **修法**: 外阴影改**内阴影** (`--console-shadow` 变量, 深/浅色各一套), 只在机身内侧起体积感, 轮廓外零绘制; `BrowserWindow` 补 `backgroundColor: '#00000000'` (显式全透明, 防 Windows 平台透明窗口残留灰底)
 - [x] **验证**: 用 Electron `capturePage` 抓真实渲染层 (生产构建 + 桩 preload) 对比修复前后 —— 缺口区 alpha 由 9/13/21/30/35 全部降为 **0**, 其余像素不变
 - [x] **文档**: AGENTS.md 新增决策51 + 头部状态行更新
 
-
 ### feat: 母程序与全部子程序新增「最小化」按钮 (决策52)
+
 - [x] **需求**: 母程序以及所有子程序, 在 ✕ 按钮左侧增加最小化按钮
 - [x] **UI**: 母程序 `.header-buttons` 顺序改为 📌 置顶 → — 最小化 → ✕ 关闭 (flex 排列, 最小化紧邻 ✕ 左侧); 四个内置子程序的头部按钮为绝对定位, 统一调整为 **✕ right:12px / — right:48px / 📌 right:84px** (fast-txt 两个头部: 主视图 + 编辑器视图各一组)
   - 图标 = **CSS 伪元素横线** (`::before`, `width:0.72em; height:2px; border-radius:1px; background:currentColor`), 按钮为空内容; 宽度约 8.6px 与 ✕ 字形相当且严格居中; 字号与 ✕ 一致 (`12px` bold) 使横线随字号缩放 — 试过 `▁`(U+2581, 墨迹偏下) 与 em dash `—`(U+2014, 12px 下偏宽) 均弃用
@@ -334,23 +352,26 @@
 - [x] **文档**: AGENTS.md 新增决策52; `docs/PLUGIN_DEVELOPMENT.md` 增补窗口按钮布局约定与「按钮要早绑定」提醒; `docs/PLUGIN_SPEC.md` 注明最小化语义
 
 ### feat: 设置·关于页改版 (logo + 版本号 + 检查更新 + 关于作者) (决策53)
+
 - [x] **logo**: 原 🎮 emoji → 应用实际使用的插画 logo (`src/renderer/assets/logo-512.png`, 与窗口图标/NSIS 图标同源); 删除硬编码的 `v1.0.0-alpha` (与实际版本不符)
 - [x] **logo 明暗处理 (用户拍板)**: **统一使用原图 (亮色) logo**, 不做暗色/亮色变体; 浅色模式下曾加 `filter: brightness(0.72) saturate(1.6)` 提高对比, 按用户要求已移除
 - [x] **版本号上移**: 版本行置于信息行最上方 (在「技术栈」之上), 取值走主进程 `getAppVersion()` → `app.getVersion()` (显示 `v1.0.0`), 不再硬编码
 - [x] **检查更新按钮**: 位于版本行最右侧, 功能暂未实现 → 点击弹「开发中」提示弹窗 (复用 Settings 的 Modal); 图标 `↻` (`🔄` 缺字形会渲染成豆腐块)
 - [x] **措辞调整**: 「平台」→「系统」 (win32 映射为 Windows/macOS/Linux 等可读名), 「引擎」→「技术栈」 (显示实际主版本 `Electron 28 + Vue 3`)
 - [x] **关于作者板块**: 头像 + 名字「芜柒」+ 签名「音乐区最失败的程序员」+ Gitee/GitHub/Bilibili 三链接 (点击走 `openExternal`, 主进程只允许 http/https)
-  - **头像移入项目**: `~/桌面/b_d81010724cbc9da5062ab5681cc4ec4d.jpg` → `src/renderer/assets/author-avatar.jpg` (原件) + `author-avatar.png` (Pillow 居中正方形裁剪 + 椭圆 alpha 遮罩 = **圆形裁剪, 不抠背景**)   
+  - **头像移入项目**: `~/桌面/b_d81010724cbc9da5062ab5681cc4ec4d.jpg` → `src/renderer/assets/author-avatar.jpg` (原件) + `author-avatar.png` (Pillow 居中正方形裁剪 + 椭圆 alpha 遮罩 = **圆形裁剪, 不抠背景**)
 - [x] **键盘可达**: 关于页右栏可交互项由 0 → 4 (检查更新 + 3 个链接), `executeDetailAction()` 补 case 4, ↑↓/Enter 可操作
 - [x] **i18n**: 删除 `settings.engine` / `settings.platform`, 新增 `stack` / `system` / `checkUpdate` / `updateTitle` / `updateMsg` / `author` (zh/en)
 - [x] **验证**: 生产构建通过; Electron `capturePage` 实拍深色/浅色/英文三种渲染; 回归 window-lifecycle 61/61、mirror 61/61、task 64/64、sound-settings 9/9、plugin-uninstall 22/22
 
 ### 修复: test-fastcmd-platform 末项因语言环境误判为失败
+
 - [x] **现象**: `显示"当前系统不受支持"` 在英文系统恒失败 (31/32), 与本次改动无关 (已用 `git stash` 在干净 HEAD 复现)
 - [x] **根因**: ①子程序 UI 语言跟随系统 `navigator.language` (本机 en-US → 渲染 `Unsupported OS`), 断言却硬编码中文; ②改写断言时模板字符串里多带一个 `)`, 使表达式语法错误被 `waitFor` 吞掉 → 现改为中英文都接受, 并用字符串拼接避免嵌套模板/括号错位
 - [x] **结果**: test-fastcmd-platform **32/32 通过**
 
 ### 新增 opencode skill: 子程序开发 (hundundesktop-plugin-dev)
+
 - [x] **新增** `.opencode/skill/hundundesktop-plugin-dev/SKILL.md`: 子程序 (插件) 开发实操手册 —— 插件目录结构与 manifest 字段、**窗口按钮组规范** (📌 ▬ ✕ 位置/样式/伪元素横线/早绑定/no-drag)、母/子窗口互斥语义 (最小化→母程序恢复、恢复→母程序再隐藏、`pluginMinimized` 标记)、数据目录规则 (storage → `hundundesktop-data/<id>.json`, fs → `user-data/plugins/<id>/file/`)、i18n/主题/音效、平台差异、插件级回归测试写法、常见坑速查表
 - [x] **交叉引用**: packaging skill 增加「子程序开发请用 hundundesktop-plugin-dev」指引; AGENTS.md 文档结构表 + README 文档章节列出两个 skill
 - [x] 全局指针 skill (`~/.config/opencode/skills/hundun-lite-packaging/`) 同步修正陈旧路径 (决策49 改名后应为 `hundundesktop-packaging`) 与图标路径说明 (Linux 图标 = `build/icons` 目录), 并指向新的插件开发 skill (本地文件, 不入库)
@@ -360,6 +381,7 @@
 ## 2026-10-20
 
 ### 文档整理与 README 重写
+
 - [x] **目录整理**: `QUICKSTART.md` / `PLUGIN_DEVELOPMENT.md` / `PLUGIN_SPEC.md` 移入 `docs/`；`DEVELOPMENT_REPORT.md` 归入 `docs/archive/` 并标注历史存档
 - [x] **README 重写**: 更新窗口尺寸（800×540）、内置四张卡带、镜像模式、插件安装与管理、数据目录、跨平台打包与测试命令；加入 Logo、技术栈徽章、GitHub 告警块与文档导航
 - [x] **文档同步**: 快速开始 / 插件开发指南按当前 `window.hundun` API 重写；插件规范补充 `fs` / `sound` / `info` API、平台校验、zip 安装与解压限制；修正 STORAGE.md、plugin-installer.js、AGENTS.md 中的文档路径引用
@@ -369,6 +391,7 @@
 ## 2026-10-16
 
 ### 全面改名: Hundun Lite → HundunDesktop (决策49)
+
 - [x] **UI 显示名**: 页脚 / 设置·关于页 / i18n `app.title` 大写标题 `HUNDUN LITE` → `HUNDUN DESKTOP`；`index.html` `<title>`、start.sh 注释、各文件头注释 `Hundun Lite` → `HundunDesktop`；4 个插件 manifest 与 4 个默认插件 author 同步
 - [x] **打包标识 (package.json + package-lock)**: `name: hundundesktop`、`appId: com.hundun.desktop`、`productName`/`nsis.shortcutName: HundunDesktop`、`linux.executableName` 与 `deb.packageName: hundundesktop`、maintainer/author/description 同步 → 产物变为 `HundunDesktop Setup 1.0.0.exe` / `HundunDesktop-1.0.0.AppImage` / `hundundesktop_1.0.0_amd64.deb`（**deb 包名变化，旧 hundun-lite 包不会被自动升级覆盖，需手动卸载**）
 - [x] **数据键 (改名不迁移)**: localStorage `hundundesktop-settings` / `hundundesktop-theme` / `hundundesktop-locale` / `hundundesktop-plugins` / `hundundesktop-plugins-removed`；数据目录 `hundundesktop-data/`（database.js + 测试同步）；插件 fast-txt/fast-cmd/task 的 i18n 读 `hundundesktop-locale` 同步 — **旧键/旧目录直接丢弃，无迁移代码**
@@ -382,6 +405,7 @@
 ## 2026-10-15
 
 ### 跨平台打包三件套: Windows NSIS + Linux AppImage/deb (决策47)
+
 - [x] **架构修复 (阻断点)**: 打包态原一律 `exe目录/user-data`，装进 Program Files / /opt / AppImage 只读位置会启动即写失败 — `src/main/paths.js` 新增 `isPackagedPortableMode()` (APPIMAGE 环境或 exe 目录 mkdir+探针文件试写失败 → 回退) + `resolveUserDataDir()` (便携 = `<可写根>/user-data` 原行为; 回退 = `app.getPath('userData')` 默认值, 取值在 `setPath` 之前) + `resolveInstallPluginsDir()` 回退 `<userData>/installed-plugins` (**不能用 `<userData>/plugins`** — 与插件数据目录 `<userData>/plugins/<id>/file` 同名, 卸载删数据会误删代码); `index.js` 顶部改 `resolveUserDataDir()` 单点决策 + 回退模式启动日志 + gpu-cache 建目录 try/catch; **开发态恒便携, `npm run dev` 零影响**
 - [x] **图标**: 零依赖 `scripts/gen-icon.js` (手写 PNG/ICO 编码 + 像素掌机图案) → `src/renderer/public/icon.png` (vite publicDir 拷入 `out/renderer/`, 修 `createWindow` icon 指向 — 原 `../renderer/assets/icon.png` 路径根本不存在) + `src/renderer/assets/icon.ico` (win.icon); 附 `npm run gen-icon` — ⚠️ 该像素图标已被**决策48 插画 logo** 取代 (见下方「应用 Logo 更换」, 勿再跑)
 - [x] **package.json build 配置**: 补 `homepage` (fpm/deb 必填, 缺失直接 `Please specify project homepage` 报错)、`linux` target `["AppImage","deb"]` + icon/category/description/maintainer/executableName `hundundesktop`、`deb.packageName`、`nsis.artifactName` `${productName} Setup ${version}.${ext}`; `build:win` 改 `--win nsis --x64` (原 `--universal` 无意义), 新增 `build:setup` 一次出三件套; `build.files` 白名单 `out/plugins/sounds` + `!node_modules` 不变 (零原生模块)
@@ -389,6 +413,7 @@
 - [x] **产物 (`dist/`, 均已验证)**: `HundunDesktop Setup 1.0.0.exe` 76.7MB (Nullsoft 签名 + 内嵌 productName + exe 版本资源/图标 6 处 PNG) / `HundunDesktop-1.0.0.AppImage` 104.5MB (`--appimage-help` 正常) / `hundundesktop_1.0.0_amd64.deb` 72.7MB (control Depends/Homepage 正确); 打包版冒烟: 便携模式 user-data 正确落 exe 旁, 主进程日志正常
 - [x] 回归: `test-window-lifecycle` 32/32, `test-mirror` 61/61, `test-plugin-uninstall` 22/22, `npm run build` 通过
 - [x] **文档**: AGENTS.md 新增决策47 + 开发/打包路径表更新 (便携/回退) + 新增「打包构建」小节
+
 
 ### AppImage 双击无法启动修复 (决策47⑥)
 - [x] **现象**: 双击 `HundunDesktop-1.0.0.AppImage` 无反应 (终端跑报 `dlopen(): error loading libfuse.so.2`)
@@ -487,6 +512,8 @@
   - 新增 `scripts/test-task-preload.js` (mock hundun.storage 落盘 + Notification 打桩 + document.hidden 强制隐藏) 与 `scripts/test-task.js` (Electron 冒烟): 空态/自动命名/状态计算/排序/徽章切换/编辑预填与保存/表单内删除/提醒触发与错过静默补记/提醒方式门槛/放弃确认/表单等大/持久化重载存活/全套键盘导航 → **64/64 通过** (连跑两次稳定)
   - `scripts/test-window-lifecycle.js` 新增 I 节 (真实 plugin-preload + 真实 storage IPC 启动 task, 窗口尺寸 420×540, `task.json` 落盘): **32/32 通过**; 测试 userData 改为临时目录隔离
   - 回归: `npm run build` 通过, `test-platform-support` 21/21
+
+
 
 ---
 
@@ -621,6 +648,8 @@
 - [x] **测试**: 新增 `scripts/test-window-lifecycle.js` **19/19 通过** (launch 直启 / 意外 show 拦截 / 插件切换 / 返回 / existing-window 直启 / X 关闭恢复 / 挂起恢复，每步断言互斥+至少一个可见)
 - [x] **真实应用端到端验证** (CDP 驱动 dev 实例): 子程序运行期间 `location.reload()` 母程序页面 → **确认页面确实重载 (did-finish-load 触发) 且母窗口保持隐藏**；子程序关闭 → 母窗口恢复，**5/5 通过**
 - [x] 回归: 音效测试 9/9、md 测试 48/48 + 12/12、`npm run build` 通过
+
+
 
 ---
 

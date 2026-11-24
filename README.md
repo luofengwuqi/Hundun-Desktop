@@ -23,7 +23,7 @@ HundunDesktop 是一个以「游戏掌机」为隐喻的桌面效率应用。母
 - **键盘优先**：WASD / 方向键导航，空格 / Enter 确认，Esc 返回
 - **镜像模式**：再开一个母窗口，双人并行使用不同子程序
 - **本地优先**：数据保存在本机 JSON 文件，无需账户与网络
-- **用户数据仓库**：底部「仓库」按钮可把整个数据目录接成 git 仓库（Gitee 一键建库 / 已有仓库），只同步你勾选的范围，手动触发
+- **用户数据仓库**：底部「仓库」按钮可把整个数据目录接成 git 仓库（Gitee 一键建库 / 已有仓库），只同步你勾选的范围，拉取 / 推送 / 两个方向的覆盖各是一个独立按钮
 - **插件安装**：从 `.zip` 安装第三方插件，设置页统一管理排序与卸载
 
 > [!IMPORTANT]
@@ -101,8 +101,14 @@ Linux 下也可以直接执行 `./start.sh`：脚本会自动安装依赖，并�
 - **两种接入**：① Gitee 一键建库（填私人令牌，自动建私有空库并关联）② 已有仓库（填地址+令牌，先拉取再与本地合并，两边都不丢）
 - **只同步你勾的**：`.gitignore` 采用白名单 —— 先排除一切，再逐级放行 `settings.json`、各子程序的 `hundundesktop-data/*.json`、以及你勾选插件的数据目录。`Cache`、`Local Storage`、未勾选插件、令牌文件一律不进库
 - **范围由子程序声明**：插件 `manifest.json` 的 `sync` 字段决定它能同步什么；`paths: []` 表示只同步设置不传文件（TASK / Music 数据全在 `*.json`）
-- **手动同步**：提交本地改动 → 拉取 → 必要时合并 → 推送。编辑保存过程完全不联网
-- **不做破坏性操作**：不执行 `reset` / `clean` / `checkout -f` / `push --force`；冲突只按文件取「本地」或「云端」版本，不动其他文件
+- **四个动作各自独立**（左栏四个按钮，没有"一键全自动同步"）：
+  - **从云端拉取到本地** —— 本地改动先落成提交 → `fetch` → `merge`，**不推送**
+  - **从本地推送到云端** —— `add` → 有暂存才 commit → `push`，**不拉取**（被拒会提示先拉）
+  - **从云端覆盖到本地** —— 取云端版本后 `reset --hard`，**不 `clean`**（未跟踪文件保留）
+  - **从本地覆盖到云端** —— 提交后 `push --force`
+- **覆盖动作要点两次**：第一次点会把按钮"上膛"（整块转品红、图标换警告三角、文案变「再点一次确认」），5 秒内不再点就自动撤回；执行前自动打本地备份 tag `hundun-backup-<动作>-<时间戳>`，结果条会报出 tag 名，反悔就 `git reset --hard <tag>`
+- **冲突只按文件取值**：拉取遇到冲突时界面列出冲突文件，只能对整份文件选「保留本地」或「保留云端」，不动其他文件
+- **云端为空就拒绝**：分支上没有任何提交时，「从云端覆盖到本地」会明确报错并原地不动，不会把本地清空
 - **取消勾选不删文件**：只从索引里移除（`git rm --cached`），本地文件保留，结果里会列出来
 - **大文件跳过**：单文件超过 50MB 不入库，本地文件不动
 - **私有仓库要填访问令牌**（加密存本机，不写进仓库）：
@@ -220,7 +226,7 @@ HundunDesktop/
 │   │   ├── mirror-manager.js # 镜像窗口与升格
 │   │   ├── plugin-installer.js # .zip 审核、解压、安装与卸载
 │   │   ├── settings-store.js # 应用设置读写（原子写 / 键白名单 / 坏文件留存）
-│   │   ├── sync-service.js   # 用户数据仓库同步（白名单入库 / 冲突处理）
+│   │   ├── sync-service.js   # 用户数据仓库同步（四动作 / 备份 tag / 白名单入库 / 冲突处理）
 │   │   ├── git-service.js    # 加固的 git 调用层（无 shell / 令牌脱敏 / 错误分类）
 │   │   ├── plugin-preload.js # window.hundun 插件 API
 │   │   └── preload.js        # 主窗口 preload
@@ -293,7 +299,7 @@ npx electron --no-sandbox scripts/test-settings-migration.js  # 老 localStorage
 
 ```bash
 node scripts/test-platform-support.js
-node scripts/test-sync-service.js    # 本地 bare 仓库当远端，真跑 git：白名单/冲突/取消勾选
+node scripts/test-sync-service.js    # 本地 bare 仓库当远端，真跑 git：四动作/备份 tag/白名单/冲突/取消勾选（17 项）
 node scripts/test-settings-store.js  # 设置文件原子写/坏文件隔离/键白名单
 node scripts/test-userdata-policy.js # 数据目录策略 + 旧目录迁移
 node scripts/test-check-update.js    # 检查更新（注入 fetch）

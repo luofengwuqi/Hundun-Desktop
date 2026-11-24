@@ -485,6 +485,11 @@ function createSyncService (opts = {}) {
     if (patch.scopes) next.scopes = normalizeScopes({ ...cfg.scopes, ...patch.scopes })
     if (patch.branch !== undefined) next.branch = normalizeBranch(patch.branch)
     if (patch.enabled !== undefined) next.enabled = !!patch.enabled
+    // 右栏上栏的「Gitee 访问令牌」直接写这里: 空串 = 清除令牌
+    if (patch.token !== undefined) {
+      const saved = saveToken(patch.token)
+      next.tokenStorage = saved.tokenStorage
+    }
     writeConfig(next)
     return { ok: true, config: publicConfig(next) }
   }
@@ -624,6 +629,195 @@ function createSyncService (opts = {}) {
     })
   }
 
+  // ---------- 对外: 四个显式动作 (拉取 / 推送 / 云端覆盖本地 / 本地覆盖云端) ----------
+  //
+  // 与 sync() 的区别: sync() 是"全流程一把梭"(commit→fetch→merge→push),
+  // 这里拆成四个语义单一的动作, 用户点哪个就只做哪件事, 不做额外的事。
+  //
+  // 安全约定:
+  //   - 拉取/推送都是非破坏的 (不 reset、不 force)
+  //   - 两个"覆盖"是破坏性的, 但**执行前一定先打本地备份 tag**,
+  //     出事了 `git reset --hard <tag>` 就能回来; 且只 reset/force, 绝不 clean
+  //     —— 未被 git 跟踪的本地文件永远不动
+
+  function assertReady (cfg) {
+    if (!cfg.remoteUrl) throw new gitService.GitError('NOT_LINKED', '尚未关联远程仓库')
+    if (!cfg.enabled) throw new gitService.GitError('DISABLED', '仓库同步未启用')
+  }
+
+  /** 工作区有改动就提交；没改动返回 false。调用方需先 writeIgnoreFile。 */
+  async function commitLocal (prefix) {
+    const add = await git(['add', '-A'])
+    if (!add.ok) throw new gitService.GitError('ADD_FAILED', '暂存文件失败', add.stderr)
+    const staged = await git(['diff', '--cached', '--name-only'])
+    const stagedFiles = staged.ok ? staged.stdout.split('\n').filter(l => l.trim()) : []
+    if (!stagedFiles.length) return { committed: false, count: 0 }
+    const msg = `${prefix || 'HundunDesktop 同步'} ${new Date().toISOString()}`
+    const commit = await git([...COMMIT_IDENTITY, 'commit', '-q', '-m', msg])
+    if (!commit.ok) throw new gitService.GitError('COMMIT_FAILED', '创建提交失败', commit.stderr)
+    return { committed: true, count: stagedFiles.length }
+  }
+
+  /**
+   * 破坏性操作前留个指针: 本地 tag。
+   * 只写本地 .git, 不推远端, 也不出现在文件系统里 —— 代价几乎为零。
+   */
+  async function makeBackupTag (label) {
+    const head = await git(['rev-parse', '--verify', '--quiet', 'HEAD'])
+    if (!head.ok) return null            // 还没有任何提交, 没东西可备份
+    const ts = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+$/, '').replace('T', '-')
+    const name = `hundun-backup-${label}-${ts}`
+    const res = await git(['tag', name])
+    return res.ok ? name : null
+  }
+
+  /**
+   * fetch 远端分支，并判断云端到底有没有内容。
+   * 只靠 stderr 正则不够：远端是本地目录、或裸仓库没有该分支时，
+   * git 可能静默成功且不写 FETCH_HEAD —— 所以再验一次 FETCH_HEAD。
+   */
+  async function fetchRemoteBranch (cfg) {
+    const url = authUrlFor(cfg)
+    const res = await git(['fetch', '--prune', url, cfg.branch])
+    if (!res.ok) {
+      const text = `${res.stderr}${res.stdout}`
+      if (/couldn't find remote ref|no such remote ref|Remote branch .* not found/i.test(text)) {
+        return { ok: true, hasContent: false }
+      }
+      throw gitService.classifyNetworkError(res, cfg)
+    }
+    const head = await git(['rev-parse', '--verify', '--quiet', 'FETCH_HEAD'])
+    const sha = head.ok ? head.stdout.trim() : ''
+    return { ok: true, hasContent: !!sha }
+  }
+
+  /** 从云端拉取到本地: fetch + merge, 不推。本地未提交的改动会先落成提交, 不会丢。 */
+  async function pull () {
+    const cfg = readConfig()
+    assertReady(cfg)
+    return withLock(async () => {
+      await ensureRepo(cfg.branch)
+      const oversize = writeIgnoreFile(cfg.scopes)
+      const untracked = await untrackDisallowed(cfg.scopes)
+      const local = await commitLocal('拉取前的本地改动')
+
+      const fetched = await fetchRemoteBranch(cfg)
+      if (!fetched.hasContent) {
+        // 云端还没有这个分支: 没东西可拉, 也不算错
+        writeConfig({ ...cfg, lastSyncAt: Date.now(), lastResult: 'ok' })
+        return { ok: true, code: 'EMPTY_REMOTE', committed: local.committed, updated: false, changed: 0, skipped: oversize, untracked, conflicts: [] }
+      }
+
+      const before = await git(['rev-parse', 'HEAD'])
+      const merge = await git(['merge', 'FETCH_HEAD', '--allow-unrelated-histories', '--no-edit',
+        '-m', `合并云端改动 ${new Date().toISOString()}`])
+      if (!merge.ok) {
+        const text = `${merge.stderr}${merge.stdout}`
+        if (/CONFLICT|Automatic merge failed/i.test(text)) {
+          const list = await gitService.readConflicts(userDataDir, { ...cfg, token: '' }).catch(() => [])
+          return { ok: false, code: 'CONFLICT', conflicts: Array.isArray(list) ? list : [], skipped: oversize, untracked, committed: local.committed }
+        }
+        throw gitService.classifyNetworkError(merge, cfg)
+      }
+      const after = await git(['rev-parse', 'HEAD'])
+      const updated = !(before.ok && after.ok && before.stdout.trim() === after.stdout.trim())
+      let changed = 0
+      if (updated && before.ok) {
+        const diff = await git(['diff', '--name-only', before.stdout.trim(), 'HEAD'])
+        changed = diff.ok ? diff.stdout.split('\n').filter(l => l.trim()).length : 0
+      }
+
+      writeConfig({ ...cfg, lastSyncAt: Date.now(), lastResult: 'ok' })
+      return { ok: true, code: 'OK', committed: local.committed, updated, changed, skipped: oversize, untracked, conflicts: [] }
+    })
+  }
+
+  /** 从本地推送到云端: commit + push, 不拉不合并。云端更新过则拒绝, 让用户先拉。 */
+  async function pushOnly () {
+    const cfg = readConfig()
+    assertReady(cfg)
+    return withLock(async () => {
+      await ensureRepo(cfg.branch)
+      const oversize = writeIgnoreFile(cfg.scopes)
+      const untracked = await untrackDisallowed(cfg.scopes)
+      const local = await commitLocal('本地推送')
+
+      const url = authUrlFor(cfg)
+      const push = await git(['push', url, `HEAD:refs/heads/${cfg.branch}`])
+      if (!push.ok) {
+        const text = `${push.stderr}${push.stdout}`
+        if (/non-fast-forward|\[rejected\]|fetch first/i.test(text)) {
+          return {
+            ok: false,
+            code: 'REJECTED',
+            message: '云端有本地没有的提交。先点「从云端拉取到本地」，或者用「从本地覆盖到云端」强制覆盖',
+            committed: local.committed, skipped: oversize, untracked
+          }
+        }
+        throw gitService.classifyNetworkError(push, cfg)
+      }
+
+      writeConfig({ ...cfg, lastSyncAt: Date.now(), lastResult: 'ok' })
+      return { ok: true, code: 'OK', committed: local.committed, pushed: local.count, skipped: oversize, untracked }
+    })
+  }
+
+  /**
+   * 从云端覆盖到本地 (破坏性): 本地已跟踪文件回退成云端版本。
+   * - 先打本地 tag 备份, 出事 `git reset --hard <backup>` 回来
+   * - 只 `reset --hard`, 不 `clean` —— 未被跟踪的本地文件原样保留
+   */
+  async function overwriteLocal () {
+    const cfg = readConfig()
+    assertReady(cfg)
+    return withLock(async () => {
+      await ensureRepo(cfg.branch)
+      writeIgnoreFile(cfg.scopes)
+
+      const fetched = await fetchRemoteBranch(cfg)
+      if (!fetched.hasContent) {
+        return { ok: false, code: 'EMPTY_REMOTE', message: '云端还没有可用的内容，没有东西可以覆盖到本地' }
+      }
+
+      const backup = await makeBackupTag('before-local-overwrite')
+      const reset = await git(['reset', '--hard', 'FETCH_HEAD'])
+      if (!reset.ok) throw new gitService.GitError('RESET_FAILED', '覆盖本地失败', reset.stderr)
+
+      let changed = 0
+      if (backup) {
+        const diff = await git(['diff', '--name-only', backup, 'HEAD'])
+        changed = diff.ok ? diff.stdout.split('\n').filter(l => l.trim()).length : 0
+      }
+
+      writeConfig({ ...cfg, lastSyncAt: Date.now(), lastResult: 'ok' })
+      return { ok: true, code: 'OK', backup, changed, detail: String(reset.stdout || '').trim() }
+    })
+  }
+
+  /**
+   * 从本地覆盖到云端 (破坏性): `push --force`, 云端历史被本地历史替换。
+   * - 先打本地 tag 备份（覆盖前那一刻的本地状态）
+   * - 调用方必须先拿到用户二次确认（IPC 层校验 confirm）
+   */
+  async function overwriteRemote () {
+    const cfg = readConfig()
+    assertReady(cfg)
+    return withLock(async () => {
+      await ensureRepo(cfg.branch)
+      const oversize = writeIgnoreFile(cfg.scopes)
+      const untracked = await untrackDisallowed(cfg.scopes)
+      const local = await commitLocal('覆盖云端前快照')
+
+      const backup = await makeBackupTag('before-remote-overwrite')
+      const url = authUrlFor(cfg)
+      const push = await git(['push', '--force', url, `HEAD:refs/heads/${cfg.branch}`])
+      if (!push.ok) throw gitService.classifyNetworkError(push, cfg)
+
+      writeConfig({ ...cfg, lastSyncAt: Date.now(), lastResult: 'ok' })
+      return { ok: true, code: 'OK', backup, committed: local.committed, skipped: oversize, untracked }
+    })
+  }
+
   // ---------- 对外: 冲突解决 (只按文件取值, 不做 reset) ----------
 
   async function resolveConflicts (strategy) {
@@ -737,6 +931,10 @@ function createSyncService (opts = {}) {
     linkRemote,
     createGiteeRepo,
     sync,
+    pull,
+    push: pushOnly,
+    overwriteLocal,
+    overwriteRemote,
     resolveConflicts,
     // 给测试用
     _internal: { buildIgnoreLines, scanOversize, writeIgnoreFile, listPlugins, MAX_FILE_BYTES }

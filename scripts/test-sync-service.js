@@ -205,6 +205,85 @@ const lsRemote = () => {
     assert.ok(!JSON.stringify(st).includes('token"'), '状态里不该出现令牌字段')
   })
 
+  // ===== 四个显式动作 (拉取 / 推送 / 云端覆盖本地 / 本地覆盖云端) =====
+
+  // 模拟"另一台机器"直接往远端推一个提交
+  const remoteCommit = (file, content, msg) => {
+    const work = path.join(tmpRoot, `work-${Date.now()}-${Math.floor(Math.random() * 1000)}`)
+    git(tmpRoot, ['clone', '-q', remoteDir, work])
+    const abs = path.join(work, file)
+    fs.mkdirSync(path.dirname(abs), { recursive: true })
+    fs.writeFileSync(abs, content)
+    git(work, ['add', '-A'])
+    git(work, ['commit', '-q', '-m', msg])
+    git(work, ['push', '-q', 'origin', 'main'])
+    fs.rmSync(work, { recursive: true, force: true })
+  }
+
+  const tags = () => {
+    try {
+      return git(userDataDir, ['tag', '-l']).split('\n').filter(Boolean)
+    } catch (_) {
+      return []
+    }
+  }
+
+  await check('动作·推送: 本地新文件 → 远端, 不拉取', async () => {
+    mk('plugins/fast-txt/file/push-only.md', 'pushed by action')
+    const res = await service.push()
+    assert.strictEqual(res.ok, true, JSON.stringify(res).slice(0, 300))
+    assert.strictEqual(res.committed, true, '应产生提交')
+    assert.ok(lsRemote().includes('plugins/fast-txt/file/push-only.md'), '远端应出现该文件')
+  })
+
+  await check('动作·拉取: 远端新提交 → 本地, 不推送', async () => {
+    remoteCommit('plugins/fast-txt/file/from-cloud.md', 'made on another machine', 'remote add file')
+    const res = await service.pull()
+    assert.strictEqual(res.ok, true, JSON.stringify(res).slice(0, 300))
+    assert.strictEqual(res.updated, true, '本地应发生更新')
+    assert.ok(res.changed >= 1, `应报出更新文件数, 实际 ${res.changed}`)
+    const local = fs.readFileSync(path.join(userDataDir, 'plugins/fast-txt/file/from-cloud.md'), 'utf8')
+    assert.strictEqual(local, 'made on another machine')
+  })
+
+  await check('动作·拉取: 本地未提交改动不会丢（先落成提交再合并）', async () => {
+    mk('plugins/fast-txt/file/local-dirty.md', 'dirty but should survive pull')
+    const res = await service.pull()
+    assert.strictEqual(res.ok, true, JSON.stringify(res).slice(0, 300))
+    assert.strictEqual(res.committed, true, '本地改动应先被提交')
+    const local = fs.readFileSync(path.join(userDataDir, 'plugins/fast-txt/file/local-dirty.md'), 'utf8')
+    assert.strictEqual(local, 'dirty but should survive pull', '内容不能被合并回滚')
+  })
+
+  await check('动作·本地覆盖云端: 远端内容被本地替换, 且留下备份 tag', async () => {
+    remoteCommit('plugins/fast-txt/file/overwrite-me.md', 'cloud version', 'cloud adds file')
+    mk('plugins/fast-txt/file/overwrite-me.md', 'local version wins')
+    const res = await service.overwriteRemote()
+    assert.strictEqual(res.ok, true, JSON.stringify(res).slice(0, 300))
+    assert.ok(res.backup, '应返回备份 tag 名')
+    assert.ok(tags().includes(res.backup), '备份 tag 应真的存在于本地')
+    const remote = git(tmpRoot, ['--git-dir', remoteDir, 'show', 'refs/heads/main:plugins/fast-txt/file/overwrite-me.md'])
+    assert.strictEqual(remote.trim(), 'local version wins', '远端应被本地内容覆盖')
+  })
+
+  await check('动作·云端覆盖本地: 本地被云端替换, 未跟踪文件保留', async () => {
+    // 本地先造两处差异: 一个已跟踪文件被改、一个从未入库的新文件
+    mk('plugins/fast-txt/file/overwrite-me.md', 'stale local edit')
+    mk('plugins/fast-txt/file/never-tracked.txt', 'keep me')
+    remoteCommit('plugins/fast-txt/file/overwrite-me.md', 'cloud authoritative', 'cloud edits file')
+
+    const res = await service.overwriteLocal()
+    assert.strictEqual(res.ok, true, JSON.stringify(res).slice(0, 300))
+    assert.ok(res.backup, '应返回备份 tag 名')
+
+    const local = fs.readFileSync(path.join(userDataDir, 'plugins/fast-txt/file/overwrite-me.md'), 'utf8')
+    assert.strictEqual(local, 'cloud authoritative', '已跟踪文件应变成云端版本')
+    assert.ok(
+      fs.existsSync(path.join(userDataDir, 'plugins/fast-txt/file/never-tracked.txt')),
+      '未被 git 跟踪的本地文件必须保留（绝不 clean）'
+    )
+  })
+
   await check('取消勾选某插件 → 文件从库里移除, 但本地文件保留', async () => {
     const upd = await service.updateConfig({ scopes: { plugins: [] } })
     assert.strictEqual(upd.ok, true)
@@ -216,6 +295,25 @@ const lsRemote = () => {
     assert.ok(!files.includes('hundundesktop-data/fast-txt.json'), '插件 JSON 也不该还在库里')
     assert.ok(files.includes('settings.json'), '设置仍应留在库里')
     assert.ok(fs.existsSync(path.join(userDataDir, 'plugins/fast-txt/file/note.md')), '本地文件必须保留')
+  })
+
+  // 放在最后: 这个用例会把配置切到空远端
+  await check('动作·云端为空时覆盖本地 → 明确报 EMPTY_REMOTE, 不动本地', async () => {
+    const emptyRemote = path.join(tmpRoot, 'empty-remote.git')
+    git(tmpRoot, ['init', '--bare', '-q', emptyRemote])
+    git(tmpRoot, ['--git-dir', emptyRemote, 'symbolic-ref', 'HEAD', 'refs/heads/main'])
+    await service.linkRemote({ remoteUrl: emptyRemote, branch: 'main', token: '' })
+    // linkRemote 会顺手首推, 把远端分支删掉才是真正的"云端没有内容"
+    try {
+      git(tmpRoot, ['--git-dir', emptyRemote, 'update-ref', '-d', 'refs/heads/main'])
+    } catch (_) {}
+
+    const before = fs.readFileSync(path.join(userDataDir, 'plugins/fast-txt/file/overwrite-me.md'), 'utf8')
+    const res = await service.overwriteLocal()
+    assert.strictEqual(res.ok, false, JSON.stringify(res).slice(0, 200))
+    assert.strictEqual(res.code, 'EMPTY_REMOTE', JSON.stringify(res).slice(0, 200))
+    const after = fs.readFileSync(path.join(userDataDir, 'plugins/fast-txt/file/overwrite-me.md'), 'utf8')
+    assert.strictEqual(after, before, '云端没有内容时不该动本地文件')
   })
 
   fs.rmSync(tmpRoot, { recursive: true, force: true })

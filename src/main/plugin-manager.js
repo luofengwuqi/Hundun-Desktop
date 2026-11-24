@@ -59,6 +59,12 @@ class PluginManager {
     // 因此用独立标记做会话可见性判定, 保证「最小化 → 母程序顶上」不被时序打断
     this.pluginMinimized = new Map() // pluginId -> true
 
+    // 追踪「停放」的插件: 用户点了返回母程序 (或被 suspend), 实例 hide 后留在 windows 里备用
+    // 只有停放的实例不算占用 —— 不能用窗口可见性反推 (决策65 修订):
+    // 过渡动画期间窗口已创建但还没 show、最小化/恢复的可见性抖动, 都会让可见性口径出现
+    // 「看起来没人用」的空档, 于是两个会话能各自开出一份同一个插件的窗口
+    this.parkedPlugins = new Set() // Set<pluginId>
+
     // 默认会话 = 主会话 (兼容 test-window-lifecycle 等直接 new PluginManager(mainWin) 的用法)
     if (mainWindow && !mainWindow.isDestroyed()) {
       this.setPrimarySession(this.addSession(mainWindow, 'main'))
@@ -138,6 +144,8 @@ class PluginManager {
       this.pluginOwner.delete(pluginId)
       const win = this.windows.get(pluginId)
       this.windows.delete(pluginId)
+      this.pluginMinimized.delete(pluginId)
+      this.parkedPlugins.delete(pluginId)
       const plugin = this.plugins.get(pluginId)
       if (plugin) plugin.state = PluginState.UNLOADED
       if (win && !win.isDestroyed()) win.close()
@@ -176,19 +184,18 @@ class PluginManager {
 
   /**
    * 插件是否"真的在跑"（应当占用 / 锁住其他会话）
-   * 口径: 窗口存在且处于「可见」或「最小化」状态。
-   * 注意: 返回母程序 (returnToParent) 只是 hide, 实例仍留在 windows 里以便本会话快速恢复,
-   * 但它已经不在屏幕上 —— 若也算占用, 镜像窗口会把历史上开过的应用逐个锁死 (决策65 修复)
+   * 口径: 窗口存在且**不是停放状态**。
+   * 停放 = 用户点了返回母程序 (returnToParent) 或 suspend, 实例被 hide 但保留供快速切回;
+   * 其余一切状态 (可见 / 最小化 / 过渡动画中尚未 show) 都算在跑。
+   * 不能用 isVisible() 反推 —— 动画期间窗口就是不可见的, 那样会出现一段「谁都能抢」的空档,
+   * 两个会话会各自建出一份同一个插件的窗口 (决策65 修订)
    * @param {string} pluginId
    * @returns {boolean}
    */
   isPluginHeld(pluginId) {
     const win = this.windows.get(pluginId)
     if (!win || win.isDestroyed()) return false
-    // 最小化: 任务栏可恢复, 仍算在跑 (isVisible() 对最小化窗口有状态延迟, 用标记兜底)
-    if (this.pluginMinimized.get(pluginId)) return true
-    if (win.isMinimized()) return true
-    return win.isVisible()
+    return !this.parkedPlugins.has(pluginId)
   }
 
   /**
@@ -526,6 +533,8 @@ class PluginManager {
           existingWindow.restore()
         }
         existingWindow.show()
+      // 重新出场: 解除停放 (决策65)
+      this.parkedPlugins.delete(pluginId)
       // 重新应用置顶状态（show() 会重置 always-on-top）
       if (this.pluginPinStates.get(pluginId)) {
         existingWindow.setAlwaysOnTop(true, 'screen-saver')
@@ -622,6 +631,7 @@ class PluginManager {
         const ownerSession = this.pluginOwner.get(pluginId)
         this.windows.delete(pluginId)
         this.pluginMinimized.delete(pluginId)
+        this.parkedPlugins.delete(pluginId)
         if (plugin) {
           plugin.state = PluginState.UNLOADED
         }
@@ -747,6 +757,8 @@ class PluginManager {
     this._hideAllPluginWindows(targetSession, pluginId)
     console.log(`[PluginManager] Hiding main window (${targetSession ? targetSession.label : 'none'})`)
     this._hideMainForPlugin(targetSession)
+    // 重新出场: 解除停放, 重新算作占用 (决策65)
+    this.parkedPlugins.delete(pluginId)
     console.log(`[PluginManager] Showing plugin window: ${pluginId}`)
     pluginWindow.show()
     pluginWindow.focus()
@@ -770,6 +782,10 @@ class PluginManager {
     if (!pluginWindow || pluginWindow.isDestroyed()) {
       // 直接显示本会话母程序 (互斥: 先隐藏本会话所有可见插件窗口)
       this._hideAllPluginWindows(session)
+      // 返回母程序 = 停放: 该会话的插件实例不再算占用 (决策65)
+      for (const pid of [...this.windows.keys()]) {
+        if (!session || this.pluginOwner.get(pid) === session) this.parkedPlugins.add(pid)
+      }
       if (sessionMain) {
         sessionMain.show()
         // 重新应用置顶状态（show() 会重置 always-on-top）
@@ -791,6 +807,10 @@ class PluginManager {
     // 互斥(会话内): 隐藏**本会话所有**插件窗口 (历史 Bug: 只隐藏活动插件, 其他插件窗口仍可见 → 母子同屏)
     // 跨会话不受影响 — 镜像会话的窗口原样保留
     this._hideAllPluginWindows(session)
+    // 返回母程序 = 停放: 本会话的插件实例不再算占用 (决策65)
+    for (const pid of [...this.windows.keys()]) {
+      if (!session || this.pluginOwner.get(pid) === session) this.parkedPlugins.add(pid)
+    }
     if (sessionMain) {
       sessionMain.show()
       // 重新应用置顶状态（show() 会重置 always-on-top）
@@ -825,6 +845,7 @@ class PluginManager {
     if (plugin && plugin.state === PluginState.RUNNING && pluginWindow && !pluginWindow.isDestroyed()) {
       pluginWindow.hide()
       plugin.state = PluginState.SUSPENDED
+      this.parkedPlugins.add(pluginId) // 挂起 = 停放, 不再算占用 (决策65)
       this._emit('plugin-suspended', { pluginId })
       console.log(`[PluginManager] Plugin suspended: ${pluginId}`)
       // 互斥(会话内): 隐藏后本会话无任何可见插件窗口, 恢复本会话母程序 (保证该会话始终有窗口在运行)
@@ -844,6 +865,7 @@ class PluginManager {
     if (plugin && plugin.state === PluginState.SUSPENDED && pluginWindow && !pluginWindow.isDestroyed()) {
       // 互斥(会话内): 先藏本会话母程序再显示插件
       this._hideMainForPlugin(this.pluginOwner.get(pluginId))
+      this.parkedPlugins.delete(pluginId) // 重新出场 (决策65)
       pluginWindow.show()
       // 重新应用置顶状态（show() 会重置 always-on-top）
       if (this.pluginPinStates.get(pluginId)) {
@@ -870,6 +892,7 @@ class PluginManager {
     this.windows.delete(pluginId)
     this.pluginOwner.delete(pluginId)
     this.pluginMinimized.delete(pluginId)
+    this.parkedPlugins.delete(pluginId)
     if (ownerSession && ownerSession.activePluginId === pluginId) {
       ownerSession.activePluginId = null
     }
@@ -877,6 +900,13 @@ class PluginManager {
     if (plugin) plugin.state = PluginState.UNLOADED
     if (win && !win.isDestroyed()) win.close()
     this._emit('plugin-closed', { pluginId })
+    // 告知原会话: 这份实例已被别的窗口接手, 插槽里的卡带要收回去 (决策65)
+    const ownerMain = ownerSession && ownerSession.main && !ownerSession.main.isDestroyed()
+      ? ownerSession.main
+      : null
+    if (ownerMain) {
+      ownerMain.webContents.send('plugin-reclaimed', { pluginId })
+    }
     console.log(`[PluginManager] Hidden instance discarded: ${pluginId}`)
   }
 

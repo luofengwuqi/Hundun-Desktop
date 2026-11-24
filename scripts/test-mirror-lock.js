@@ -131,6 +131,38 @@ app.whenReady().then(async () => {
   check('6. 最小化仍算占用', pm.getOccupiedPlugins().includes('fast-txt'),
     JSON.stringify(pm.getOccupiedPlugins()))
 
+  // ---------- 7. 过渡动画中 (窗口已建但还没 show) 也不能被抢 ----------
+  // 这是上一次修订踩的坑: 用 isVisible() 反推占用, 动画那 900ms 里窗口不可见,
+  // 镜像会判定「没人用」再建一份 → 同一个插件两个窗口
+  await pm.startPlugin('fast-cmd', {}, sessA)
+  await sleep(200)
+  check('7. 未 show 的窗口仍算占用', pm.isPluginHeld('fast-cmd'), `visible=${pm.getPluginWindow('fast-cmd').isVisible()}`)
+  const rSneak = await pm.launchPluginWithTransition('fast-cmd', {}, sessB)
+  await sleep(300)
+  check('7. 过渡中的实例不能被镜像抢走', rSneak && rSneak.success === false, JSON.stringify(rSneak))
+  check('7. fast-cmd 仍归属 A', pm.getPluginOwner('fast-cmd') === sessA)
+  await pm.closePlugin('fast-cmd')
+  await sleep(400)
+
+  // ---------- 8. 接管时通知原会话收回插槽 ----------
+  await winA.webContents.executeJavaScript(
+    'window.__reclaimed = []; window.electronAPI.onPluginReclaimed(d => window.__reclaimed.push(d.pluginId)); true')
+  await pm.launchPluginWithTransition('calculator', {}, sessA)
+  await sleep(600)
+  await pm.returnToParent('calculator')
+  await sleep(400)
+  const oldCalc = pm.getPluginWindow('calculator')
+  const rC = await pm.launchPluginWithTransition('calculator', {}, sessB)
+  await sleep(600)
+  const reclaimed = await winA.webContents.executeJavaScript('window.__reclaimed')
+  check('8. B 接管成功', rC && rC.success === true, JSON.stringify(rC))
+  check('8. A 收到 plugin-reclaimed', Array.isArray(reclaimed) && reclaimed.includes('calculator'),
+    JSON.stringify(reclaimed))
+  check('8. calculator 归属已转给 B', pm.getPluginOwner('calculator') === sessB)
+  check('8. A 的旧实例已销毁 (不会两份同时存在)',
+    !!oldCalc && oldCalc.isDestroyed() && pm.getPluginWindow('calculator') !== oldCalc,
+    `oldDestroyed=${!!oldCalc && oldCalc.isDestroyed()}`)
+
   const passed = results.filter(Boolean).length
   console.log(`\n结果: ${passed}/${results.length} 通过`)
   app.exit(passed === results.length ? 0 : 1)
