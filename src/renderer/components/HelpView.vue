@@ -23,7 +23,7 @@
           <div class="step-main">
             <p class="step-text">{{ loc(s.text) }}</p>
             <div v-if="s.image || getHelpArt(s.art)" class="help-art">
-              <img v-if="s.image" :src="s.image" :alt="loc(s.text)" />
+              <img v-if="s.image" :src="s.image" :alt="loc(s.text)" :style="imgStyle(s)" />
               <div v-else class="art-svg" v-html="getHelpArt(s.art)"></div>
             </div>
           </div>
@@ -77,6 +77,9 @@ const loc = (v) => {
 
 const backBtn = ref(null)
 const LINK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 13v6H5V6h6"/></svg>'
+
+// 真实截图可按步骤指定显示宽度（默认吃满卡片宽）
+const imgStyle = (s) => (s && s.maxWidth ? { maxWidth: s.maxWidth + 'px' } : undefined)
 
 const openLink = async () => {
   const url = topic.value && topic.value.link && topic.value.link.url
@@ -219,8 +222,19 @@ onMounted(async () => {
   border-radius: 10px;
   background: var(--bg-slot);
   padding: 10px;
+  /* 容器贴着图收边：否则全宽容器里放一张窄图，两侧一大片空底 */
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
 }
-.help-art img { width: 100%; display: block; border-radius: 6px; }
+.help-art img {
+  width: 100%;
+  max-width: 430px;
+  display: block;
+  margin: 0 auto;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
 /* 线稿限宽居中：否则 viewBox 被拉满整卡，中间大片空白、四步要滚很久 */
 .art-svg { max-width: 340px; margin: 0 auto; }
 .help-art :deep(svg) { width: 100%; height: auto; display: block; }

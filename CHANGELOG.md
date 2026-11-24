@@ -11,7 +11,7 @@
 - [x] **三层可复用结构**: 内容注册表 `src/renderer/help/topics.js`（一篇教程 = 一条配置，正文 `{zh,en}`，含步骤 / 线稿 / 外链 / 补充说明）→ 通用渲染 `src/renderer/components/HelpView.vue`（与设置页/仓库页同壳，`z-index:1003` 盖在最上层）→ 全局主机 `App.vue` 顶层挂一份并 `provide(HELP_PROVIDE_KEY, openHelp)`。任何组件两行就能挂一个问号：`const { openHelp } = useHelp()` + `@click="openHelp('gitee-token')"`，不用自己渲染覆盖层、不用管 z-index
 - [x] **新增一篇教程只改 `topics.js`**：组件与主机零改动。步骤可配 `art`（内置线稿 key）或 `image`（真实截图路径，填了就优先用图），未来换真截图不用动组件
 - [x] **首篇 `gitee-token`**: 4 步（头像 → 设置 / 私人令牌 → 生成新令牌 / 只勾 `projects` / 立刻复制、只显示一次）+ 3 条补充（GitHub 的生成路径、留空保存会清除令牌、无密钥环时界面标「明文保存」）+ 「在浏览器打开 Gitee 令牌设置」外链（走既有 `app:openExternal`，https 白名单）
-- [x] **示意图用手绘 SVG 线稿，不冒充真实截图**（`help/art.js`）：只画界面骨架并高亮「点哪里」，具体文字交给步骤说明 —— 天然跨语言，也不会因 Gitee 改版而过期；颜色全走 CSS 变量，深色绿色 / 馄饨黄红色自动跟随
+- [x] **图 = 真实 Gitee 截图（前三步）+ SVG 线稿（第 4 步）**：前三步用隔离的 Edge 实例 + CDP 实际截取 Gitee「头像下拉 / 私人令牌页 / 生成表单」，裁剪到只留操作区域、头像打码，仓库名与令牌列表等账号信息一律不入图；生成表单先真实点击成「只勾 projects」再截（Gitee 的 user_info 是基础权限不可取消）。第 4 步「令牌只显示一次」必须真生成一枚令牌才截得到，故保留 `help/art.js` 线稿。`step.image` 优先于 `step.art`，`maxWidth` 控制每步显示宽度；教程文案与真实界面对齐（「账号设置」而非「设置」）
 - [x] **入口**: 仓库页令牌栏 label 旁一个圆形问号，未关联引导语旁再一个（第一次接触令牌的人最需要帮助）
 - [x] **键盘**: 帮助页打开期间 ESC 优先关闭、其余键一律吞掉不透传底层页面；打开即聚焦「返回」按钮，纯键盘用户按 Enter 就能退出
 - [x] **验证**: 深色中文 / 浅色英文 / 未关联态截图逐张核对（4 步 4 图 3 补充 1 外链齐全），ESC 后回到仓库页，焦点行为正确，控制台零错误；`npm run build` 与 `check:main` 通过，sync/settings 回归全绿

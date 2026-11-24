@@ -29,24 +29,27 @@ export const HELP_TOPICS = {
     },
     steps: [
       {
-        art: 'avatar-menu',
+        image: './help/gitee-step1.png',
+        maxWidth: 250,
         text: {
-          zh: '先在浏览器登录 Gitee，点右上角的头像，在展开的菜单里选「设置」。',
-          en: 'Sign in to Gitee, click your avatar in the top-right corner, then pick Settings from the menu.'
+          zh: '先在浏览器登录 Gitee，点右上角的头像，在展开的菜单里选「账号设置」。',
+          en: 'Sign in to Gitee, click your avatar in the top-right corner, then pick Account settings from the menu.'
         }
       },
       {
-        art: 'side-menu',
+        image: './help/gitee-step2.png',
+        maxWidth: 430,
         text: {
-          zh: '在设置页左侧找到「私人令牌」，进入后点「生成新令牌」。也可以直接用下面的按钮跳到这一页。',
-          en: 'In Settings, find Personal access tokens in the left sidebar, open it and click Generate new token. The button below takes you straight there.'
+          zh: '在设置页左侧找到「私人令牌」，进入后点右上角橙色的「生成新令牌」。也可以直接用下面的按钮跳到这一页。',
+          en: 'In Settings, find Personal access tokens in the left sidebar, then click the orange Generate new token button. The button below takes you straight there.'
         }
       },
       {
-        art: 'token-form',
+        image: './help/gitee-step3.png',
+        maxWidth: 430,
         text: {
-          zh: '随便填个描述（例如 hundun-desktop），权限只勾 projects 就够，然后提交。不需要把所有权限都给它。',
-          en: 'Give it any description (for example hundun-desktop), tick only the projects scope, then submit. Full access is not needed.'
+          zh: '填个描述（例如 hundun-desktop），类型保持「私人令牌」，过期时间随意，权限只勾 projects 就够，然后提交。不需要把所有权限都给它。',
+          en: 'Give it any description (for example hundun-desktop), keep the type as Personal access token, pick any expiry, tick only the projects scope, then submit. Full access is not needed.'
         }
       },
       {
@@ -57,6 +60,7 @@ export const HELP_TOPICS = {
         }
       }
     ],
+
     notes: [
       {
         zh: '用的是 GitHub？在 Settings → Developer settings → Personal access tokens 生成，勾 repo，用户名填 x-access-token。',
