@@ -6,6 +6,14 @@
 
 ## 2026-11-24
 
+### fix: 仓库页「保存令牌」后按钮变灰，看起来像没保存（决策67 修复）
+
+- [x] **现象**: 填令牌点「保存」，输入框被清空、提示说已保存，但「创建并关联」立刻变灰点不了，看起来像保存失败
+- [x] **根因**: 两层叠加 —— ①「创建并关联」的禁用条件只看输入框 `!tokenInput.trim()`，而保存成功后输入框会清空（防泄露设计）→ 按钮立刻被锁死；②令牌状态只看 `config.tokenStorage`，解密失败/换机器后它仍是 `safeStorage`，hint 撒谎说「已保存」。**主进程链路本身是好的**（`updateConfig({token})` 实测写 `token.bin`、trim/清除都正确，`createGiteeRepo` 早有 `readToken()` fallback）
+- [x] **修法**: ①新增 `hasToken` 真实状态（取自 `status().hasToken`，保存/清除/建库时同步更新），hint 与按钮都以它为准 —— 有已保存令牌时「创建并关联」保持可点，title 提示「使用已保存的令牌」；②`createGiteeRepo`/`link` 传 token 改为 `tokenInput.trim() || undefined`，留空即用主进程已保存的；③placeholder 跟随状态（已保存时显示「已保存的令牌（留空再保存 = 清除）」）；④保存成功文案改为「令牌已加密保存到本机，可直接点「创建并关联」」，清除时单独提示「已清除保存的令牌」
+- [x] **测试**: 新增 `scripts/test-token-save.js` **10 项**（Electron 真实交互）—— 已保存令牌 / 首次保存两种状态各 5 项：初始按钮状态、保存后输入框清空、**保存后按钮可点（核心回归）**、hint 反映真实令牌、结果条给出可继续的提示。`test-sync-service` 17 项回归全过
+- [x] **坑**: 多用例 Electron 测试脚本里 `win.destroy()` 关掉最后一个窗口会触发 `window-all-closed` → app 自动退出，**后面的用例根本没机会跑**（静默只跑第一组）；必须 `app.on('window-all-closed', () => {})` 拦住。另一个坑：两个窗口用同一个 preload 路径会命中模块缓存串状态，每个用例要独立文件名
+
 ### feat: 可复用帮助页 + Gitee 访问令牌图文教程（决策71）
 
 - [x] **三层可复用结构**: 内容注册表 `src/renderer/help/topics.js`（一篇教程 = 一条配置，正文 `{zh,en}`，含步骤 / 线稿 / 外链 / 补充说明）→ 通用渲染 `src/renderer/components/HelpView.vue`（与设置页/仓库页同壳，`z-index:1003` 盖在最上层）→ 全局主机 `App.vue` 顶层挂一份并 `provide(HELP_PROVIDE_KEY, openHelp)`。任何组件两行就能挂一个问号：`const { openHelp } = useHelp()` + `@click="openHelp('gitee-token')"`，不用自己渲染覆盖层、不用管 z-index

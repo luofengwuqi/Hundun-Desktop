@@ -59,7 +59,7 @@
             type="password"
             autocomplete="off"
             spellcheck="false"
-            :placeholder="t('repo.tokenPh')"
+            :placeholder="hasToken ? t('repo.tokenPhSaved') : t('repo.tokenPh')"
           />
           <button class="pt-btn" :disabled="busy" @click="saveToken">{{ t('repo.tokenSave') }}</button>
           <span class="pt-hint" :class="{ warn: config.tokenStorage === 'plain' }">{{ tokenHint }}</span>
@@ -84,7 +84,12 @@
               <p class="setup-hint">{{ t('repo.autoHint') }}</p>
               <div class="field-row">
                 <input v-model="giteeName" class="pt-input wide" type="text" spellcheck="false" :placeholder="t('repo.autoName')" />
-                <button class="pt-btn primary" :disabled="busy || !tokenInput.trim()" @click="createOnGitee">
+                <button
+                  class="pt-btn primary"
+                  :disabled="busy || (!tokenInput.trim() && !hasToken)"
+                  :title="tokenInput.trim() ? '' : t('repo.useSavedToken')"
+                  @click="createOnGitee"
+                >
                   {{ t('repo.autoCreate') }}
                 </button>
               </div>
@@ -208,6 +213,9 @@ const resultIsError = ref(false)
 const conflicts = ref([])
 
 const tokenInput = ref('')
+// 真实的令牌状态（token.bin 是否有内容）—— 只看 config.tokenStorage 会撒谎：
+// 解密失败/换机器后 config 里还是 'safeStorage'，但其实读不出令牌
+const hasToken = ref(false)
 const giteeName = ref('hundun-data')
 const manualUrl = ref('')
 const manualUser = ref('')
@@ -284,9 +292,8 @@ const lastSyncText = computed(() => {
 const pendingText = computed(() => t('repo.pendingCount', { count: pendingChanges.value }))
 
 const tokenHint = computed(() => {
-  if (config.tokenStorage === 'safeStorage') return t('repo.tokenSaved')
-  if (config.tokenStorage === 'plain') return t('repo.tokenPlain')
-  return t('repo.noToken')
+  if (!hasToken.value) return t('repo.noToken')
+  return config.tokenStorage === 'plain' ? t('repo.tokenPlain') : t('repo.tokenSaved')
 })
 
 const setBusy = (kind) => {
@@ -334,6 +341,7 @@ const loadStatus = async () => {
     const res = await bridge.status()
     if (res && res.ok) {
       applyConfig(res.config)
+      hasToken.value = !!res.hasToken
       plugins.value = Array.isArray(res.plugins) ? res.plugins : []
       gitAvailable.value = !!res.gitAvailable
       gitVersion.value = res.gitVersion || ''
@@ -359,8 +367,10 @@ const saveToken = async () => {
     const res = await bridge.updateConfig({ token: tokenInput.value.trim() })
     if (res && res.ok) {
       applyConfig(res.config)
+      // 空串 = 清除令牌；非空 = 保存。hasToken 跟着令牌文件的真实状态走
+      hasToken.value = !!tokenInput.value.trim()
       tokenInput.value = ''
-      showResult(t('repo.tokenSavedOk'))
+      showResult(hasToken.value ? t('repo.tokenSavedOk') : t('repo.tokenCleared'))
     } else {
       showResult(errorLines(res), true)
     }
@@ -381,12 +391,14 @@ const createOnGitee = async () => {
   conflicts.value = []
   try {
     const res = await bridge.createGiteeRepo({
-      token: tokenInput.value.trim(),
+      // 输入框留空 = 用已保存的令牌（主进程会 fallback 到 readToken()）
+      token: tokenInput.value.trim() || undefined,
       name: giteeName.value.trim() || 'hundun-data',
       private: true
     })
     if (res && res.ok) {
       tokenInput.value = ''
+      hasToken.value = true
       await loadStatus()
       showResult(t('repo.linkedOk'))
     } else {
@@ -409,11 +421,13 @@ const linkExisting = async () => {
     const res = await bridge.link({
       remoteUrl: manualUrl.value.trim(),
       username: manualUser.value.trim(),
-      token: tokenInput.value.trim(),
+      // 输入框留空 = 用已保存的令牌（主进程会 fallback 到 readToken()）
+      token: tokenInput.value.trim() || undefined,
       branch: 'main'
     })
     if (res && res.ok) {
       tokenInput.value = ''
+      hasToken.value = true
       await loadStatus()
       if (res.code === 'CONFLICT' && Array.isArray(res.conflicts) && res.conflicts.length) {
         conflicts.value = res.conflicts
