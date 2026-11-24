@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>settings migration fixture</title></head>
+<body>
+<script type="module">
+  // 决策66 迁移测试夹具: 直接加载真实的渲染层设置门面 (无第三方依赖的纯 ESM)
+  import * as S from '../../src/renderer/utils/app-settings.js'
+  window.__settings = S
+  window.__ready = true
+</script>
+</body>
+</html>

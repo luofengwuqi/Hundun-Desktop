@@ -1,5 +1,6 @@
 import zh from './zh.js'
 import en from './en.js'
+import { SETTING_KEY, getSettingMigrating, setSetting } from '../utils/app-settings'
 
 // 支持的语言
 export const locales = {
@@ -25,10 +26,10 @@ const DEFAULT_LOCALE = 'zh'
 // 当前语言
 let currentLocale = DEFAULT_LOCALE
 
-// 获取保存的语言
+// 获取保存的语言 (决策66: user-data/settings.json; 老 localStorage 键首次读取时补写)
 export function getSavedLocale() {
   try {
-    const saved = localStorage.getItem('hundundesktop-locale')
+    const saved = getSettingMigrating(SETTING_KEY.locale, null)
     if (saved && locales[saved]) {
       return saved
     }
@@ -67,7 +68,7 @@ export function setLocale(locale) {
   if (locales[locale]) {
     currentLocale = locale
     try {
-      localStorage.setItem('hundundesktop-locale', locale)
+      setSetting(SETTING_KEY.locale, locale)
     } catch (e) {
       // ignore
     }

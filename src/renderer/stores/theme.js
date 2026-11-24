@@ -1,5 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
+import {
+  SETTING_KEY,
+  getSettingMigrating,
+  setSetting,
+  onSettingsChanged
+} from '../utils/app-settings'
 
 // ========== 主题注册表 (决策55) ==========
 // 官方样式: 馄饨黑 (原深色) / 馄饨黄 (原浅色), 视觉不变, 仅确立官方身份
@@ -49,11 +55,18 @@ export const useThemeStore = defineStore('theme', () => {
     if (cls) document.body.classList.add(cls)
   }
 
-  // 从本地存储加载主题 (非法值/旧值迁移, 兜底馄饨黑)
+  // 从设置加载主题 (决策66: 数据源 = user-data/settings.json, 老键首次读取时自动补写)
+  // 非法值/旧值迁移, 兜底馄饨黑
   const loadTheme = () => {
-    let saved = localStorage.getItem('hundundesktop-theme')
-    if (LEGACY_THEME_MAP[saved]) saved = LEGACY_THEME_MAP[saved]
-    if (saved && ALL_THEMES.includes(saved)) {
+    let saved = getSettingMigrating(SETTING_KEY.theme, null)
+    if (typeof saved !== 'string') return
+    if (LEGACY_THEME_MAP[saved]) {
+      const migrated = LEGACY_THEME_MAP[saved]
+      // 老主题名(dark/light/neon/gameboy) → 官方主题, 顺手把规范化后的值写回配置
+      saved = migrated
+      setSetting(SETTING_KEY.theme, migrated)
+    }
+    if (ALL_THEMES.includes(saved)) {
       theme.value = saved
       isDarkMode.value = themeMeta().base === 'dark'
       applyBodyClass(saved)
@@ -71,9 +84,19 @@ export const useThemeStore = defineStore('theme', () => {
     if (!ALL_THEMES.includes(newTheme)) newTheme = 'hun-tun-black'
     theme.value = newTheme
     isDarkMode.value = themeMeta().base === 'dark'
-    localStorage.setItem('hundundesktop-theme', newTheme)
+    setSetting(SETTING_KEY.theme, newTheme)
     applyBodyClass(newTheme)
   }
+
+  // 其他母窗口(镜像)改了主题 → 本窗口跟着换 (决策66: 设置已不再依赖 localStorage 同源共享)
+  onSettingsChanged((snapshot) => {
+    const incoming = snapshot && snapshot.theme
+    if (typeof incoming !== 'string' || incoming === theme.value) return
+    if (!ALL_THEMES.includes(incoming)) return
+    theme.value = incoming
+    isDarkMode.value = themeMeta().base === 'dark'
+    applyBodyClass(incoming)
+  })
 
   // 兼容旧路径: 直接改 isDarkMode 的调用方 (现无, 保留防御)
   watch(isDarkMode, (newValue) => {

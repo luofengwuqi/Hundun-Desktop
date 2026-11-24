@@ -6,6 +6,51 @@ const { ipcRenderer } = require('electron')
 // 导致整个 preload 加载失败 (window.electronAPI 一直是 undefined,
 // play-sound 监听、插件扫描等全部失效)。
 // 与 plugin-preload.js 保持一致, 直接挂载到 window 上。
+
+// ========== 应用设置快照 (决策66) ==========
+// 一次 sendSync 拿整份 user-data/settings.json, 之后 get() 全走内存。
+// 注: 主进程 handler 在 index.js 顶层注册, 早于任何窗口创建, 不会拿不到。
+let settingsSnapshot = {}
+try {
+  const initial = ipcRenderer.sendSync('settings:get-sync')
+  if (initial && typeof initial === 'object') settingsSnapshot = initial
+} catch (error) {
+  console.warn('[Preload] 读取应用设置失败 (按空设置继续):', error.message)
+}
+
+const clonePlain = (value) => {
+  try {
+    return JSON.parse(JSON.stringify(value === undefined ? {} : value))
+  } catch (_) {
+    return {}
+  }
+}
+
+/** 点路径读 ('sound.volume' / 'plugins.order') */
+const readSettingsPath = (dotted) => {
+  if (!dotted) return undefined
+  let cur = settingsSnapshot
+  for (const part of String(dotted).split('.')) {
+    if (cur === null || typeof cur !== 'object') return undefined
+    cur = cur[part]
+  }
+  return cur
+}
+
+/** 点路径写 (不可变, 返回新对象) */
+const setSettingsPath = (obj, dotted, value) => {
+  const parts = String(dotted || '').split('.')
+  const root = clonePlain(obj && typeof obj === 'object' ? obj : {})
+  let cur = root
+  for (let i = 0; i < parts.length - 1; i++) {
+    const key = parts[i]
+    if (!cur[key] || typeof cur[key] !== 'object' || Array.isArray(cur[key])) cur[key] = {}
+    cur = cur[key]
+  }
+  cur[parts[parts.length - 1]] = value
+  return root
+}
+
 window.electronAPI = {
   // ========== 窗口控制 ==========
   windowMinimize: () => ipcRenderer.send('window-minimize'),
@@ -20,6 +65,42 @@ window.electronAPI = {
   getPlatform: () => process.platform,
   // 检查更新 (决策62): 主进程访问 GitHub Releases latest API, 渲染层拿结果弹窗
   checkForUpdate: () => ipcRenderer.invoke('update:check'),
+
+  // ========== 应用设置 (决策66) ==========
+  // 数据源: <userData>/settings.json (主进程原子写)
+  //   get() 同步 —— preload 阶段用一次 sendSync 拿整份快照, 之后全在内存,
+  //   这样主题/语言 store 在模块初始化时就能同步取值, 首帧不闪
+  //   set() 异步 —— 主进程校验键白名单 + 原子写 + 广播 settings:changed 给所有窗口
+  settings: {
+    get: (dotted, fallback = null) => {
+      const value = readSettingsPath(dotted)
+      return value === undefined ? fallback : value
+    },
+    has: (dotted) => readSettingsPath(dotted) !== undefined,
+    all: () => clonePlain(settingsSnapshot),
+    set: (dotted, value) => {
+      // 乐观更新本地快照: 同一窗口连续读立刻看到新值 (写失败由主进程日志提示)
+      settingsSnapshot = setSettingsPath(settingsSnapshot, dotted, value)
+      return ipcRenderer.invoke('settings:set', dotted, value)
+    },
+    setMany: (patch) => {
+      for (const [dotted, value] of Object.entries(patch || {})) {
+        settingsSnapshot = setSettingsPath(settingsSnapshot, dotted, value)
+      }
+      return ipcRenderer.invoke('settings:set-many', patch)
+    },
+    remove: (dotted) => ipcRenderer.invoke('settings:remove', dotted),
+    filePath: () => ipcRenderer.invoke('settings:file-path'),
+    // 其他窗口改了设置 → 刷新本地快照并回调 (本窗口自己写入也会收到)
+    onChanged: (callback) => {
+      const handler = (event, snapshot) => {
+        settingsSnapshot = snapshot && typeof snapshot === 'object' ? snapshot : {}
+        callback(settingsSnapshot)
+      }
+      ipcRenderer.on('settings:changed', handler)
+      return () => ipcRenderer.removeListener('settings:changed', handler)
+    }
+  },
   
   // ========== 插件系统 API ==========
   

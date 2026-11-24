@@ -1,6 +1,37 @@
 # HundunDesktop - 更新日志
 
-> 最后更新: 2026-11-18
+> 最后更新: 2026-11-24
+
+---
+
+## 2026-11-24
+
+### feat: 应用设置改存 `settings.json`，与子程序数据同级（决策66）
+
+- [x] **原因**: 主题 / 语言 / 音效 / 插件排序一直存在渲染进程 `localStorage`，实际落点是 `<userData>/Local Storage/leveldb/` —— Chromium 引擎内部格式，用户既看不懂也没法单独备份，还没法纳入「用户数据同步」（子程序数据全是 `user-data` 下的纯 JSON）
+- [x] **新位置**: `<userData>/settings.json`（与 `hundundesktop-data/<plugin-id>.json` 同级）。结构 `{ schema, updatedAt, theme, locale, sound{soundEnabled,volume}, plugins{order,removed,orderVersion}, meta }`
+- [x] **主进程负责写**: 新增 `src/main/settings-store.js`（不依赖 electron，可纯 Node 单测）—— 键白名单 + 值归一化（音量钳到 0~100、插件顺序丢脏项/去重）+ **原子写**（临时文件 + rename）。三条硬约束：① 文件不存在**不创建、不写默认值**（真正发生用户操作才落盘）② 解析失败把坏文件改名 `settings.json.corrupt-<时间>.json` 留存，**绝不在坏文件上写** ③ `schema` 比当前新时字段原样保留、schema 不降级
+- [x] **渲染层同步取值**: preload 在加载阶段用一次 `sendSync('settings:get-sync')` 拿整份快照挂到 `window.electronAPI.settings`，之后 `get()` 全在内存 —— 主题/语言 store 仍是**同步**初始化，首帧不闪。写走 `invoke`（主进程校验）并广播 `settings:changed`，镜像窗口跟着换主题
+- [x] **老数据迁移（只补不覆盖）**: 新增 `src/renderer/utils/app-settings.js` 门面 + `getSettingMigrating()`。`settings.json` 没有该项时读老 `localStorage` 键补写一次（theme/locale 是裸字符串，sound/plugins 是 JSON，orderVersion 是数字字符串，各按原格式解码）；**已有值优先、老键保留不删**（可回滚），并写一条 `meta.localStorageMigratedAt` 痕迹
+- [x] **改动面**: `stores/theme.js`、`utils/sound-settings.js`、`i18n/index.js`、`stores/plugin.js` 四处 6 个键的读写全部改走门面；`src/main/index.js` 新增 5 个 IPC；旧 `CONFIG_KEY/REMOVED_KEY/ORDER_VERSION_KEY` 常量删除
+- [x] **测试**: `scripts/test-settings-store.js`（21 项，纯 Node）+ `scripts/test-settings-ipc.js`（17 项，真实 preload/IPC/跨窗口广播）+ `scripts/test-settings-migration.js`（20 项，夹具页 import 真实门面验证只补不覆盖）。全部通过；`test-userdata-policy.js`（25）与 `test-check-update.js`（46）回归通过；真实 dev 应用启动后确认 5 个老键全部迁入 `settings.json`
+
+### fix: 镜像模式「子程序运行锁」误锁多个应用（决策65）
+
+- [x] **现象**: 主窗口 A 反复进出几个子程序后，镜像窗口 B 里**一堆应用同时显示「运行中」**、点进去被拒。实际 A 屏幕上只有一个子程序在跑
+- [x] **根因**: 子程序「返回母程序」走 `returnToParent`，只是 `hide()` 窗口，实例仍留在 `windows` 里（这是为「返回后可瞬间切回」保留的）；而占用判定用的是「`windows` 里存在窗口」→ 历史上开过的每一个应用都被算作 occupied，`getForeignPlugins` 把它们全部推给镜像窗口
+- [x] **新口径**: 新增 `isPluginHeld(pluginId)` —— 只有**可见**或**最小化**（可从任务栏恢复）的窗口才算「真在跑」；纯 hide 的保留实例不算。`getOccupiedPlugins()` 改用它，`getForeignPlugins` / `_broadcastPluginState` 随之正确
+- [x] **跨会话接管**: 启动守卫拆两档 —— 对方会话真在跑 → 照旧拒绝并提示；对方只剩隐藏实例 → 新增 `_discardHiddenInstance()` 回收（先解绑 `windows`/`pluginOwner` 再 `close()`），本次启动照常进行。`closed` 回调加身份校验（`windows.get(id) !== pluginWindow` 则跳过清理），避免旧窗口的清理把接手者的新记录删掉
+- [x] **推送时机**: `startPlugin`（含「已在运行」复用分支）、`launchPluginWithTransition`（隐藏旧插件后）、`returnToParent`（两个分支）、`suspendPlugin` 后各补一次 `_broadcastPluginState()`，镜像徽章才能及时释放
+- [x] **测试**: 新增 `scripts/test-mirror-lock.js`（13 项）—— 基线占用 / 返回后释放 / 进出三应用只锁当前 / 接管隐藏实例并销毁旧窗口 / 接管后原会话再启被拒 / 最小化仍算占用；既有 `test-mirror.js`（61 项）与 `test-window-lifecycle.js`（61 项）回归全过
+
+### feat: 应用默认排序改为 FastTXT → Music → TASK → FastCmd → CALC（决策64）
+
+- [x] **原因**: 原顺序来自 `fs.readdirSync` 的目录返回顺序（`calculator, fast-cmd, fast-txt, music, task`，与字母序也不保证一致），既不是产品意图，也不稳定
+- [x] **基线**: `stores/plugin.js` 新增 `DEFAULT_ORDER = ['fast-txt','music','task','fast-cmd','calculator']` —— 磁盘扫描合并结果一律按基线稳定排序（未列出的用户安装插件保持原相对顺序排尾部）；`DEFAULT_PLUGINS` 兜底数组同步重排
+- [x] **一次性迁移**: 新增 localStorage 键 `hundundesktop-plugin-order-version`（当前 `2`）。老配置里 `hundundesktop-plugins` 保存的旧顺序会盖掉新默认值，故 `init()` 末尾在 `loadFromStorage()` 之后检查版本，低于当前值时按基线重排一次并回写；此后用户拖拽排序不再被打回（`migrateDefaultOrder()`）
+- [x] **不动的东西**: 拖拽 / Ctrl+↑↓ 排序（决策46）语义不变；已移除名单、enabled、customSettings 均保留；设置页插件列表与卡带货架读同一 store 顺序，无额外改动
+- [x] **验证**: 纯逻辑用例覆盖「磁盘 readdir 序 / 旧默认序 / 带第三方插件 / 全未知 / 已是最新序」五种输入，输出均为目标顺序且第三方插件相对顺序保持
 
 ---
 

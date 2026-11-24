@@ -262,15 +262,17 @@ HundunDesktop/
 
 | 内容 | 位置（相对上面的数据目录） |
 | --- | --- |
+| 应用设置（主题 / 语言 / 音效 / 插件顺序与已移除名单） | `settings.json`（纯 JSON，原子写；坏文件会改名为 `settings.json.corrupt-<时间>.json` 留存） |
 | 插件文件数据 | `plugins/<plugin-id>/file/` |
 | 插件 JSON 存储 | `hundundesktop-data/<plugin-id>.json` |
 | 已安装插件记录 | `installed-plugins.json`（清单）+ `installed-plugins/`（用户安装的插件本体，仅打包态） |
 | FastTXT 云端库配置（含令牌） | `plugins/fast-txt/cloud.json` |
 | FastTXT 版本库 | `plugins/fast-txt/file/.git/`（同目录 `.gitignore` 排除回收站与排序/书签） |
-| 主题 / 语言 / 音效 / 插件顺序 | 渲染进程 `localStorage`（`hundundesktop-*`，落在同一数据目录） |
 
 > [!NOTE]
 > 开发期数据键统一为 `hundundesktop-*`，不提供旧版 `hundun-lite-*` 数据迁移。
+>
+> 2026.4.2 及更早版本把主题/语言/音效/插件顺序存在渲染进程 `localStorage`（落在同一数据目录的 `Local Storage/`）。新版首次读取时会把它们**补写**到 `settings.json`：只补不覆盖（已有值优先），老键保留不删，可随时回滚。
 
 ## 测试
 
@@ -281,13 +283,20 @@ npx electron --no-sandbox scripts/test-mirror.js
 npx electron --no-sandbox scripts/test-window-lifecycle.js
 npx electron --no-sandbox scripts/test-plugin-uninstall.js
 npx electron --no-sandbox scripts/test-task.js
+npx electron --no-sandbox scripts/test-settings-ipc.js        # 设置 IPC/preload 往返 + 跨窗口广播
+npx electron --no-sandbox scripts/test-settings-migration.js  # 老 localStorage → settings.json 只补不覆盖
 ```
+
+> 注: 本机 IDE 会注入 `ELECTRON_RUN_AS_NODE=1`，直接跑 electron 需前置 `env -u ELECTRON_RUN_AS_NODE`，否则 `require('electron')` 退化为路径字符串。
 
 平台检查、云端库同步等纯 Node 测试可直接执行：
 
 ```bash
 node scripts/test-platform-support.js
 node scripts/test-fasttxt-cloud.js   # 本地 bare 仓库模拟远端，覆盖冲突四策略
+node scripts/test-settings-store.js  # 设置文件原子写/坏文件隔离/键白名单
+node scripts/test-userdata-policy.js # 数据目录策略 + 旧目录迁移
+node scripts/test-check-update.js    # 检查更新（注入 fetch）
 npm run check:main                   # 构建后校验 out/main 相对依赖是否齐全（防漏复制）
 ```
 

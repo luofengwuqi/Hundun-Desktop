@@ -175,13 +175,30 @@ class PluginManager {
   }
 
   /**
-   * 当前被占用的插件 (存在未销毁的插件窗口 = 某会话持有)
+   * 插件是否"真的在跑"（应当占用 / 锁住其他会话）
+   * 口径: 窗口存在且处于「可见」或「最小化」状态。
+   * 注意: 返回母程序 (returnToParent) 只是 hide, 实例仍留在 windows 里以便本会话快速恢复,
+   * 但它已经不在屏幕上 —— 若也算占用, 镜像窗口会把历史上开过的应用逐个锁死 (决策65 修复)
+   * @param {string} pluginId
+   * @returns {boolean}
+   */
+  isPluginHeld(pluginId) {
+    const win = this.windows.get(pluginId)
+    if (!win || win.isDestroyed()) return false
+    // 最小化: 任务栏可恢复, 仍算在跑 (isVisible() 对最小化窗口有状态延迟, 用标记兜底)
+    if (this.pluginMinimized.get(pluginId)) return true
+    if (win.isMinimized()) return true
+    return win.isVisible()
+  }
+
+  /**
+   * 当前真正被占用的插件 (存在可见/最小化的插件窗口)
    * @returns {string[]}
    */
   getOccupiedPlugins() {
     const occupied = []
-    for (const [pluginId, win] of this.windows) {
-      if (win && !win.isDestroyed()) occupied.push(pluginId)
+    for (const pluginId of this.windows.keys()) {
+      if (this.isPluginHeld(pluginId)) occupied.push(pluginId)
     }
     return occupied
   }
@@ -467,16 +484,23 @@ class PluginManager {
   async startPlugin(pluginId, options = {}, session = null) {
     const targetSession = session || this.primarySession
 
-    // ========== 镜像互斥归属校验 (决策45) ==========
-    // 该插件已被其他会话持有 (存在插件窗口) → 拒绝启动, 错误回到渲染进程弹提示
+    // ========== 镜像互斥归属校验 (决策45 / 65) ==========
+    // 该插件已被其他会话「真正占用」(可见或最小化) → 拒绝启动, 错误回到渲染进程弹提示
+    // 若对方只是返回母程序后留下的隐藏实例 → 回收它, 本次启动照常进行
     const owner = this.pluginOwner.get(pluginId)
     if (owner && owner !== targetSession && this.windows.has(pluginId)) {
-      const msg = `插件 "${pluginId}" 正在另一个窗口中运行`
-      console.warn(`[PluginManager] ${msg} (owner=${owner.label}, request=${targetSession ? targetSession.label : 'none'})`)
-      this._emit('plugin-error', { pluginId, error: msg })
-      throw new Error(msg)
+      if (this.isPluginHeld(pluginId)) {
+        const msg = `插件 "${pluginId}" 正在另一个窗口中运行`
+        console.warn(`[PluginManager] ${msg} (owner=${owner.label}, request=${targetSession ? targetSession.label : 'none'})`)
+        this._emit('plugin-error', { pluginId, error: msg })
+        throw new Error(msg)
+      }
+      console.log(`[PluginManager] Reclaiming hidden instance: ${pluginId} (owner=${owner.label})`)
+      this._discardHiddenInstance(pluginId, owner)
+      this._broadcastPluginState()
     }
 
+    // 同会话内的隐藏实例无需回收: 下面「已在运行」分支会直接 show 回来
     // 确保插件已加载
     let plugin = this.plugins.get(pluginId)
     if (!plugin || plugin.state === PluginState.UNLOADED) {
@@ -507,6 +531,8 @@ class PluginManager {
         existingWindow.setAlwaysOnTop(true, 'screen-saver')
       }
       existingWindow.focus()
+      // 从隐藏/最小化恢复 → 重新算作占用, 同步给其他母窗口 (决策65)
+      this._broadcastPluginState()
       return existingWindow
     }
 
@@ -586,6 +612,12 @@ class PluginManager {
 
       // 窗口关闭事件
       pluginWindow.on('closed', () => {
+        // 本窗口已被回收/被别的会话接管 (windows 里换成了另一个实例) → 不再清理共享状态,
+        // 否则会把接手者的新窗口记录一并删掉 (决策65)
+        if (this.windows.get(pluginId) && this.windows.get(pluginId) !== pluginWindow) {
+          console.log(`[PluginManager] Stale window closed, skip cleanup: ${pluginId}`)
+          return
+        }
         // 先捕获归属会话 (removeSession 注销时会提前清掉 owner, 此时不再恢复已销毁的母窗口)
         const ownerSession = this.pluginOwner.get(pluginId)
         this.windows.delete(pluginId)
@@ -720,6 +752,8 @@ class PluginManager {
     pluginWindow.focus()
     
     if (targetSession) targetSession.activePluginId = pluginId
+    // 本会话旧插件已被 hide (不再算占用) → 广播一次, 镜像窗口的锁随之释放 (决策65)
+    this._broadcastPluginState()
     console.log(`[PluginManager] ✅ Plugin window shown successfully: ${pluginId}`)
     
     return { success: true }
@@ -743,6 +777,7 @@ class PluginManager {
           sessionMain.setAlwaysOnTop(true, 'screen-saver')
         }
       }
+      this._broadcastPluginState()
       return
     }
     
@@ -767,6 +802,8 @@ class PluginManager {
       // 通知本会话母程序播放退出动画
       sessionMain.webContents.send('transition:exit')
     }
+    // 子程序已离开屏幕 → 对镜像窗口而言该应用不再"在别处运行" (决策65)
+    this._broadcastPluginState()
     
     // 等待母程序蒙版退出 (900ms)
     await this._sleep(900)
@@ -792,6 +829,7 @@ class PluginManager {
       console.log(`[PluginManager] Plugin suspended: ${pluginId}`)
       // 互斥(会话内): 隐藏后本会话无任何可见插件窗口, 恢复本会话母程序 (保证该会话始终有窗口在运行)
       this._recoverMainWindowIfIdle(this.pluginOwner.get(pluginId))
+      this._broadcastPluginState()
     }
   }
 
@@ -816,6 +854,30 @@ class PluginManager {
       this._emit('plugin-resumed', { pluginId })
       console.log(`[PluginManager] Plugin resumed: ${pluginId}`)
     }
+  }
+
+  /**
+   * 回收某个会话留下的「隐藏实例」(决策65)
+   * 场景: A 返回母程序后实例只是被 hide, 仍占着 windows[pluginId];
+   *       B 想启动同一插件时应接管, 而不是被一个看不见的窗口锁死。
+   * 顺序: 先解绑再 close —— 旧窗口的 'closed' 回调靠 windows.get 是否等于自己来跳过清理,
+   *       否则它会把接手者稍后写入的新窗口记录删掉。
+   * @param {string} pluginId
+   * @param {Object|null} ownerSession - 原归属会话
+   */
+  _discardHiddenInstance(pluginId, ownerSession = null) {
+    const win = this.windows.get(pluginId)
+    this.windows.delete(pluginId)
+    this.pluginOwner.delete(pluginId)
+    this.pluginMinimized.delete(pluginId)
+    if (ownerSession && ownerSession.activePluginId === pluginId) {
+      ownerSession.activePluginId = null
+    }
+    const plugin = this.plugins.get(pluginId)
+    if (plugin) plugin.state = PluginState.UNLOADED
+    if (win && !win.isDestroyed()) win.close()
+    this._emit('plugin-closed', { pluginId })
+    console.log(`[PluginManager] Hidden instance discarded: ${pluginId}`)
   }
 
   /**

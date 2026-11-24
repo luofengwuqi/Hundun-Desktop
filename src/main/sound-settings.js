@@ -3,7 +3,8 @@
  *
  * 职责: 音效设置在主进程的"运行期镜像" + 跨窗口广播
  *
- * 数据流 (单一数据源 = 母程序 renderer 的 localStorage, 见 src/renderer/utils/sound-settings.js):
+ * 数据流 (单一数据源 = <userData>/settings.json 的 sound 节点,
+ *         见 src/renderer/utils/sound-settings.js + src/main/settings-store.js):
  *   1. 母程序启动 / 设置页保存 → renderer 调用 electronAPI.syncSoundSettings()
  *      → ipc `sound:sync` → 本模块 normalize 后写入内存缓存
  *   2. 缓存更新后广播 `sound:settings-changed` 给所有窗口 (主窗口 + 运行中的插件窗口)
@@ -14,8 +15,8 @@
  * 音量滑块与静音开关 —— 用户调低音量后"进入子程序声音特别大", 静音也被绕过。
  * 修复后所有播放链路 (母程序 / IPC 转发 / 插件直放) 都以本模块镜像的设置为准。
  *
- * 注意: 本模块只做运行期镜像, 不做持久化 (持久化仍由 localStorage 负责),
- *       主进程重启后由 renderer 启动时重新推送。
+ * 注意: 本模块只做运行期镜像, 不做持久化 (持久化由 settings.json 负责, 决策66;
+ *       决策66 之前是 localStorage), 主进程重启后由 renderer 启动时重新推送。
  */
 const { ipcMain, BrowserWindow } = require('electron')
 

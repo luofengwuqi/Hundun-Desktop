@@ -1,12 +1,24 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import {
+  SETTING_KEY,
+  getSettingMigrating,
+  setSetting
+} from '../utils/app-settings'
 
-// ========== 本地配置 keys (决策46) ==========
-// hundundesktop-plugins:          [{id, enabled, customSettings}, ...] — 数组顺序即显示顺序
-// hundundesktop-plugins-removed:  [{id, name, icon, version, removedAt}, ...] — 已移除名单
+// ========== 插件配置 (决策46 / 决策66 迁到 settings.json) ==========
+// plugins.order:        [{id, enabled, customSettings}, ...] — 数组顺序即显示顺序
+// plugins.removed:      [{id, name, icon, version, removedAt}, ...] — 已移除名单
 //   (挡 DEFAULT_PLUGINS/磁盘扫描把已移除插件回灌; 文件已删的安装插件不进名单, 见决策46)
-const CONFIG_KEY = 'hundundesktop-plugins'
-const REMOVED_KEY = 'hundundesktop-plugins-removed'
+// plugins.orderVersion: 数字 — 默认排序基线版本 (决策64)
+//   低于当前版本时按 DEFAULT_ORDER 重排一次, 之后用户拖拽自由, 不再打回
+// 存储位置: <userData>/settings.json (决策66 之前是 localStorage 的
+//   hundundesktop-plugins / -removed / -plugin-order-version, 老值首次读取时自动补写)
+
+// 默认排序基线 (决策64): FastTXT → Music → TASK → FastCmd → CALC
+// 只列需要固定位置的 id; 未列出的插件(用户安装)保持原有相对顺序排在尾部
+const DEFAULT_ORDER = ['fast-txt', 'music', 'task', 'fast-cmd', 'calculator']
+const DEFAULT_ORDER_VERSION = 2
 
 export const usePluginStore = defineStore('plugin', () => {
   // 插件列表（从磁盘加载或动态添加）
@@ -22,19 +34,8 @@ export const usePluginStore = defineStore('plugin', () => {
   const initialized = ref(false)
 
   // ========== 默认插件（始终保证有卡带显示） ==========
+  // 数组顺序 = 默认显示顺序，需与 DEFAULT_ORDER 保持一致 (决策64)
   const DEFAULT_PLUGINS = [
-    {
-      id: 'calculator',
-      name: 'CALC',
-      description: 'Retro pocket calculator',
-      icon: '🔢',
-      version: '1.0.0',
-      author: 'HundunDesktop',
-      enabled: true,
-      color: '#88ff00',
-      windowSize: { width: 400, height: 540 },
-      state: 'unloaded'
-    },
     {
       id: 'fast-txt',
       name: 'FastTXT',
@@ -69,6 +70,18 @@ export const usePluginStore = defineStore('plugin', () => {
       enabled: true,
       color: '#ff9900',
       windowSize: { width: 800, height: 540 },
+      state: 'unloaded'
+    },
+    {
+      id: 'calculator',
+      name: 'CALC',
+      description: 'Retro pocket calculator',
+      icon: '🔢',
+      version: '1.0.0',
+      author: 'HundunDesktop',
+      enabled: true,
+      color: '#88ff00',
+      windowSize: { width: 400, height: 540 },
       state: 'unloaded'
     }
   ]
@@ -127,7 +140,8 @@ export const usePluginStore = defineStore('plugin', () => {
         }
       }
       // 已移除名单过滤 (决策46): 内置/已移除插件不再回灌
-      return filterRemoved(merged)
+      // 默认排序基线 (决策64): 磁盘 readdir 顺序不可靠, 统一按 DEFAULT_ORDER 排
+      return applyDefaultOrder(filterRemoved(merged))
     } catch (error) {
       console.warn('[PluginStore] Failed to scan disk plugins:', error)
       return null
@@ -155,6 +169,12 @@ export const usePluginStore = defineStore('plugin', () => {
 
     // 第三步：应用用户本地配置
     loadFromStorage()
+
+    // 第四步：默认排序基线 (决策64) — 老配置的旧顺序在此升级一次
+    if (migrateDefaultOrder()) {
+      notifyChanged()
+      console.log('[PluginStore] Applied default order baseline:', DEFAULT_ORDER.join(' > '))
+    }
   }
 
   /**
@@ -254,14 +274,13 @@ export const usePluginStore = defineStore('plugin', () => {
   }
 
   /**
-   * 从本地存储加载插件配置
+   * 从设置加载插件配置 (决策66: settings.json 的 plugins.order)
    * (决策46: 同时回填字段 + 按保存顺序重排)
    */
   function loadFromStorage() {
     try {
-      const saved = localStorage.getItem(CONFIG_KEY)
-      if (saved) {
-        const savedPlugins = JSON.parse(saved)
+      const savedPlugins = getSettingMigrating(SETTING_KEY.pluginOrder, null)
+      if (Array.isArray(savedPlugins) && savedPlugins.length > 0) {
         // 1) 字段回填
         for (const savedPlugin of savedPlugins) {
           const existing = plugins.value.find(p => p.id === savedPlugin.id)
@@ -273,19 +292,17 @@ export const usePluginStore = defineStore('plugin', () => {
           }
         }
         // 2) 顺序回填 (决策46): 按保存顺序重排; 保存后新出现的插件追加在尾部
-        if (Array.isArray(savedPlugins) && savedPlugins.length > 0) {
-          const savedOrder = savedPlugins.map(p => p && p.id).filter(Boolean)
-          const ordered = []
-          for (const id of savedOrder) {
-            const p = plugins.value.find(x => x.id === id)
-            if (p) ordered.push(p)
-          }
-          const seen = new Set(savedOrder)
-          for (const p of plugins.value) {
-            if (!seen.has(p.id)) ordered.push(p)
-          }
-          plugins.value = ordered
+        const savedOrder = savedPlugins.map(p => p && p.id).filter(Boolean)
+        const ordered = []
+        for (const id of savedOrder) {
+          const p = plugins.value.find(x => x.id === id)
+          if (p) ordered.push(p)
         }
+        const seen = new Set(savedOrder)
+        for (const p of plugins.value) {
+          if (!seen.has(p.id)) ordered.push(p)
+        }
+        plugins.value = ordered
       }
     } catch (error) {
       console.error('[PluginStore] Failed to load from storage:', error)
@@ -293,7 +310,7 @@ export const usePluginStore = defineStore('plugin', () => {
   }
 
   /**
-   * 保存插件配置到本地存储 (数组顺序 = 显示顺序, 决策46)
+   * 保存插件配置 (数组顺序 = 显示顺序, 决策46; 落到 settings.json, 决策66)
    */
   function saveToStorage() {
     try {
@@ -302,9 +319,46 @@ export const usePluginStore = defineStore('plugin', () => {
         enabled: p.enabled,
         customSettings: p.customSettings
       }))
-      localStorage.setItem(CONFIG_KEY, JSON.stringify(toSave))
+      setSetting(SETTING_KEY.pluginOrder, toSave)
     } catch (error) {
       console.error('[PluginStore] Failed to save to storage:', error)
+    }
+  }
+
+  // ========== 默认排序基线 (决策64) ==========
+
+  /**
+   * 按 DEFAULT_ORDER 稳定排序：已列出的插件按基线位置，未列出的（用户安装插件）保持原相对顺序排尾部
+   * @param {Array} list
+   * @returns {Array} 新数组，不改动入参
+   */
+  function applyDefaultOrder(list) {
+    const rank = (id) => {
+      const i = DEFAULT_ORDER.indexOf(id)
+      return i === -1 ? DEFAULT_ORDER.length : i
+    }
+    return list
+      .map((plugin, index) => ({ plugin, index }))
+      .sort((a, b) => (rank(a.plugin.id) - rank(b.plugin.id)) || (a.index - b.index))
+      .map(item => item.plugin)
+  }
+
+  /**
+   * 排序基线一次性迁移：本地记录的版本低于 DEFAULT_ORDER_VERSION 时，
+   * 把当前列表重排成基线顺序并持久化；之后用户的拖拽排序不再被覆盖
+   * @returns {boolean} 是否执行了重排
+   */
+  function migrateDefaultOrder() {
+    try {
+      const saved = Number(getSettingMigrating(SETTING_KEY.pluginOrderVersion, 0)) || 0
+      if (saved >= DEFAULT_ORDER_VERSION) return false
+      plugins.value = applyDefaultOrder(plugins.value)
+      saveToStorage()
+      setSetting(SETTING_KEY.pluginOrderVersion, DEFAULT_ORDER_VERSION)
+      return true
+    } catch (error) {
+      console.error('[PluginStore] Failed to migrate default order:', error)
+      return false
     }
   }
 
@@ -312,8 +366,7 @@ export const usePluginStore = defineStore('plugin', () => {
 
   function getRemovedRecords() {
     try {
-      const raw = localStorage.getItem(REMOVED_KEY)
-      const list = raw ? JSON.parse(raw) : []
+      const list = getSettingMigrating(SETTING_KEY.pluginRemoved, [])
       return Array.isArray(list) ? list.filter(r => r && typeof r.id === 'string') : []
     } catch (error) {
       console.error('[PluginStore] Failed to read removed list:', error)
@@ -323,7 +376,7 @@ export const usePluginStore = defineStore('plugin', () => {
 
   function saveRemovedRecords(records) {
     try {
-      localStorage.setItem(REMOVED_KEY, JSON.stringify(records))
+      setSetting(SETTING_KEY.pluginRemoved, records)
     } catch (error) {
       console.error('[PluginStore] Failed to save removed list:', error)
     }
@@ -344,7 +397,7 @@ export const usePluginStore = defineStore('plugin', () => {
 
   /**
    * 通知其他母窗口刷新配置 (排序/移除/恢复/安装后调用, 决策46)
-   * localStorage 同源共享, 但各窗口内存 store 需要 reload
+   * 决策66 起配置在 settings.json, 已写入主进程; 但各窗口内存 store 仍需 reload
    */
   async function notifyChanged() {
     try {

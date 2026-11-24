@@ -43,6 +43,22 @@ if (app.isPackaged && !isPackagedPortableMode()) {
   console.log(`[Main] Non-portable install detected, userData fallback to: ${userDataDir}`)
 }
 
+// ========== 应用设置持久化 (决策66) ==========
+// 主题/语言/音效/插件排序 从 localStorage 迁到 <userData>/settings.json
+// (与子程序数据 hundundesktop-data/<id>.json 同级同风格)。必须在 setPath 之后创建。
+const { getSettingsStore } = require('./settings-store')
+const settingsStore = getSettingsStore()
+
+/** 设置变更 → 广播给全部窗口 (主窗口 + 镜像窗口), 各窗口刷新本地快照 */
+const broadcastSettings = (snapshot) => {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('settings:changed', snapshot)
+    }
+  }
+}
+settingsStore.onChange = broadcastSettings
+
 // Windows 圆角窗口
 if (process.platform === 'win32') {
   // transparent: true + CSS border-radius 实现圆角窗口
@@ -1358,3 +1374,39 @@ ipcMain.handle('get-app-info', () => {
     arch: process.arch
   }
 })
+
+// ========== 应用设置持久化 (决策66) ==========
+// 读: 走 sendSync —— 渲染层 store 在模块初始化时同步取值 (主题/语言首帧不闪),
+//     一次性拿整份快照, 之后 get() 全在内存。
+// 写: 走 invoke (异步, 主进程校验 + 原子写 + 广播)。
+ipcMain.on('settings:get-sync', (event) => {
+  event.returnValue = settingsStore.snapshot()
+})
+
+ipcMain.handle('settings:get', (event, dotted, fallback = null) => {
+  return settingsStore.get(dotted, fallback)
+})
+
+ipcMain.handle('settings:set', (event, dotted, value) => {
+  const result = settingsStore.set(dotted, value)
+  if (!result.ok) {
+    console.warn(`[Main] settings:set 拒绝 ${dotted}: ${result.reason}`)
+  }
+  return result
+})
+
+ipcMain.handle('settings:set-many', (event, patch) => {
+  const result = settingsStore.setMany(patch)
+  if (!result.ok) {
+    console.warn(`[Main] settings:set-many 拒绝: ${result.reason}`)
+  } else if (result.rejected && result.rejected.length) {
+    console.warn(`[Main] settings:set-many 跳过非法键: ${result.rejected.join(', ')}`)
+  }
+  return result
+})
+
+// 设置文件位置 (设置页展示 + 用户备份用)
+ipcMain.handle('settings:file-path', () => settingsStore.filePath)
+
+// 删除某个设置项 (让"没设置过"与"设成空"可区分)
+ipcMain.handle('settings:remove', (event, dotted) => settingsStore.remove(dotted))
