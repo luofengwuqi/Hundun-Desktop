@@ -42,18 +42,41 @@
     };
 
     // ========== File Management (Disk-based) ==========
+
+    // 快捷键指南只投放一次: 投放后写一个隐藏标记, 用户删了/改名了都不会再长回来
+    const GUIDE_MARKER = '.shortcuts-guide.v1';
+
+    const ensureShortcutGuide = async () => {
+      const api = fsAPI();
+      if (!api || typeof getShortcutGuide !== 'function') return;
+      try {
+        if (await api.exists(GUIDE_MARKER)) return;
+        const guide = getShortcutGuide();
+        if (!(await api.exists(guide.name))) {
+          await api.writeFile(guide.name, guide.content);
+        }
+        await api.writeFile(GUIDE_MARKER, new Date().toISOString());
+      } catch (err) {
+        console.warn('[FastTXT] ensureShortcutGuide failed:', err);
+      }
+    };
+
     const createDefaultFiles = async () => {
       const api = fsAPI();
       if (!api) return;
 
-      // 检查是否已有文件
+      // 检查是否已有文件 (隐藏文件如 .order.json 不算)
       const existing = await api.readDir('');
-      if (existing.length > 0) return; // 已有文件，不创建默认
+      const hasRealContent = existing.some(e => !e.name.startsWith('.'));
+      if (!hasRealContent) {
+        // 创建默认文件
+        await api.writeFile('readme.txt', 'Welcome to FastTXT!\n\nA retro text file manager.\n\nFeatures:\n- Drag & drop import\n- File editing\n- Trash & shred');
+        await api.writeFile('notes.md', '# Notes\n\n## TODO\n- [ ] Try dragging files\n- [ ] Create new files\n- [ ] Test the shredder');
+        await api.writeFile('draft.txt', 'This is a draft file.\n\nYou can edit this text freely.');
+      }
 
-      // 创建默认文件
-      await api.writeFile('readme.txt', 'Welcome to FastTXT!\n\nA retro text file manager.\n\nFeatures:\n- Drag & drop import\n- File editing\n- Trash & shred');
-      await api.writeFile('notes.md', '# Notes\n\n## TODO\n- [ ] Try dragging files\n- [ ] Create new files\n- [ ] Test the shredder');
-      await api.writeFile('draft.txt', 'This is a draft file.\n\nYou can edit this text freely.');
+      // 快捷键操作指南: 新装和已有用户各投放一次 (标记文件挡住回灌)
+      await ensureShortcutGuide();
     };
 
     const loadFilesFromDisk = async () => {

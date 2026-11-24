@@ -6,6 +6,18 @@
 
 ## 2026-11-24
 
+### feat: FastTXT 文件夹改名 / Ctrl+Tab 切换浏览编辑 / 首启投放快捷键指南（决策69）
+
+- [x] **fix 文件夹改名无效**: 两处拦截 —— ①`startRename` 开头 `if (file.isFolder) return` 直接吞掉文件夹；②键盘 `M` 分支与 ✎ 按钮都写着 `!file.isFolder`。现改为**文件和文件夹都能改名**，只拦回收站/已删除项（`file.deleted`），不再按 `isFolder` 挡
+- [x] **fix「改名了但刷新就变回去」的老隐患**: `loadFilesFromDisk()` 每次重建 `files` 数组里的对象，而由 `v-for` 渲染出来的卡片闭包里握着的是**上一批对象**（孤儿对象）。`confirmRename` 改的是孤儿 → 内存看着成功、磁盘没动。现 `startRename` 先按 `id` 从当前 `files` 里解析出 `target`，后续全部读写走 `target`；`confirmRename` 开头再解析一次兜底
+- [x] **feat 文件夹改名要连带子条目**: 目录改名后子项的 `parentPath` / `id` 会指向旧路径。重命名成功后遍历 `files`，把 `parentPath === oldId` 的子项改写成新 `id`；若当前正处在被改名的那个文件夹里（`isFolderMode && currentFolderPath === oldId`），同步把 `currentFolderPath` 也换掉
+- [x] **改名参数校验**: 新增 `INVALID_NAME_RE = /[\\/:*?"<>|]/`，拒绝含路径分隔符与 Windows 非法字符的名字、拒绝 `.`/`..`；`api.rename` 返回 `false` 时不再静默，弹「磁盘上改名失败」；两条新文案进 i18n（`modal.renameInvalid` / `modal.renameDiskError`，zh/en）
+- [x] **feat Ctrl+Tab 切「浏览 ⇄ 编辑」**: 编辑器视图的分支里新增 Ctrl/Cmd+Tab —— 仅对 `.md` 文件生效，按一次切一次（`setMdMode(mdMode === 'browse' ? 'edit' : 'browse')`），非 `.md` 文件按了不改变任何状态。两处让路：`handleEditorKeydown` 开头对 Ctrl/Cmd+Tab 立即 return（否则会被当成「插入两个空格缩进」）；`md-preview.js` 里 md 预览 textarea 的 keydown 开头同样直接 return，不与全局抢。浏览/编辑两个按钮补 `title="Ctrl+Tab"`
+- [x] **feat 首启投放《快捷键操作指南.md》**: 新增 `plugins/fast-txt/js/shortcuts-guide.js`（中英两套正文 + `getShortcutGuide()` 按当前 locale 选文件名：中文 `快捷键操作指南.md` / 英文 `Shortcut Guide.md`）；`filesystem.js` 新增 `ensureShortcutGuide()` 与标记文件 `.shortcuts-guide.v1`
+- [x] **只投一次，不反复回灌**: 标记文件存在就直接跳过 —— 用户把指南删了、改名了、拖进回收站清空，都不会再长出来。老用户也补投一次（不覆盖已有同名文件）
+- [x] **顺带修「默认文件重复生成」**: `createDefaultFiles()` 原判断 `existing.length > 0` 会被 `.order.json` 这类隐藏文件骗过，导致默认三件套重复写；改为「只按非隐藏文件判断有无内容」
+- [x] **测试**: 新增 `scripts/test-fasttxt-rename-guide.js` **15 项**（mock `window.hundun.fs` 加载真实 `main.html`）—— 指南存在 / 删掉不复活 / ✎ 可改文件夹 / 子条目 id 重写 / 磁盘目录确实改名 / `M` 可改文件夹 / 非法名被拒 / 同目录重名被拒 / `.md` 的 Ctrl+Tab 两向切换 / 编辑态不插缩进 / 非 `.md` 不改变视图，全过；`scripts/test-md-preview.js` 48/48 回归通过。跑法：`env -u ELECTRON_RUN_AS_NODE ./node_modules/.bin/electron --no-sandbox scripts/test-fasttxt-rename-guide.js`
+
 ### fix: 镜像锁改用「停放」语义，杜绝同一插件被两个窗口各开一份（决策68，修订决策65）
 
 - [x] **回归现象**: 决策65 用「窗口可见」判定占用。但过渡动画里窗口**已创建、还没 show**（那 900ms），可见性判定为"没人用" → 镜像窗口趁这个空档又建了一份，同一个插件出现两个窗口；界面上两边插槽还都装着它

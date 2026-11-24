@@ -18,17 +18,26 @@
     };
 
     // ========== Rename ==========
+    // 文件名/文件夹名里出现这些字符会破坏相对路径 (Windows 尤其严格), 直接拒绝
+    const INVALID_NAME_RE = /[\\/:*?"<>|]/;
+
     const startRename = (file) => {
       if (isRenaming) return;
-      // 文件夹暂不支持重命名
-      if (file.isFolder) return;
+      // 回收站里的条目 (含已删除标记的) 不允许改名
+      if (isTrashMode || !file || file.deleted) return;
+
+      // DOM 卡片可能持有 loadFilesFromDisk() 之前的旧对象引用 (刷新后卡片不重建,
+      // id 又没变) —— 一律以 files 里的当前对象为准, 否则改名会改到"孤儿对象"上
+      const target = files.find(f => f.id === file.id) || file;
+      if (target.deleted) return;
+
       playSound('click');
 
       isRenaming = true;
-      renamingFileId = file.id;
+      renamingFileId = target.id;
 
       const list = getDisplayFiles();
-      const idx = list.findIndex(f => f.id === file.id);
+      const idx = list.findIndex(f => f.id === target.id);
       const cards = fileList.querySelectorAll('.ftxt-file-card');
       const card = cards[idx];
       if (!card) { isRenaming = false; return; }
@@ -40,7 +49,7 @@
       const input = document.createElement('input');
       input.type = 'text';
       input.className = 'file-rename-input';
-      input.value = file.name;
+      input.value = target.name;
 
       // 替换文件名文本为 input
       nameEl.textContent = '';
@@ -53,14 +62,14 @@
         e.stopPropagation();
         if (e.key === 'Enter') {
           e.preventDefault();
-          confirmRename(file, input.value);
+          confirmRename(target, input.value);
         } else if (e.key === 'Escape') {
           e.preventDefault();
-          cancelRename(file);
+          cancelRename(target);
         } else if (e.key === 'Tab') {
           // Tab → 确认当前，重命名下一个
           e.preventDefault();
-          confirmRename(file, input.value).then(() => {
+          confirmRename(target, input.value).then(() => {
             const nextIdx = idx + 1;
             const nextList = getDisplayFiles();
             if (nextIdx < nextList.length) {
@@ -75,8 +84,8 @@
       input.addEventListener('blur', () => {
         // 延迟处理，避免与 click 事件冲突
         setTimeout(() => {
-          if (isRenaming && renamingFileId === file.id) {
-            confirmRename(file, input.value);
+          if (isRenaming && renamingFileId === target.id) {
+            confirmRename(target, input.value);
           }
         }, 100);
       });
@@ -90,6 +99,9 @@
       isRenaming = false;
       renamingFileId = null;
 
+      // 二次确认对象仍是最新的 (startRename 之后可能发生过重新读盘)
+      file = files.find(f => f.id === file.id) || file;
+
       newName = newName.trim();
 
       // 空名 → 取消
@@ -98,7 +110,16 @@
         return;
       }
 
-      // 检查重名（同目录下不能有同名文件）
+      // 非法字符 / 纯点号 → 拒绝 (否则相对路径会被拆坏, 或指向当前/上级目录)
+      if (INVALID_NAME_RE.test(newName) || newName === '.' || newName === '..') {
+        cancelRename(file);
+        showModal('⚠️', FastTXTI18n.t('modal.renameFailed'), FastTXTI18n.t('modal.renameInvalid'), [
+          { text: FastTXTI18n.t('modal.ok'), class: 'primary', action: closeModal }
+        ]);
+        return;
+      }
+
+      // 检查重名（同目录下不能有同名项; 文件与文件夹共用一层命名空间）
       const currentFiles = file.parentPath
         ? files.filter(f => !f.deleted && f.parentPath === file.parentPath && f.id !== file.id)
         : files.filter(f => !f.deleted && !f.parentPath && f.id !== file.id);
@@ -115,15 +136,32 @@
       if (api) {
         const oldPath = file.parentPath ? `${file.parentPath}/${file.name}` : file.name;
         const newPath = file.parentPath ? `${file.parentPath}/${newName}` : newName;
-        await api.rename(oldPath, newPath);
+        const ok = await api.rename(oldPath, newPath);
+        if (ok === false) {
+          cancelRename(file);
+          showModal('⚠️', FastTXTI18n.t('modal.renameFailed'), FastTXTI18n.t('modal.renameDiskError', { name: file.name }), [
+            { text: FastTXTI18n.t('modal.ok'), class: 'primary', action: closeModal }
+          ]);
+          return;
+        }
       }
 
-      // 更新文件对象
       const oldId = file.id;
       file.name = newName;
       file.id = file.parentPath ? `${file.parentPath}/${newName}` : newName;
       // content 缓存清空，下次打开时从磁盘重新读取
       file.content = null;
+
+      // 文件夹改名 → 里面的条目 id / parentPath 全是路径拼的, 必须一起改
+      // (否则点进去读到的是旧路径, 表现为"文件夹空了")
+      if (file.isFolder && oldId !== file.id) {
+        for (const child of files) {
+          if (child.parentPath !== oldId) continue;
+          child.parentPath = file.id;
+          child.id = `${file.id}/${child.name}`;
+        }
+        if (isFolderMode && currentFolderPath === oldId) currentFolderPath = file.id;
+      }
 
       await saveFiles();
       playSound('OK');

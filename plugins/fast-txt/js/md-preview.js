@@ -449,6 +449,8 @@
       scheduleMdRender(true); // 组合结束后立即渲染
     });
     mdTa.addEventListener('keydown', (e) => {
+      // Ctrl/Cmd+Tab: 交给全局做「浏览 ⇄ 编辑」切换, 这里不插入缩进也不阻断冒泡
+      if (e.key === 'Tab' && (e.ctrlKey || e.metaKey)) return;
       if (e.key === 'Tab') {
         e.preventDefault();
         e.stopPropagation();

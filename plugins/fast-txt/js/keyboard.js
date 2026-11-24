@@ -1,5 +1,7 @@
     // ========== Editor Keydown ==========
     const handleEditorKeydown = (e) => {
+      // Ctrl/Cmd+Tab 是「浏览 ⇄ 编辑」切换, 交给全局处理, 不能当成插入缩进
+      if (e.key === 'Tab' && (e.ctrlKey || e.metaKey)) return;
       if (e.key === 'Tab') {
         e.preventDefault();
         const start = editorTextarea.selectionStart;
@@ -95,6 +97,16 @@
 
       // Editor mode - only handle global shortcuts (Ctrl+S, Ctrl+F, etc.)
       if (currentView === 'editor') {
+        // Ctrl/Cmd+Tab: Markdown 浏览 ⇄ 编辑 一键切换 (非 .md 文件不响应)
+        if (e.key === 'Tab' && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          if (editingFile && typeof isMdFile === 'function' && isMdFile(editingFile)) {
+            setMdMode(mdMode === 'browse' ? 'edit' : 'browse');
+            playSound('click');
+          }
+          return;
+        }
         // Ctrl/Cmd shortcuts
         if (e.ctrlKey || e.metaKey) {
           const k = key.toLowerCase();
@@ -297,7 +309,8 @@
           e.preventDefault();
           if (selectedRow === 0 && !isTrashMode) {
             const file = getDisplayFiles()[selectedCol];
-            if (file && !file.isFolder) startRename(file);
+            // 文件与文件夹都支持改名 (文件夹改名会同步重写内部条目的路径)
+            if (file && !file.deleted) startRename(file);
           }
           break;
 
