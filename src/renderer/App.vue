@@ -187,11 +187,18 @@
       v-if="repoVisible"
       @close="closeRepo"
     />
+
+    <!-- 帮助页 (可复用: 盖在设置页/仓库页之上) -->
+    <HelpView
+      v-if="helpTopicId"
+      :topic-id="helpTopicId"
+      @close="closeHelp"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, provide } from 'vue'
 import { useThemeStore } from './stores/theme'
 import { usePluginStore } from './stores/plugin'
 import { useI18nStore } from './stores/i18n'
@@ -200,6 +207,8 @@ import Modal from './components/Modal.vue'
 import LoadingMask from './components/LoadingMask.vue'
 import Settings from './components/Settings.vue'
 import SyncView from './components/SyncView.vue'
+import HelpView from './components/HelpView.vue'
+import { HELP_PROVIDE_KEY } from './composables/useHelp.js'
 
 const themeStore = useThemeStore()
 const pluginStore = usePluginStore()
@@ -255,6 +264,16 @@ const modalTitleSize = ref('normal')
 // 设置页面状态
 const settingsVisible = ref(false)
 const repoVisible = ref(false)
+
+// 帮助页 (可复用主机): 任意子组件 useHelp().openHelp('topic-id') 即可打开。
+// 这里只管"当前打开哪篇"，正文在 help/topics.js，渲染在 HelpView.vue。
+const helpTopicId = ref('')
+const openHelp = (topicId) => {
+  helpTopicId.value = topicId
+  playSound('setting')
+}
+const closeHelp = () => { helpTopicId.value = '' }
+provide(HELP_PROVIDE_KEY, openHelp)
 
 // DOM 引用
 const shelfRef = ref(null)
@@ -944,6 +963,12 @@ const handleModalClose = () => {
 
 // ========== 键盘导航 ==========
 const handleKeydown = (e) => {
+  // 帮助页盖在最上层: ESC 先关它，其余键一律吞掉，不透传到底层页面
+  if (helpTopicId.value) {
+    if (e.key === 'Escape') { e.preventDefault(); closeHelp() }
+    return
+  }
+
   // 设置/仓库页面打开时，不处理其他键盘事件
   if (settingsVisible.value) {
     return

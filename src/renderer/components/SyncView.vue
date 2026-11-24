@@ -46,6 +46,13 @@
         <!-- 上栏 (扁): Gitee 访问令牌 -->
         <div class="panel-top">
           <label class="pt-label">{{ t('repo.tokenLabel') }}</label>
+          <button
+            class="pt-help"
+            type="button"
+            :title="t('repo.tokenHelp')"
+            :aria-label="t('repo.tokenHelp')"
+            @click="openHelp('gitee-token')"
+          >?</button>
           <input
             v-model="tokenInput"
             class="pt-input"
@@ -61,7 +68,16 @@
         <!-- 下栏: 未关联 → 接入；已关联 → 已装的子程序 -->
         <div class="panel-main">
           <template v-if="!config.remoteUrl">
-            <p class="panel-hint">{{ t('repo.notLinkedHint') }}</p>
+            <div class="hint-row">
+              <p class="panel-hint">{{ t('repo.notLinkedHint') }}</p>
+              <button
+                class="pt-help"
+                type="button"
+                :title="t('repo.tokenHelp')"
+                :aria-label="t('repo.tokenHelp')"
+                @click="openHelp('gitee-token')"
+              >?</button>
+            </div>
 
             <div class="setup-block">
               <div class="setup-title">{{ t('repo.autoTitle') }}</div>
@@ -154,8 +170,12 @@ import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useThemeStore } from '../stores/theme'
 import { useI18nStore } from '../stores/i18n'
 import { playSound } from '../utils/audio'
+import { useHelp } from '../composables/useHelp.js'
 
 defineEmits(['close'])
+
+// 问号 → 全局帮助页 (主机在 App.vue)
+const { openHelp } = useHelp()
 
 const themeStore = useThemeStore()
 const i18nStore = useI18nStore()
@@ -773,6 +793,32 @@ onUnmounted(() => { if (armTimer) clearTimeout(armTimer) })
 
 .pt-hint { font-size: 10px; color: var(--text-muted); white-space: nowrap; }
 .pt-hint.warn { color: var(--accent-secondary); }
+
+/* 圆形问号 → 帮助页。与 .pt-btn 同一套 2px 边框语言，只做小 */
+.pt-help {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.14s ease, color 0.14s ease;
+}
+.pt-help:hover,
+.pt-help:focus-visible { border-color: var(--accent-primary); color: var(--accent-primary); }
+.hint-row { display: flex; align-items: flex-start; gap: 6px; }
+.hint-row .panel-hint { flex: 0 1 auto; }
+.hint-row .pt-help { margin-top: 0; }
 
 .panel-main {
   flex: 1;

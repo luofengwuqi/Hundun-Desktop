@@ -118,6 +118,15 @@ export default {
 
 
   // User-data repository (decision 67)
+  // Help page (reusable): generic labels; tutorial bodies live in src/renderer/help/topics.js
+  help: {
+    back: 'Back',
+    close: 'Close',
+    notesTitle: 'Good to know',
+    esc: 'Press ESC to go back',
+    unknown: 'Help topic not found',
+  },
+
   repo: {
     title: 'REPOSITORY',
     subtitle: 'Keep settings and selected program data in a git remote; pull it on another machine',
@@ -165,6 +174,7 @@ export default {
     confirmHint: 'Destructive action: {what}',
     // Right panel
     tokenLabel: 'Gitee access token',
+    tokenHelp: 'Where do I find a Gitee token?',
     tokenPh: 'private token (leave empty to clear)',
     tokenSave: 'Save',
     tokenSavedOk: 'Token saved',

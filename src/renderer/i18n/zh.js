@@ -119,6 +119,15 @@ export default {
 
 
   // 用户数据仓库 (决策67)
+  // 帮助页 (可复用): 通用按钮文案; 各教程正文在 src/renderer/help/topics.js
+  help: {
+    back: '返回',
+    close: '关闭',
+    notesTitle: '补充说明',
+    esc: '按 ESC 返回',
+    unknown: '没有这个帮助主题',
+  },
+
   repo: {
     title: '仓库',
     subtitle: '把设置与选定子程序的数据存到 git 远端，换机器时拉下来即可继续',
@@ -168,6 +177,7 @@ export default {
     confirmHint: '这是破坏性操作：{what}',
     // 右栏
     tokenLabel: 'Gitee 访问令牌',
+    tokenHelp: '怎么找到 Gitee 访问令牌？',
     tokenPh: 'private token（留空则清除）',
     tokenSave: '保存',
     tokenSavedOk: '令牌已保存',
