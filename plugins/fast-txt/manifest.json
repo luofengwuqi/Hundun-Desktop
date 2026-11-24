@@ -11,5 +11,16 @@
     "width": 800,
     "height": 540
   },
-  "permissions": []
+  "permissions": [],
+  "sync": {
+    "paths": [
+      "file/"
+    ],
+    "ignore": [
+      ".trash/",
+      ".order.json",
+      ".bookmarks.json",
+      ".git/"
+    ]
+  }
 }

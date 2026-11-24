@@ -254,6 +254,19 @@ window.electronAPI = {
     return () => ipcRenderer.removeListener('play-sound', handler)
   },
 
+  // ========== 用户数据仓库同步 (决策67) ==========
+  // 只有母程序窗口能调 (主进程按 event.sender 校验); 令牌只在主进程, 这里不回读
+  sync: {
+    status: () => ipcRenderer.invoke('sync:status'),
+    detectGit: (refresh) => ipcRenderer.invoke('sync:detect', !!refresh),
+    preview: () => ipcRenderer.invoke('sync:preview'),
+    updateConfig: (patch) => ipcRenderer.invoke('sync:update-config', patch),
+    link: (payload) => ipcRenderer.invoke('sync:link', payload),
+    createGiteeRepo: (payload) => ipcRenderer.invoke('sync:gitee-create', payload),
+    run: () => ipcRenderer.invoke('sync:sync'),
+    resolve: (strategy) => ipcRenderer.invoke('sync:resolve', strategy)
+  },
+
   // 推送音效设置到主进程 (运行期镜像, 供插件窗口直放音效读取)
   syncSoundSettings: (settings) => ipcRenderer.send('sound:sync', settings)
 }

@@ -150,6 +150,7 @@ plugins/
 | `permissions` | string[] | ❌ | `[]` | 所需权限列表 |
 | `minAppVersion` | string | ❌ | `"1.0.0"` | 最低母程序版本 |
 | `platforms` | string[] | ❌ | 不限制 | 支持的平台列表 (如 `["win32","linux"]`)，允许值 `win32`/`darwin`/`linux`；**打开前**主进程校验，不含当前系统则拒绝创建窗口并由母程序弹提示 (见 `src/main/platform-support.js`) |
+| `sync` | object | ❌ | 不声明 = 不可同步 | 用户数据同步声明，见 3.5 |
 | `settings` | object | ❌ | `{}` | 插件自定义配置 |
 
 ### 3.3 ID 命名规范
@@ -167,6 +168,31 @@ plugins/
 | `clipboard` | 访问剪贴板 | ❌ |
 
 当前 `hundun.permissions.check(permission)` 仅校验 manifest 声明，不会弹出授权对话框。
+
+### 3.5 同步声明 (`sync`)
+
+母程序底部「仓库」按钮可以把 `<userData>` 建成一个 git 仓库推到你自己的远端。
+子程序**只能通过声明**决定自己的数据是否参与同步 —— 这是白名单机制：没声明的东西一律不进库。
+
+```json
+"sync": {
+  "paths": ["file/"],
+  "ignore": [".trash/", ".order.json", ".bookmarks.json", ".git/"]
+}
+```
+
+| 字段 | 类型 | 必须 | 说明 |
+|------|------|------|------|
+| `paths` | string[] | ✅ | 相对 `<userData>/plugins/<id>/` 的目录/文件白名单。**`[]` 表示"只同步设置 JSON，不传文件"**（如 TASK、Music：数据全在 `hundun.storage`） |
+| `ignore` | string[] | ❌ | 在 `paths` 之内仍需排除的相对路径（回收站、排序缓存等本地视图状态） |
+
+规则：
+
+- **不写 `sync` 字段 = 该插件不可同步**，仓库页不会列出它。
+- 用户勾选后才生效；取消勾选时已跟踪的文件会被 `git rm --cached` 移出仓库，**本地文件保留**。
+- 单文件上限 50MB，超限跳过并在同步结果里列出，本地文件不动。
+- `paths` 里的路径必须落在插件自己的数据目录内，越界（`..`）会被拒绝。
+- 不要把令牌、密码之类的凭据放进被同步的目录 —— 仓库可能是公开的。
 
 ---
 

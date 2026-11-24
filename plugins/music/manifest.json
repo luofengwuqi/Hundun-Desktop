@@ -13,5 +13,10 @@
     "width": 800,
     "height": 540
   },
-  "permissions": ["storage"]
+  "permissions": [
+    "storage"
+  ],
+  "sync": {
+    "paths": []
+  }
 }

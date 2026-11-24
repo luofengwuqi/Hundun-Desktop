@@ -1,9 +1,9 @@
 # FastTXT 存储说明
 
-> 最后更新: 2026-10-24
-> 对齐代码: `manifest.json` entry = `main.html`；`css/` 13 个文件；`js/` 19 个文件 (+ `js/vendor/` 离线第三方)
-> 主进程: `src/main/index.js` → `registerFastTXTIPC()` / `registerFastTXTCloudIPC()` / `getFastTXTBasePath()`；`src/main/git-service.js` → 云端库 git 服务
-> 插件侧 API: `src/main/plugin-preload.js` → `window.hundun.fs` / `window.hundun.cloud`
+> 最后更新: 2026-11-24
+> 对齐代码: `manifest.json` entry = `main.html`；`css/` 13 个文件；`js/` 20 个文件 (+ `js/vendor/` 离线第三方)
+> 主进程: `src/main/index.js` → `registerFastTXTIPC()` / `getFastTXTBasePath()`
+> 插件侧 API: `src/main/plugin-preload.js` → `window.hundun.fs`
 
 ---
 
@@ -84,8 +84,8 @@ plugins/fast-txt/
 │   ├── find-bar.css      # 查找替换栏
 │   ├── status.css        # 编辑器状态栏
 │   ├── md-preview.css    # Markdown 浏览模式（预览排版 + 右下角浏览/编辑滑块）
-│   └── cloud.css         # 云端文档库页（引导/表单/仪表盘/冲突页）
-└── js/                   # 19 个文件（main.html 中按下列顺序加载）
+│   └── toast.css         # 轻提示
+└── js/                   # 20 个文件（main.html 中按下列顺序加载）
     ├── sdk.js            # playSound (绝对路径直放) / returnToParent
     ├── i18n.js           # 多语言核心（zh/en 各 70 条翻译）
     ├── i18n-html.js      # 静态 HTML 文本套用翻译
@@ -104,19 +104,17 @@ plugins/fast-txt/
     ├── theme-sync.js     # 主题切换 + beforeunload 同步写盘
     ├── vendor/
     │   └── markdown-it.min.js  # markdown-it 14.1.0 UMD (123KB, 离线 vendor)
+    ├── importer.js       # 外部文件/文件夹拖入（决策58 统一规范）
     ├── md-preview.js     # Markdown 浏览/编辑模式（分块渲染/活动块源码编辑/滑块）
-    ├── cloud.js          # 云端文档库页（三选项引导/关联表单/仪表盘/冲突四策略/键盘）
+    ├── toast.js          # 轻提示
     └── init.js           # 启动入口（init，加载列表最后一项）
 ```
 
 ### JS 加载顺序（`main.html` 末尾）
 
-`sdk → i18n → i18n-html → app-state → filesystem → render → file-actions → reorder →
-modes → create → find-replace → autosave → modal → keyboard → events → theme-sync →
-cloud → vendor/markdown-it → md-preview → init`
-
-> `keyboard.js` 里 `currentView === 'cloud'` 时转交 `handleCloudKeydown()`（cloud.js 定义），
-> 依赖 cloud.js 在首次按键前已完成初始化 —— 因此它必须在 `keyboard.js` 之后、`init.js` 之前加载。
+`sdk → i18n → i18n-html → app-state → filesystem → render → file-actions → importer →
+reorder → modes → create → find-replace → autosave → modal → toast → keyboard → events →
+theme-sync → vendor/markdown-it → md-preview → init`
 
 所有 JS 均为无模块的全局脚本（共享 `app-state.js` 里的全局变量），改动加载顺序会直接导致
 `ReferenceError`，新增文件必须显式加进 `main.html`。
@@ -135,12 +133,13 @@ cloud → vendor/markdown-it → md-preview → init`
 │   └── nested.md
 ├── .order.json                           ← 排序信息（隐藏文件）
 ├── .bookmarks.json                       ← 行号书签（隐藏文件）
-├── .gitignore                            ← 启用云端库后自动写入（排除下面三项 + .git）
-├── .git/                                 ← 启用云端库后的本地版本库（默认关闭时不存在）
 └── .trash/                               ← 回收站（隐藏文件夹，平铺存放被删文件）
     ├── old_file.txt
     └── another.txt1                      ← 重名时自动改名（见第 7 节）
 ```
+
+> 旧版云端库遗留的 `.git/` 与 `.gitignore` 可能仍在（不再被读取，删掉也不影响文档），
+> 详见第 14 节。
 
 ### 启动时的初始化（`js/init.js`）
 
@@ -174,17 +173,8 @@ cloud → vendor/markdown-it → md-preview → init`
 `rename` / `exists` / `stat` / `openInExplorer` 为 `ipcMain.handle`（invoke）；
 `fasttxt:writeFileSync` 为 `ipcMain.on`（send，同步写，**非原子**），供 `beforeunload` 使用。
 
-云端库另有一组（仅 `fast-txt` 窗口可调用，身份由主进程反查）：
-
-| 通道 | 说明 |
-|------|------|
-| `fasttxt:cloud:detect` | 探测系统 git（`refresh` 可重探） |
-| `fasttxt:cloud:state` | 仓库状态 + 配置（**不含令牌**，只回 `hasToken`） |
-| `fasttxt:cloud:setup` | 关联仓库：init → commit → fetch → merge → push |
-| `fasttxt:cloud:sync` | 手动同步：commit → fetch → merge → push |
-| `fasttxt:cloud:resolve` | 解决冲突：`auto` / `cloud` / `local` / `both` |
-| `fasttxt:cloud:disable` | 关闭云同步（文档与 `.git` 保留） |
-| `fasttxt:cloud:conflicts` | 读取冲突清单与两端预览 |
+> 同步（git）已不属于 FastTXT：`fasttxt:cloud:*` 通道与 `window.hundun.cloud` 于 2026-11-24 移除，
+> 改由母程序 `sync:*` 提供，见第 14 节。
 
 ---
 
@@ -198,8 +188,7 @@ cloud → vendor/markdown-it → md-preview → init`
 | `.bookmarks.json` | 每个文件的行号书签 | `{ "<文件相对路径>": [行号, ...] }`；无路径时用 `__default__` 作 key |
 | `.trash/` | 回收站，平铺存放被删文件 | 重名自动按 `file` → `file1` → `file11` 改名 |
 | `.trash/.trash.json` | 旧版回收站清单残留 | **已不再使用**，自动忽略（隐藏项不会被读入） |
-| `.gitignore` | 云端库忽略规则 | 自动写入 `.trash/`、`.order.json`、`.bookmarks.json`、`*.tmp` 等 |
-| `.git/` | 云端库本地版本库 | 由 `git init` 创建；关闭云同步也不会删除 |
+| `.gitignore` / `.git/` | 旧版云端库遗留 | 2026-11-24 起不再读写；删掉不影响文档（见第 14 节） |
 
 - 排序：`saveOrderToDisk()` 每次磁盘变更后写入 `[...活动项, ...回收站项]` 的 id 数组。
 - 书签：点击行号 `toggleBookmark()` 后写入；`openFile()` 时按文件路径读取并跳到第一个书签。
@@ -359,62 +348,16 @@ NewFolder    → NewFolder1    → NewFolder2 ...
 
 ---
 
-## 14. 云端文档库（git）
+## 14. 用户数据同步（已上移到母程序，决策67）
 
-**默认关闭**：`<userData>/plugins/fast-txt/cloud.json` 不存在或 `enabled: false` 时，FastTXT 主页面行为与旧版完全一致（不联网、不碰 `.git`）。
-
-### 14.1 配置与版本库位置
-
-| 内容 | 路径 |
-|------|------|
-| 云端库配置（远程地址/分支/用户名/令牌/上次同步时间） | `<userData>/plugins/fast-txt/cloud.json`（权限 0600，**与 `file/` 平级，不在仓库内**） |
-| 本地版本库 | `<userData>/plugins/fast-txt/file/.git/` |
-| 忽略规则 | `<userData>/plugins/fast-txt/file/.gitignore` |
-
-> 配置刻意放在 `file/` 之外：避免令牌被 `git add -A` 提交上云。
-
-### 14.2 同步范围
-
-只有文档与文件夹结构进版本库；以下属于本地视图状态，写在 `.gitignore`：
-
-```
-.trash/            # 回收站（不跨端同步）
-.order.json        # 列表排序
-.bookmarks.json    # 行号书签
-*.tmp  Thumbs.db  .DS_Store
-```
-
-因此：**删除文件会同步为"云端删除"**，但被删文件的副本只留在本机回收站，另一台机器看不到。
-
-### 14.3 同步流程（全手动）
-
-```
-点「立即同步」
-  → git add -A + commit（有改动才提交）
-  → git fetch <auth-url> +refs/heads/<branch>:refs/remotes/origin/<branch>
-  → 落后则 git merge --allow-unrelated-histories origin/<branch>
-      ├─ 无冲突 → git push
-      └─ 有冲突 → 冲突页（等待用户选 2.0~2.3）
-  → 冲突解决后：只生成合并提交，不自动 push（再点同步才推）
-```
-
-### 14.4 冲突策略落点
-
-| 策略 | 实现 |
-|------|------|
-| 2.0 自动合并 | 保留 git 写入的 `<<<<<<<` 标记 → `git add` → 合并提交 |
-| 2.1 以云端为准 | 冲突文件 `git checkout --theirs`（云端删除则 `git rm`）→ add → 提交 |
-| 2.2 以本地为准 | 冲突文件 `git checkout --ours` → add → 提交（云端非冲突改动仍保留，不 force push） |
-| 2.3 两端都保留 | 原文件写回本地版本；云端版本写 `<name> (云端).<ext>`（重名递增）→ 两个都 add → 提交 |
-
-### 14.5 安全约束
-
-- git 只由主进程 `src/main/git-service.js` 调起：`execFile` + 参数数组（无 shell），渲染进程不能传 git 参数或路径。
-- IPC 仅接受 `fast-txt` 窗口（`senderPluginId` 反查），其他插件调用返回 `FORBIDDEN`。
-- 令牌只拼进**单次网络命令的 argv**（`https://<user>:<token>@host/...`），不写 `.git/config`；回传渲染进程只有 `hasToken` 布尔；所有 stderr 经脱敏后才会展示。
-- 网络命令强制非交互（`GIT_TERMINAL_PROMPT=0`、`GIT_ASKPASS=echo`、`credential.helper=` 置空），凭据缺失立即报错而不是挂起。
-- 用户名留空时按主机兜底：`github.com` 用 `x-access-token`，其它用 `oauth2`（GitHub / Gitee 均已停用账号密码，匿名 push 必然 401）。
-- 认证失败的 stderr 会分流成三种可执行提示：没填令牌 / 令牌无效或权限不足 / 仓库不存在或无权访问。
+> FastTXT **不再有自己的远端仓库**。2026-11-24 起，同步能力提升为母程序底部「仓库」按钮：
+> 版本库根目录是 `<userData>` 本身，范围由各子程序 `manifest.json` 的 `sync` 字段声明。
+> FastTXT 的声明是 `{"paths": ["file/"], "ignore": [".trash/", ".order.json", ".bookmarks.json", ".git/"]}`。
+>
+> 老用户遗留物（**保留不删，可选择手动清理**）：
+> `<userData>/plugins/fast-txt/cloud.json`（旧配置，含明文/加密令牌）与
+> `<userData>/plugins/fast-txt/file/.git/`（旧本地版本库）。两者都不再被读取。
+> 若要彻底清除痕迹：删掉这两个即可，`file/` 里的文档不受影响。
 
 ---
 
@@ -422,5 +365,6 @@ NewFolder    → NewFolder1    → NewFolder2 ...
 
 - 本文档：`plugins/fast-txt/STORAGE.md`
 - 插件规范：`docs/PLUGIN_SPEC.md` / `docs/PLUGIN_DEVELOPMENT.md`
+- 母程序仓库同步：`src/main/sync-service.js` / `src/renderer/components/SyncView.vue`（决策67）
 - 项目进度与技术决策：`AGENTS.md`（项目根）
 - 变更历史：`CHANGELOG.md`（项目根，2026-09-07 删除逻辑简化、2026-09-23 数据目录迁移、2026-09-24 刷新按钮、2026-09-29 本文档对齐）

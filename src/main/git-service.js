@@ -1,7 +1,7 @@
 /**
- * HundunDesktop - FastTXT 云端文档库 (git)
+ * HundunDesktop - 加固的 git 调用层
  *
- * 设计原则 (决策56):
+ * 设计原则:
  *  1. 渲染进程永远不能传 git 参数进来 —— 只允许调用下面导出的语义化函数,
  *     所有 git 子命令在主进程内拼装, 杜绝命令注入与任意仓库操作。
  *  2. 不用 shell: 一律 execFile(gitPath, args[]), 路径/URL 都作为独立 argv 元素。
@@ -9,6 +9,8 @@
  *     日志与返回给渲染进程的文本统一 sanitize, 绝不回显令牌。
  *  4. 禁交互: GIT_TERMINAL_PROMPT=0 + credential.helper 置空 —— 需要凭据时
  *     直接失败, 不会在后台卡住等输入。
+ *
+ * 使用者: 母程序「仓库」同步 (决策67, src/main/sync-service.js)。
  */
 
 const { execFile } = require('child_process')
@@ -17,11 +19,6 @@ const path = require('path')
 
 const GIT_TIMEOUT = 120000
 const MAX_BUFFER = 12 * 1024 * 1024
-
-// 只同步文档: 回收站/排序/书签属于本地视图状态, 不进版本库
-const IGNORE_LINES = ['.trash/', '.order.json', '.bookmarks.json', '*.tmp', 'Thumbs.db', '.DS_Store']
-
-const COMMIT_IDENTITY = ['-c', 'user.name=FastTXT', '-c', 'user.email=fasttxt@hundundesktop.local']
 
 // 统一的基础配置: 关掉 CRLF 转换与分页, 输出按 UTF-8 原样透传
 const BASE_CONFIG = [
@@ -136,7 +133,7 @@ async function detectGit(force = false) {
 }
 
 function requireGitPath() {
-  if (!_gitPath) throw new GitError('NO_GIT', '未检测到 git，请先安装 git 再启用云端文档库')
+  if (!_gitPath) throw new GitError('NO_GIT', '未检测到 git，请先安装 git 后再使用仓库同步')
   return _gitPath
 }
 
@@ -208,80 +205,6 @@ function publicRemoteUrl(raw) {
 
 const isRepo = (repoDir) => fs.existsSync(path.join(repoDir, '.git'))
 
-async function currentBranch(repoDir) {
-  const res = await execGit(requireGitPath(), repoDir, ['rev-parse', '--abbrev-ref', 'HEAD'])
-  return res.ok ? res.stdout.trim() : ''
-}
-
-async function ensureIgnoreFile(repoDir) {
-  const file = path.join(repoDir, '.gitignore')
-  let existing = ''
-  try {
-    existing = fs.readFileSync(file, 'utf8')
-  } catch (_) {}
-  const have = new Set(existing.split(/\r?\n/).map((l) => l.trim()))
-  const missing = IGNORE_LINES.filter((l) => !have.has(l))
-  if (!missing.length) return false
-  const prefix = existing && !existing.endsWith('\n') ? '\n' : ''
-  fs.writeFileSync(file, existing + prefix + missing.join('\n') + '\n', 'utf8')
-  return true
-}
-
-async function commitAll(repoDir, message) {
-  const git = requireGitPath()
-  await execGit(git, repoDir, ['add', '-A'])
-  // 暂存区为空则跳过 (git diff --cached --quiet 退出码 0 = 无差异)
-  const diff = await execGit(git, repoDir, ['diff', '--cached', '--quiet'])
-  if (diff.ok) return { committed: false }
-  const res = await execGit(git, repoDir, COMMIT_IDENTITY.concat(['commit', '--no-verify', '-m', message]))
-  if (!res.ok) {
-    throw new GitError('COMMIT_FAILED', '本地提交失败', res.stderr || res.stdout)
-  }
-  return { committed: true }
-}
-
-async function changedFiles(repoDir) {
-  const res = await execGit(requireGitPath(), repoDir, ['status', '--porcelain'])
-  if (!res.ok) return []
-  return res.stdout
-    .split('\n')
-    .filter((l) => l.trim())
-    .map((line) => {
-      const code = line.slice(0, 2).trim()
-      let p = line.slice(3).trim()
-      if (p.startsWith('"') && p.endsWith('"')) {
-        p = p.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, '\\')
-      }
-      return { code, path: p }
-    })
-    .slice(0, 200)
-}
-
-async function aheadBehind(repoDir, branch) {
-  const git = requireGitPath()
-  const ref = `refs/remotes/origin/${branch}`
-  const exists = await execGit(git, repoDir, ['rev-parse', '--verify', '--quiet', ref])
-  if (!exists.ok) return { hasRemoteRef: false, ahead: 0, behind: 0 }
-  const res = await execGit(git, repoDir, ['rev-list', '--left-right', '--count', `HEAD...origin/${branch}`])
-  if (!res.ok) return { hasRemoteRef: true, ahead: 0, behind: 0 }
-  const [ahead, behind] = res.stdout.trim().split(/\s+/).map((n) => parseInt(n, 10) || 0)
-  return { hasRemoteRef: true, ahead, behind }
-}
-
-async function lastCommit(repoDir) {
-  const res = await execGit(requireGitPath(), repoDir, ['log', '-1', '--format=%cI%x09%s'])
-  if (!res.ok || !res.stdout.trim()) return null
-  const [date, ...rest] = res.stdout.trim().split('\t')
-  return { date, subject: rest.join('\t') }
-}
-
-/** 是否处于未完成的合并状态 */
-async function mergeInProgress(repoDir) {
-  if (fs.existsSync(path.join(repoDir, '.git', 'MERGE_HEAD'))) return true
-  const res = await execGit(requireGitPath(), repoDir, ['rev-parse', '-q', '--verify', 'MERGE_HEAD'])
-  return res.ok
-}
-
 // ========== 冲突读取 ==========
 
 /**
@@ -322,74 +245,12 @@ async function stageContent(repoDir, filePath, stage) {
   return res.stdout
 }
 
-// ========== 状态 ==========
+// ========== 错误分类 ==========
 
-async function repoState(repoDir, cfg) {
-  const detected = await detectGit()
-  const enabled = !!(cfg && cfg.enabled)
-  const base = {
-    gitAvailable: detected.available,
-    gitVersion: detected.version,
-    enabled,
-    initialized: isRepo(repoDir),
-    remote: publicRemoteUrl(cfg && cfg.remoteUrl),
-    branch: (cfg && cfg.branch) || 'main',
-    hasToken: !!(cfg && cfg.token),
-    username: (cfg && cfg.username) || '',
-    lastSyncAt: (cfg && cfg.lastSyncAt) || null,
-    lastResult: (cfg && cfg.lastResult) || null,
-    merging: false,
-    ahead: 0,
-    behind: 0,
-    dirty: [],
-    lastCommit: null
-  }
-  if (!base.initialized) return base
-
-  // 这几项互不依赖，并行执行：Windows 上每 spawn 一次 git 要 100~300ms，
-  // 串行 6~8 次就是 1~2 秒，用户点开云端页会明显觉得「卡了很久」。
-  const wantedBranch = base.branch
-  const [resolved, merging, dirty, ab, last] = await Promise.all([
-    currentBranch(repoDir).catch(() => null),
-    mergeInProgress(repoDir).catch(() => false),
-    changedFiles(repoDir).catch(() => []),
-    aheadBehind(repoDir, wantedBranch).catch(() => ({ hasRemoteRef: false, ahead: 0, behind: 0 })),
-    lastCommit(repoDir).catch(() => null)
-  ])
-
-  const branch = resolved || wantedBranch
-  base.branch = branch
-  base.merging = merging
-  base.dirty = dirty
-  base.lastCommit = last
-
-  // 真实分支与配置分支不一致时，ahead/behind 要按真实分支重算
-  const abFinal = branch === wantedBranch ? ab : await aheadBehind(repoDir, branch)
-  base.ahead = abFinal.ahead
-  base.behind = abFinal.behind
-  base.hasRemoteRef = abFinal.hasRemoteRef
-
-  if (base.merging) base.conflicts = await readConflicts(repoDir, cfg)
-  return base
-}
-
-// ========== 网络操作 ==========
-
-async function fetchRemote(repoDir, cfg) {
-  const git = requireGitPath()
-  const auth = buildAuthUrl(cfg)
-  const branch = (cfg && cfg.branch) || 'main'
-  const refspec = `+refs/heads/${branch}:refs/remotes/origin/${branch}`
-  return execGit(git, repoDir, ['fetch', '--prune', '--no-tags', auth, refspec], { timeout: GIT_TIMEOUT })
-}
-
-async function pushBranch(repoDir, cfg) {
-  const git = requireGitPath()
-  const auth = buildAuthUrl(cfg)
-  const branch = (cfg && cfg.branch) || 'main'
-  return execGit(git, repoDir, ['push', auth, `HEAD:refs/heads/${branch}`], { timeout: GIT_TIMEOUT })
-}
-
+/**
+ * 把 git 的报错文本归到可读的原因上。
+ * 返回值恒为 GitError，调用方需要先自己判断「不是错误」的情形。
+ */
 function classifyNetworkError(res, cfg) {
   const text = `${res.stderr || ''}\n${res.stdout || ''}`
   const hasToken = !!(cfg && cfg.token)
@@ -425,241 +286,6 @@ function classifyNetworkError(res, cfg) {
   return new GitError('GIT_FAILED', 'git 执行失败', text)
 }
 
-/**
- * 把远端分支合并进本地。返回 {ok, conflicts} 或 {ok:false, error}
- * --allow-unrelated-histories: 首次关联一个已有内容的仓库时, 两端历史无共同祖先
- */
-async function mergeRemote(repoDir, cfg) {
-  const git = requireGitPath()
-  const branch = (cfg && cfg.branch) || 'main'
-  const res = await execGit(git, repoDir, ['merge', '--no-edit', '--allow-unrelated-histories', '-m', `merge: 合并云端 ${branch}`, `origin/${branch}`])
-  if (res.ok) return { ok: true, conflicts: [] }
-  // 冲突: merge 退出码 1 且存在未合并路径
-  const conflicts = await readConflicts(repoDir, cfg)
-  if (conflicts.length) return { ok: false, conflicts, error: null }
-  return { ok: false, conflicts: [], error: classifyNetworkError(res, cfg) }
-}
-
-// ========== 对外语义化操作 ==========
-
-/**
- * 首次关联云端仓库 (新建 or 已有, 行为一致: 有内容就合并, 空库就首推)
- * @returns {Promise<{ok:boolean, state:object, conflicts?:Array, error?:GitError}>}
- */
-async function setupRepo(repoDir, cfg) {
-  const detected = await detectGit()
-  if (!detected.available) throw new GitError('NO_GIT', '未检测到 git，请先安装 git 再启用云端文档库')
-
-  const git = requireGitPath()
-  const branch = cfg.branch || 'main'
-  const fresh = !isRepo(repoDir)
-
-  if (fresh) {
-    const init = await execGit(git, repoDir, ['init'])
-    if (!init.ok) throw new GitError('INIT_FAILED', 'git init 失败', init.stderr)
-    // 统一分支名 (init 默认分支随 git 版本变化); 已有仓库不动 HEAD, 避免切走未提交内容
-    await execGit(git, repoDir, ['symbolic-ref', 'HEAD', `refs/heads/${branch}`])
-  }
-  await ensureIgnoreFile(repoDir)
-  await commitAll(repoDir, 'chore: FastTXT 初始化云端文档库')
-
-  const fetchRes = await fetchRemote(repoDir, { ...cfg, branch })
-  if (!fetchRes.ok) {
-    // 空仓库: fetch 拿不到分支引用是正常情况 → 直接首推
-    const err = classifyNetworkError(fetchRes, cfg)
-    if (err.code !== 'NO_REMOTE_BRANCH') throw err
-    const pushRes = await pushBranch(repoDir, { ...cfg, branch })
-    if (!pushRes.ok) throw classifyNetworkError(pushRes, cfg)
-  } else {
-    const merge = await mergeRemote(repoDir, { ...cfg, branch })
-    if (!merge.ok && merge.error) throw merge.error
-    if (!merge.ok) {
-      return { ok: false, state: await repoState(repoDir, cfg), conflicts: merge.conflicts, error: null }
-    }
-    // 合并成功且本地有新提交 (合并提交/首推) → 推送
-    const pushRes = await pushBranch(repoDir, { ...cfg, branch })
-    if (!pushRes.ok) throw classifyNetworkError(pushRes, cfg)
-  }
-
-  const state = await repoState(repoDir, cfg)
-  return { ok: true, state, conflicts: [] }
-}
-
-/**
- * 手动同步: 提交本地改动 → 拉取 → (必要时) 合并 → 推送
- */
-async function syncRepo(repoDir, cfg) {
-  const detected = await detectGit()
-  if (!detected.available) throw new GitError('NO_GIT', '未检测到 git，请先安装 git 再启用云端文档库')
-  if (!isRepo(repoDir)) throw new GitError('NOT_INITIALIZED', '云端文档库尚未初始化')
-
-  const branch = cfg.branch || (await currentBranch(repoDir)) || 'main'
-  const workCfg = { ...cfg, branch }
-
-  // 未完成的合并: 必须先解决冲突
-  if (await mergeInProgress(repoDir)) {
-    const conflicts = await readConflicts(repoDir, workCfg)
-    if (conflicts.length) {
-      return { ok: false, state: await repoState(repoDir, workCfg), conflicts, error: null }
-    }
-    // 冲突已解决但没提交 → 补一个合并提交
-    await execGit(requireGitPath(), repoDir, COMMIT_IDENTITY.concat(['commit', '--no-edit']))
-  }
-
-  await commitAll(repoDir, `sync: ${new Date().toISOString().slice(0, 16).replace('T', ' ')} 本地改动`)
-
-  const fetchRes = await fetchRemote(repoDir, workCfg)
-  if (!fetchRes.ok) {
-    const err = classifyNetworkError(fetchRes, cfg)
-    if (err.code !== 'NO_REMOTE_BRANCH') throw err
-    // 云端还没有这个分支 → 首次推送
-    const pushRes = await pushBranch(repoDir, workCfg)
-    if (!pushRes.ok) throw classifyNetworkError(pushRes, cfg)
-    return { ok: true, state: await repoState(repoDir, workCfg), conflicts: [] }
-  }
-
-  const ab = await aheadBehind(repoDir, branch)
-  if (ab.behind > 0) {
-    const merge = await mergeRemote(repoDir, workCfg)
-    if (!merge.ok && merge.error) throw merge.error
-    if (!merge.ok) {
-      return { ok: false, state: await repoState(repoDir, workCfg), conflicts: merge.conflicts, error: null }
-    }
-  }
-
-  const after = await aheadBehind(repoDir, branch)
-  if (after.ahead > 0 || !after.hasRemoteRef) {
-    const pushRes = await pushBranch(repoDir, workCfg)
-    if (!pushRes.ok) throw classifyNetworkError(pushRes, cfg)
-    // push 后本地 origin/ 引用不会自动更新 → 再 fetch 一次让状态准确
-    await fetchRemote(repoDir, workCfg)
-  }
-
-  return { ok: true, state: await repoState(repoDir, workCfg), conflicts: [] }
-}
-
-/** 2.3 的改名: "文件.txt" → "文件 (云端).txt"; 同名已存在则递增 */
-function cloudSiblingPath(repoDir, filePath) {
-  const dir = path.posix.dirname(filePath)
-  const base = path.posix.basename(filePath)
-  const dot = base.lastIndexOf('.')
-  const stem = dot > 0 ? base.slice(0, dot) : base
-  const ext = dot > 0 ? base.slice(dot) : ''
-  let idx = 1
-  let candidate
-  do {
-    const suffix = idx === 1 ? ' (云端)' : ` (云端${idx})`
-    const name = `${stem}${suffix}${ext}`
-    candidate = dir === '.' ? name : `${dir}/${name}`
-    idx++
-  } while (fs.existsSync(path.join(repoDir, candidate)) && idx < 999)
-  return candidate
-}
-
-/**
- * 解决冲突
- * @param {'auto'|'cloud'|'local'|'both'} strategy
- *   auto  = 2.0 交给 git, 保留冲突标记后再提交
- *   cloud = 2.1 以云端为准 (丢弃本地对冲突文件的修改)
- *   local = 2.2 以本地为准 (只覆盖冲突文件, 云端其它改动仍保留)
- *   both  = 2.3 两份都留: 原文件保本地, 云端版本另存 "(云端)"
- */
-async function resolveConflicts(repoDir, cfg, strategy) {
-  const git = requireGitPath()
-  if (!(await mergeInProgress(repoDir))) throw new GitError('NO_MERGE', '当前没有进行中的合并')
-  const conflicts = await readConflicts(repoDir, cfg)
-  if (!conflicts.length) {
-    // 已全部标记解决, 直接补合并提交
-    const commit = await execGit(git, repoDir, COMMIT_IDENTITY.concat(['commit', '--no-edit']))
-    return { ok: commit.ok, resolved: [], state: await repoState(repoDir, cfg) }
-  }
-
-  const resolved = []
-
-  for (const item of conflicts) {
-    const p = item.path
-    const hasOurs = item.ours !== null
-    const hasTheirs = item.theirs !== null
-
-    if (strategy === 'auto') {
-      // 保留 git 写入的冲突标记, 直接 add
-      await execGit(git, repoDir, ['add', '--', p])
-      resolved.push({ path: p, result: 'markers' })
-      continue
-    }
-
-    if (strategy === 'cloud') {
-      if (hasTheirs) {
-        const co = await execGit(git, repoDir, ['checkout', '--theirs', '--', p])
-        if (!co.ok) {
-          // 部分场景 (add/add) 直接写入 stage 3 内容
-          const content = await stageContent(repoDir, p, 3)
-          if (content != null) fs.writeFileSync(path.join(repoDir, p), content, 'utf8')
-        }
-        await execGit(git, repoDir, ['add', '--', p])
-        resolved.push({ path: p, result: 'cloud' })
-      } else {
-        // 云端删除了该文件 → 跟随云端删除
-        await execGit(git, repoDir, ['rm', '-f', '--', p])
-        resolved.push({ path: p, result: 'cloud-deleted' })
-      }
-      continue
-    }
-
-    if (strategy === 'local') {
-      if (hasOurs) {
-        const co = await execGit(git, repoDir, ['checkout', '--ours', '--', p])
-        if (!co.ok) {
-          const content = await stageContent(repoDir, p, 2)
-          if (content != null) fs.writeFileSync(path.join(repoDir, p), content, 'utf8')
-        }
-        await execGit(git, repoDir, ['add', '--', p])
-        resolved.push({ path: p, result: 'local' })
-      } else {
-        // 本地删除了该文件 → 保持删除
-        await execGit(git, repoDir, ['rm', '-f', '--', p])
-        resolved.push({ path: p, result: 'local-deleted' })
-      }
-      continue
-    }
-
-    // both: 原文件留本地, 云端内容另存
-    const oursContent = hasOurs ? await stageContent(repoDir, p, 2) : null
-    const theirsContent = hasTheirs ? await stageContent(repoDir, p, 3) : null
-    let savedAs = null
-
-    if (oursContent != null) {
-      fs.mkdirSync(path.dirname(path.join(repoDir, p)), { recursive: true })
-      fs.writeFileSync(path.join(repoDir, p), oursContent, 'utf8')
-      await execGit(git, repoDir, ['add', '--', p])
-    } else {
-      await execGit(git, repoDir, ['rm', '-f', '--', p])
-    }
-
-    if (theirsContent != null) {
-      savedAs = cloudSiblingPath(repoDir, p)
-      fs.mkdirSync(path.dirname(path.join(repoDir, savedAs)), { recursive: true })
-      fs.writeFileSync(path.join(repoDir, savedAs), theirsContent, 'utf8')
-      await execGit(git, repoDir, ['add', '--', savedAs])
-    }
-
-    resolved.push({ path: p, result: 'both', savedAs })
-  }
-
-  const commit = await execGit(git, repoDir, COMMIT_IDENTITY.concat(['commit', '--no-edit']))
-  if (!commit.ok) {
-    throw new GitError('MERGE_COMMIT_FAILED', '合并提交失败', commit.stderr || commit.stdout)
-  }
-
-  // 合并提交后还需要推送 (手动模式: 由用户点"同步"再推, 避免一次点击多重副作用)
-  return { ok: true, resolved, state: await repoState(repoDir, cfg) }
-}
-
-/** 关闭云同步: 只停用, 文档与 .git 历史都保留 */
-async function disable(repoDir, cfg) {
-  return { ok: true, state: await repoState(repoDir, { ...cfg, enabled: false }) }
-}
-
 module.exports = {
   GitError,
   detectGit,
@@ -667,15 +293,11 @@ module.exports = {
   publicRemoteUrl,
   sanitize,
   isRepo,
-  ensureIgnoreFile,
-  commitAll,
-  repoState,
-  setupRepo,
-  syncRepo,
-  resolveConflicts,
-  disable,
   readConflicts,
-  mergeInProgress,
   classifyNetworkError,
-  IGNORE_LINES
+  // 决策67: 母程序「仓库」复用同一套加固过的 git 调用 (禁交互 / 无 shell /
+  // 固定 BASE_CONFIG / 超时与缓冲上限), 但仍各自拼装语义化子命令 ——
+  // 渲染进程永远传不进 git 参数。
+  requireGitPath,
+  runGit: (cwd, args, opts) => execGit(requireGitPath(), cwd, args, opts)
 }

@@ -6,6 +6,26 @@
 
 ## 2026-11-24
 
+### feat: 母程序内置「用户数据仓库」同步（决策67）
+
+- [x] **入口**: 底部按钮群第 4 个「仓库」（`+ / 设置 / 仓库 / 插槽`），键盘 `←/→` 可选中，回车打开全屏仓库页（`SyncView.vue`，与设置页同壳）
+- [x] **仓库根 = userData 本身**: 直接在 `<userData>` 原地 `git init`，不做副本、不搬目录 —— 归档的位置永远是真实数据的位置，不存在「两份数据谁是准的」这种问题
+- [x] **白名单而非黑名单**: `.gitignore` 先 `*` 排除一切，再逐级 `!` 重新包含：`settings.json`、`hundundesktop-data/*.json`、用户勾选插件的目录。**Cache / Local Storage(leveldb) / 未勾选插件 / 令牌文件 / sync 配置自身** 一律不进库（已用 `git ls-tree` 逐项验证）
+- [x] **子程序靠 manifest 声明**: 新增 `sync` 字段（见 `docs/PLUGIN_SPEC.md` 3.5）。fast-txt `{paths:["file/"], ignore:[".trash/",".order.json",".bookmarks.json",".git/"]}`、fast-cmd `{paths:["file/"]}`、task 与 music `{paths:[]}`（数据全在 `hundun.storage`，只传 JSON）。不写该字段 = 不可同步
+- [x] **两种接入**: ① Gitee 代建（填令牌 → `POST /user/repos` 建私有空库 → 立即关联）② 已有仓库（填地址+令牌，拉取合并）。令牌优先 `safeStorage` 加密存 `sync/token.bin`，无系统密钥环时降级明文并标记 `tokenStorage:'plain'`
+- [x] **同步流程**: `detectGit → init → 写 .gitignore → 取消勾选项 git rm --cached → add → commit → fetch → merge → push`。**禁用 reset / clean / checkout -f / push --force**；冲突只允许 `checkout --ours/--theirs` 按文件取值，不动其他文件
+- [x] **不静默删东西**: 取消勾选时用 `git rm --cached` 移出索引、**本地文件保留**，结果里回报 `untracked` 清单；>50MB 文件跳过并列入 `.gitignore`，本地文件不动；任何"删除"都在返回结构里逐条说出来
+- [x] **安全**: 8 个 `sync:*` IPC 全部经 `isMainWindowSender` 守卫；错误统一过 `gitService.sanitize(err, {token})` 抹令牌；一律 `execFile` + 参数数组（无 shell），渲染进程传不进 git 参数；`GIT_TERMINAL_PROMPT=0` 禁交互
+- [x] **测试**: `scripts/test-sync-service.js` 11 项集成（本地裸仓库当远端真实跑 git）—— 白名单只放行该放的、令牌不进 `.git/config`、无改动不产生空提交、远端他人提交能合并、冲突报 CONFLICT 不自行丢改动、按「保留本地」解决后推送成功、取消勾选后文件出库但本地保留。全过
+
+### remove: 移除 FastTXT 云端文档库（同步能力上移母程序）
+
+- [x] **原因**: 决策56 的云端库是「一个插件一个远端仓库」的思路，只能同步 `fast-txt/file/`，其他子程序的数据要同步就得各写一套。现在统一到母程序「仓库」按钮（决策67），FastTXT 不再保留自己的一套
+- [x] **移除面（前端）**: 底部 ☁ 按钮、`css/cloud.css`、`js/cloud.js`、`main.html` 的云端视图与引用、`app-state.js` 的云按钮与标题栏绑定、`init.js`/`theme-sync.js` 的 `themeToggleCloud`、`keyboard.js` 的 `currentView === 'cloud'` 转发、`i18n.js` 中英两套 `cloud.*` 文案（约 225 行）
+- [x] **移除面（主进程）**: `registerFastTXTCloudIPC()` 整段（250 行：`readCloudConfig`/`writeCloudConfig`/`withCloudLock`/`cloudErrorPayload`/`sanitizeCloudOptions`/7 个 `fasttxt:cloud:*` 通道）、`plugin-preload.js` 的 `window.hundun.cloud`、`git-service.js` 中仅供云端库使用的 `setupRepo`/`syncRepo`/`resolveConflicts`/`repoState`/`disable`/`commitAll`/`ensureIgnoreFile`/`mergeRemote`/`fetchRemote`/`pushBranch`/`aheadBehind`/`lastCommit`/`currentBranch`/`changedFiles`/`mergeInProgress`/`cloudSiblingPath`/`IGNORE_LINES`（文件从 687 行降到 262 行，只留 `detectGit`/`runGit`/`readConflicts`/`buildAuthUrl`/`sanitize`/`classifyNetworkError` 等母程序仓库同步复用的部分）
+- [x] **老用户遗留物**: `plugins/fast-txt/cloud.json` 与 `file/.git/` **保留不删、也不再读取**。想彻底清掉可手动删除这两个，文档不受影响（`STORAGE.md` 第 14 节已写明）
+- [x] **验证**: 全插件 JS `node --check` 通过；FastTXT 页面实测初始化无 JS 错误（4 个底部按钮，无云端入口）；`test-sync-service`（11）与 `test-settings-store`（21）回归通过；`npm run build` 通过
+
 ### feat: 应用设置改存 `settings.json`，与子程序数据同级（决策66）
 
 - [x] **原因**: 主题 / 语言 / 音效 / 插件排序一直存在渲染进程 `localStorage`，实际落点是 `<userData>/Local Storage/leveldb/` —— Chromium 引擎内部格式，用户既看不懂也没法单独备份，还没法纳入「用户数据同步」（子程序数据全是 `user-data` 下的纯 JSON）

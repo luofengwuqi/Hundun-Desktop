@@ -110,6 +110,23 @@
                 <rect x="14" y="6.5" width="6" height="11" rx="1.5" fill="currentColor" fill-opacity="0.16" />
               </svg>
             </button>
+            <button 
+              class="slot-btn repo-btn-icon" 
+              :class="{ selected: selectedRow === 1 && selectedCol === 3 }"
+              :disabled="isMirror"
+              :title="isMirror ? t('mirror.notice') : t('bottom.repo')"
+              @click="handleBtnRepoClick"
+            >
+              <!-- 仓库/抽屉: 方箱 + 中间推送箭头 -->
+              <svg class="slot-btn-icon" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 9h16v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" fill="currentColor" fill-opacity="0.16" />
+                <path d="M4 9l2-4h12l2 4" />
+                <path d="M12 16V11" />
+                <path d="M9.5 13.5L12 11l2.5 2.5" />
+              </svg>
+            </button>
           </div>
 
           <!-- 镜像程序提示: 按钮群右侧 -->
@@ -119,7 +136,7 @@
             class="cartridge-slot" 
             ref="slotRef"
             :class="{ 
-              selected: selectedRow === 1 && selectedCol === 3,
+              selected: selectedRow === 1 && selectedCol === 4,
               'drag-over': isDragOver
             }"
             @dragover.prevent="handleDragOver"
@@ -164,6 +181,12 @@
       v-if="settingsVisible"
       @close="closeSettings"
     />
+
+    <!-- 仓库页 (决策67: 用户数据 git 远端同步) -->
+    <SyncView
+      v-if="repoVisible"
+      @close="closeRepo"
+    />
   </div>
 </template>
 
@@ -176,6 +199,7 @@ import { playSound } from './utils/audio'
 import Modal from './components/Modal.vue'
 import LoadingMask from './components/LoadingMask.vue'
 import Settings from './components/Settings.vue'
+import SyncView from './components/SyncView.vue'
 
 const themeStore = useThemeStore()
 const pluginStore = usePluginStore()
@@ -204,6 +228,7 @@ const bottomRowNames = computed(() => [
   t('bottom.add'),
   t('bottom.settings'),
   t('bottom.mirror'),
+  t('bottom.repo'),
   t('bottom.slot')
 ])
 
@@ -229,6 +254,7 @@ const modalTitleSize = ref('normal')
 
 // 设置页面状态
 const settingsVisible = ref(false)
+const repoVisible = ref(false)
 
 // DOM 引用
 const shelfRef = ref(null)
@@ -609,7 +635,7 @@ const showMirrorNotice = () => {
 
 const handleSlotClick = () => {
   playSound('click')
-  if (selectedRow.value === 1 && selectedCol.value === 3) {
+  if (selectedRow.value === 1 && selectedCol.value === 4) {
     if (!slotPlugin.value) {
       showModal(
         '🎮',
@@ -635,7 +661,7 @@ const handleSlotClick = () => {
     }
   } else {
     selectedRow.value = 1
-    selectedCol.value = 3
+    selectedCol.value = 4
   }
 }
 
@@ -749,6 +775,28 @@ const handleSettings = () => {
 
 const closeSettings = () => {
   settingsVisible.value = false
+}
+
+// ========== 仓库页 (决策67) ==========
+const handleBtnRepoClick = () => {
+  playSound('click')
+  if (selectedRow.value === 1 && selectedCol.value === 3) {
+    if (isMirror.value) { showMirrorNotice(); return }
+    openRepo()
+  } else {
+    selectedRow.value = 1
+    selectedCol.value = 3
+  }
+}
+
+const openRepo = () => {
+  if (isMirror.value) { showMirrorNotice(); return }
+  repoVisible.value = true
+  playSound('setting')
+}
+
+const closeRepo = () => {
+  repoVisible.value = false
 }
 
 // ========== 拖拽系统 ==========
@@ -896,8 +944,13 @@ const handleModalClose = () => {
 
 // ========== 键盘导航 ==========
 const handleKeydown = (e) => {
-  // 设置页面打开时，不处理其他键盘事件
+  // 设置/仓库页面打开时，不处理其他键盘事件
   if (settingsVisible.value) {
+    return
+  }
+
+  if (repoVisible.value) {
+    if (e.key === 'Escape') closeRepo()
     return
   }
   
@@ -939,7 +992,7 @@ const handleKeydown = (e) => {
           updateRowSelection()
         }
       } else {
-        selectedCol.value = Math.min(selectedCol.value + 1, 3)
+        selectedCol.value = Math.min(selectedCol.value + 1, 4)
       }
       playSound('click')
       break
@@ -977,7 +1030,11 @@ const handleKeydown = (e) => {
             if (isMirror.value) showMirrorNotice()
             else openMirror()
             break
-          case 3: handleSlotClick(); break
+          case 3:
+            if (isMirror.value) showMirrorNotice()
+            else openRepo()
+            break
+          case 4: handleSlotClick(); break
         }
       }
       break

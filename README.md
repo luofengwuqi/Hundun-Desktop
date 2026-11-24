@@ -23,7 +23,7 @@ HundunDesktop 是一个以「游戏掌机」为隐喻的桌面效率应用。母
 - **键盘优先**：WASD / 方向键导航，空格 / Enter 确认，Esc 返回
 - **镜像模式**：再开一个母窗口，双人并行使用不同子程序
 - **本地优先**：数据保存在本机 JSON 文件，无需账户与网络
-- **云端文档库**：FastTXT 内可把文本目录接到自己的 git 仓库（GitHub / Gitee / 自建），手动同步、可选冲突策略，默认关闭
+- **用户数据仓库**：底部「仓库」按钮可把整个数据目录接成 git 仓库（Gitee 一键建库 / 已有仓库），只同步你勾选的范围，手动触发
 - **插件安装**：从 `.zip` 安装第三方插件，设置页统一管理排序与卸载
 
 > [!IMPORTANT]
@@ -34,7 +34,7 @@ HundunDesktop 是一个以「游戏掌机」为隐喻的桌面效率应用。母
 | 卡带 | 子程序 | 尺寸 | 能做什么 |
 | --- | --- | --- | --- |
 | 🔢 `calculator` | CALC | 400×540 | 复古掌机风格计算器 |
-| 📄 `fast-txt` | FastTXT | 800×540 | 文本文件管理、编辑、Markdown 实时浏览、查找替换、git 云端文档库 |
+| 📄 `fast-txt` | FastTXT | 800×540 | 文本文件管理、编辑、Markdown 实时浏览、查找替换 |
 | 📋 `task` | TASK | 400×520 | 任务清单、截止时间、状态排序、到点提醒 |
 | ⚡ `fast-cmd` | FastCmd | 800×540 | 脚本管理：Windows `.bat` `.cmd` `.ps1` / Linux `.sh`，点击即运行 |
 | 🎵 `music` | Music | 800×540 | 音乐库、分组、播放队列、曲目导入（移动语义） |
@@ -93,25 +93,22 @@ Linux 下也可以直接执行 `./start.sh`：脚本会自动安装依赖，并�
 - 同一个子程序同一时间只属于一个会话，重复启动会被拦截
 - 镜像窗口只能运行子程序，不能修改设置；关闭 A 后 B 会自动升格为完整母窗口
 
-### 云端文档库（FastTXT）
+### 用户数据仓库（同步）
 
-FastTXT 底部 ☁ 按钮进入 Cloud Link 页面，用**你自己的 git 仓库**给文本目录做版本历史与云端副本。功能默认关闭。
+底部按钮群第 4 个「仓库」进入全屏仓库页，用**你自己的 git 仓库**给数据目录做版本历史与云端副本。默认不联网。
 
-- **首次进入**只有三个选项：我没有仓库（新建一个）/ 我已有云端仓库 / 暂不启用。选「暂不启用」直接回文件列表，不写任何设置
-- **新建仓库**：先在 GitHub / Gitee 建一个空仓库（不要勾初始化 README），把地址填进来即可
-- **已有仓库**：填地址后先拉取再与本地合并，两边的文件都不会丢
-- **手动同步**：只有点「立即同步」才联网 —— 提交本地改动 → 拉取 → 必要时合并 → 推送
-- **冲突处理**：同一文件两端都改过时，冲突页给出本地 / 云端预览，并提供四种策略
-  - `2.0` 自动合并（交给 git，文件里保留 `<<<<<<<` 标记）
-  - `2.1` 以云端为准（丢弃本地对冲突文件的修改）
-  - `2.2` 以本地为准（只覆盖冲突文件，云端其它改动仍保留）
-  - `2.3` 两端都保留（原文件留本地，云端另存为 `文件 (云端).txt`）
-- **只同步文档**：回收站、排序、书签属于本地视图状态，不会进版本库
-- **依赖系统 git**：未安装时页面会提示，安装后点「重新检测」即可
-- **私有仓库要填访问令牌**（只存在本机 `user-data`，不写进仓库）：
-  - **GitHub**：Settings → Developer settings → Personal access tokens，勾 `repo`；用户名填 `x-access-token`（留空也会自动用它）。GitHub 已不支持账号密码
-  - **Gitee**：设置 → 私人令牌，勾 `projects`；用户名填你的 Gitee 用户名（**不要填 oauth2**）
-  - **GitLab / 自建**：用户名 `oauth2` + Personal Access Token
+- **仓库根就是数据目录本身**（`<userData>`），原地建库、不搬文件 —— 归档位置永远是真实数据所在，不存在「两份数据谁是准的」
+- **两种接入**：① Gitee 一键建库（填私人令牌，自动建私有空库并关联）② 已有仓库（填地址+令牌，先拉取再与本地合并，两边都不丢）
+- **只同步你勾的**：`.gitignore` 采用白名单 —— 先排除一切，再逐级放行 `settings.json`、各子程序的 `hundundesktop-data/*.json`、以及你勾选插件的数据目录。`Cache`、`Local Storage`、未勾选插件、令牌文件一律不进库
+- **范围由子程序声明**：插件 `manifest.json` 的 `sync` 字段决定它能同步什么；`paths: []` 表示只同步设置不传文件（TASK / Music 数据全在 `*.json`）
+- **手动同步**：提交本地改动 → 拉取 → 必要时合并 → 推送。编辑保存过程完全不联网
+- **不做破坏性操作**：不执行 `reset` / `clean` / `checkout -f` / `push --force`；冲突只按文件取「本地」或「云端」版本，不动其他文件
+- **取消勾选不删文件**：只从索引里移除（`git rm --cached`），本地文件保留，结果里会列出来
+- **大文件跳过**：单文件超过 50MB 不入库，本地文件不动
+- **私有仓库要填访问令牌**（加密存本机，不写进仓库）：
+  - **Gitee**：设置 → 私人令牌，勾 `projects`
+  - **GitHub**：Settings → Developer settings → Personal access tokens，勾 `repo`；用户名填 `x-access-token`
+  - 系统有密钥环时令牌走 `safeStorage` 加密，没有时降级明文并存成 `sync/token.bin`（权限 0600），界面上会标出来
 
 ### 卡片与插件管理
 
@@ -222,7 +219,9 @@ HundunDesktop/
 │   │   ├── plugin-manager.js # 插件窗口、会话归属与母子互斥
 │   │   ├── mirror-manager.js # 镜像窗口与升格
 │   │   ├── plugin-installer.js # .zip 审核、解压、安装与卸载
-│   │   ├── git-service.js    # 云端文档库 git 服务（白名单子命令 / 冲突解析）
+│   │   ├── settings-store.js # 应用设置读写（原子写 / 键白名单 / 坏文件留存）
+│   │   ├── sync-service.js   # 用户数据仓库同步（白名单入库 / 冲突处理）
+│   │   ├── git-service.js    # 加固的 git 调用层（无 shell / 令牌脱敏 / 错误分类）
 │   │   ├── plugin-preload.js # window.hundun 插件 API
 │   │   └── preload.js        # 主窗口 preload
 │   ├── renderer/             # Vue 3 母程序界面
@@ -266,8 +265,9 @@ HundunDesktop/
 | 插件文件数据 | `plugins/<plugin-id>/file/` |
 | 插件 JSON 存储 | `hundundesktop-data/<plugin-id>.json` |
 | 已安装插件记录 | `installed-plugins.json`（清单）+ `installed-plugins/`（用户安装的插件本体，仅打包态） |
-| FastTXT 云端库配置（含令牌） | `plugins/fast-txt/cloud.json` |
-| FastTXT 版本库 | `plugins/fast-txt/file/.git/`（同目录 `.gitignore` 排除回收站与排序/书签） |
+| 仓库同步配置 | `sync/config.json`（远程地址 / 分支 / 同步范围） |
+| 仓库同步令牌 | `sync/token.bin`（有系统密钥环时 `safeStorage` 加密，否则明文 0600 并在界面标注） |
+| 数据版本库 | `.git/` + `.gitignore`（白名单：只放行设置、子程序 JSON 与勾选插件的数据目录） |
 
 > [!NOTE]
 > 开发期数据键统一为 `hundundesktop-*`，不提供旧版 `hundun-lite-*` 数据迁移。
@@ -289,11 +289,11 @@ npx electron --no-sandbox scripts/test-settings-migration.js  # 老 localStorage
 
 > 注: 本机 IDE 会注入 `ELECTRON_RUN_AS_NODE=1`，直接跑 electron 需前置 `env -u ELECTRON_RUN_AS_NODE`，否则 `require('electron')` 退化为路径字符串。
 
-平台检查、云端库同步等纯 Node 测试可直接执行：
+平台检查、仓库同步等纯 Node 测试可直接执行：
 
 ```bash
 node scripts/test-platform-support.js
-node scripts/test-fasttxt-cloud.js   # 本地 bare 仓库模拟远端，覆盖冲突四策略
+node scripts/test-sync-service.js    # 本地 bare 仓库当远端，真跑 git：白名单/冲突/取消勾选
 node scripts/test-settings-store.js  # 设置文件原子写/坏文件隔离/键白名单
 node scripts/test-userdata-policy.js # 数据目录策略 + 旧目录迁移
 node scripts/test-check-update.js    # 检查更新（注入 fetch）

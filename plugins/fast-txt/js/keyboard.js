@@ -83,12 +83,6 @@
         return;
       }
 
-      // Cloud view (云端文档库) 有自己的导航模型, 交给 cloud.js
-      if (currentView === 'cloud') {
-        handleCloudKeydown(e);
-        return;
-      }
-
       // Rename mode - only F2 to re-trigger, Escape handled by input itself
       if (isRenaming) {
         return;
@@ -326,8 +320,6 @@
             if (btn) {
               btn.action();
               // 与鼠标点击保持一致: 执行后立刻刷新视图。
-              // 云按钮的 action 只是把 currentView 切成 'cloud' 并渲染到隐藏容器,
-              // 少了 updateUI() 就永远不切屏 —— 表现为「按 Enter 没反应」。
               updateUI();
             }
           }

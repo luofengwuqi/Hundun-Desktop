@@ -12,5 +12,13 @@
     "height": 540
   },
   "permissions": [],
-  "platforms": ["win32", "linux"]
+  "platforms": [
+    "win32",
+    "linux"
+  ],
+  "sync": {
+    "paths": [
+      "file/"
+    ]
+  }
 }

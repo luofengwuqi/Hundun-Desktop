@@ -11,5 +11,11 @@
     "width": 400,
     "height": 520
   },
-  "permissions": ["storage", "notifications"]
+  "permissions": [
+    "storage",
+    "notifications"
+  ],
+  "sync": {
+    "paths": []
+  }
 }
