@@ -20,13 +20,14 @@
       <!-- ===== 左栏 (占 1/3): 四个动作 ===== -->
       <aside class="repo-rail">
         <button
-          v-for="a in actions"
+          v-for="(a, ai) in actions"
           :key="a.key"
           class="rail-btn"
           :class="{
             danger: a.danger,
             armed: armed === a.key,
-            working: busy && busyKind === a.key
+            working: busy && busyKind === a.key,
+            'kb-selected': side === 'left' && railIndex === ai
           }"
           :disabled="!canAct || busy"
           @click="run(a)"
@@ -55,13 +56,15 @@
           >?</button>
           <input
             v-model="tokenInput"
+            ref="tokenInputEl"
             class="pt-input"
+            :class="{ 'kb-selected': sel('input:token') }"
             type="password"
             autocomplete="off"
             spellcheck="false"
             :placeholder="hasToken ? t('repo.tokenPhSaved') : t('repo.tokenPh')"
           />
-          <button class="pt-btn" :disabled="busy" @click="saveToken">{{ t('repo.tokenSave') }}</button>
+          <button class="pt-btn" :class="{ 'kb-selected': sel('button:saveToken') }" :disabled="busy" @click="saveToken">{{ t('repo.tokenSave') }}</button>
           <span class="pt-hint" :class="{ warn: config.tokenStorage === 'plain' }">{{ tokenHint }}</span>
         </div>
 
@@ -83,9 +86,10 @@
               <div class="setup-title">{{ t('repo.autoTitle') }}</div>
               <p class="setup-hint">{{ t('repo.autoHint') }}</p>
               <div class="field-row">
-                <input v-model="giteeName" class="pt-input wide" type="text" spellcheck="false" :placeholder="t('repo.autoName')" />
+                <input v-model="giteeName" ref="giteeNameEl" class="pt-input wide" :class="{ 'kb-selected': sel('input:giteeName') }" type="text" spellcheck="false" :placeholder="t('repo.autoName')" />
                 <button
                   class="pt-btn primary"
+                  :class="{ 'kb-selected': sel('button:createOnGitee') }"
                   :disabled="busy || (!tokenInput.trim() && !hasToken)"
                   :title="tokenInput.trim() ? '' : t('repo.useSavedToken')"
                   @click="createOnGitee"
@@ -98,10 +102,10 @@
             <div class="setup-block">
               <div class="setup-title">{{ t('repo.manualTitle') }}</div>
               <p class="setup-hint">{{ t('repo.manualHint') }}</p>
-              <input v-model="manualUrl" class="pt-input wide" type="text" autocomplete="off" spellcheck="false" :placeholder="t('repo.remoteUrl')" />
+              <input v-model="manualUrl" ref="manualUrlEl" class="pt-input wide" :class="{ 'kb-selected': sel('input:manualUrl') }" type="text" autocomplete="off" spellcheck="false" :placeholder="t('repo.remoteUrl')" />
               <div class="field-row">
-                <input v-model="manualUser" class="pt-input" type="text" autocomplete="off" spellcheck="false" :placeholder="t('repo.username')" />
-                <button class="pt-btn" :disabled="busy || !manualUrl.trim()" @click="linkExisting">{{ t('repo.link') }}</button>
+                <input v-model="manualUser" ref="manualUserEl" class="pt-input" :class="{ 'kb-selected': sel('input:manualUser') }" type="text" autocomplete="off" spellcheck="false" :placeholder="t('repo.username')" />
+                <button class="pt-btn" :class="{ 'kb-selected': sel('button:linkExisting') }" :disabled="busy || !manualUrl.trim()" @click="linkExisting">{{ t('repo.link') }}</button>
               </div>
             </div>
           </template>
@@ -115,15 +119,15 @@
 
             <div class="scope-title">{{ t('repo.installedTitle') }}</div>
             <div class="scope-list">
-              <label class="scope-item">
+              <label class="scope-item" :class="{ 'kb-selected': sel('scope:settings') }">
                 <input type="checkbox" :checked="config.scopes.settings" @change="toggleScope('settings', $event.target.checked)" />
                 <span class="scope-name">{{ t('repo.scopeSettings') }}</span>
               </label>
-              <label class="scope-item">
+              <label class="scope-item" :class="{ 'kb-selected': sel('scope:installedPlugins') }">
                 <input type="checkbox" :checked="config.scopes.installedPlugins" @change="toggleScope('installedPlugins', $event.target.checked)" />
                 <span class="scope-name">{{ t('repo.scopeInstalled') }}</span>
               </label>
-              <label v-for="p in plugins" :key="p.id" class="scope-item" :class="{ dim: !p.syncable }">
+              <label v-for="p in plugins" :key="p.id" class="scope-item" :class="{ dim: !p.syncable, 'kb-selected': sel('plugin:' + p.id) }">
                 <input
                   type="checkbox"
                   :checked="p.syncable && included(p.id)"
@@ -145,8 +149,8 @@
                 <li v-for="c in conflicts" :key="c.path">{{ c.path }}</li>
               </ul>
               <div class="field-row">
-                <button class="pt-btn primary" :disabled="busy" @click="resolve('local')">{{ t('repo.keepLocal') }}</button>
-                <button class="pt-btn" :disabled="busy" @click="resolve('cloud')">{{ t('repo.keepCloud') }}</button>
+                <button class="pt-btn primary" :class="{ 'kb-selected': sel('resolve:local') }" :disabled="busy" @click="resolve('local')">{{ t('repo.keepLocal') }}</button>
+                <button class="pt-btn primary" :class="{ 'kb-selected': sel('resolve:cloud') }" :disabled="busy" @click="resolve('cloud')">{{ t('repo.keepCloud') }}</button>
               </div>
             </div>
           </template>
@@ -165,7 +169,7 @@
         {{ gitAvailable ? t('repo.gitReady', { version: gitVersion }) : t('repo.gitMissing') }}
         <button v-if="!gitAvailable" class="footer-mini" :disabled="busy" @click="refreshGit">{{ t('repo.retry') }}</button>
       </span>
-      <span class="footer-hint">{{ t('keys.escToExit') }}</span>
+      <span class="footer-hint">{{ t('keys.repoNav') }}</span>
     </footer>
   </div>
 </template>
@@ -560,8 +564,148 @@ const resolve = async (strategy) => {
   }
 }
 
-onMounted(loadStatus)
-onUnmounted(() => { if (armTimer) clearTimeout(armTimer) })
+onMounted(() => {
+  loadStatus()
+  document.addEventListener('keydown', handleKeydown)
+})
+onUnmounted(() => {
+  if (armTimer) clearTimeout(armTimer)
+  document.removeEventListener('keydown', handleKeydown)
+})
+
+// ========== 键盘导航 (决策71) ==========
+// 与设置页同款「左栏 / 右栏」两区模型:
+//  左栏 = 四个动作 (↑↓ 选 / Enter 执行 / → 进右栏)
+//  右栏 = 扁平的聚焦项 (↑↓ 选 / Enter 执行或聚焦输入框 / ← 回左栏)
+const side = ref('left') // 'left' 左栏动作 | 'right' 右栏面板
+const railIndex = ref(0)
+const rightIndex = ref(-1)
+
+// 右栏可聚焦项 (随关联状态 / 冲突动态伸缩; 不支持同步的子程序不进入键盘序列)
+const focusItems = computed(() => {
+  const items = [
+    { kind: 'input', key: 'token' },
+    { kind: 'button', key: 'saveToken' }
+  ]
+  if (!config.remoteUrl) {
+    items.push(
+      { kind: 'input', key: 'giteeName' },
+      { kind: 'button', key: 'createOnGitee' },
+      { kind: 'input', key: 'manualUrl' },
+      { kind: 'input', key: 'manualUser' },
+      { kind: 'button', key: 'linkExisting' }
+    )
+  } else {
+    items.push({ kind: 'scope', key: 'settings' })
+    items.push({ kind: 'scope', key: 'installedPlugins' })
+    for (const p of plugins.value) {
+      if (p.syncable) items.push({ kind: 'plugin', id: p.id })
+    }
+    if (conflicts.value.length) {
+      items.push({ kind: 'resolve', strategy: 'local' })
+      items.push({ kind: 'resolve', strategy: 'cloud' })
+    }
+  }
+  return items
+})
+
+// 每个聚焦项一个稳定 token, 供模板高亮比对
+const tokenOf = (item) => {
+  if (!item) return ''
+  if (item.kind === 'plugin') return `plugin:${item.id}`
+  if (item.kind === 'resolve') return `resolve:${item.strategy}`
+  return `${item.kind}:${item.key}`
+}
+const curFocus = computed(() => focusItems.value[rightIndex.value] || null)
+const sel = (token) => side.value === 'right' && tokenOf(curFocus.value) === token
+
+const tokenInputEl = ref(null)
+const giteeNameEl = ref(null)
+const manualUrlEl = ref(null)
+const manualUserEl = ref(null)
+const focusInput = (el) => {
+  if (!el) return
+  el.focus()
+  try { el.select() } catch (_) { /* ignore */ }
+}
+
+const activateRight = (item) => {
+  if (!item) return
+  switch (item.kind) {
+    case 'input':
+      if (item.key === 'token') focusInput(tokenInputEl.value)
+      else if (item.key === 'giteeName') focusInput(giteeNameEl.value)
+      else if (item.key === 'manualUrl') focusInput(manualUrlEl.value)
+      else if (item.key === 'manualUser') focusInput(manualUserEl.value)
+      break
+    case 'button':
+      if (item.key === 'saveToken') saveToken()
+      else if (item.key === 'createOnGitee') createOnGitee()
+      else if (item.key === 'linkExisting') linkExisting()
+      break
+    case 'scope':
+      toggleScope(item.key, !config.scopes[item.key])
+      break
+    case 'plugin': {
+      const p = plugins.value.find((x) => x.id === item.id)
+      if (p && p.syncable) togglePlugin(p.id, !included(p.id))
+      break
+    }
+    case 'resolve':
+      resolve(item.strategy)
+      break
+  }
+}
+
+const handleKeydown = (e) => {
+  const tag = (e.target && e.target.tagName) || ''
+  // 焦点在输入框里 → 交给原生 (输入 / Tab 换焦点), Esc 由 App.vue 全局关页
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return
+
+  let key = e.key
+  if (key === 'a' || key === 'A') key = 'ArrowLeft'
+  if (key === 'd' || key === 'D') key = 'ArrowRight'
+  if (key === 'w' || key === 'W') key = 'ArrowUp'
+  if (key === 's' || key === 'S') key = 'ArrowDown'
+  if (key === ' ') key = 'Enter'
+
+  if (side.value === 'left') {
+    if (key === 'ArrowUp') {
+      e.preventDefault()
+      railIndex.value = Math.max(0, railIndex.value - 1)
+      playSound('click')
+    } else if (key === 'ArrowDown') {
+      e.preventDefault()
+      railIndex.value = Math.min(actions.length - 1, railIndex.value + 1)
+      playSound('click')
+    } else if (key === 'ArrowRight') {
+      e.preventDefault()
+      side.value = 'right'
+      rightIndex.value = 0
+      playSound('click')
+    } else if (key === 'Enter') {
+      e.preventDefault()
+      if (canAct.value) run(actions[railIndex.value])
+      else playSound('error')
+    }
+  } else {
+    const count = focusItems.value.length
+    if (key === 'ArrowUp') {
+      e.preventDefault()
+      if (count > 0) { rightIndex.value = Math.max(0, rightIndex.value - 1); playSound('click') }
+    } else if (key === 'ArrowDown' || key === 'ArrowRight') {
+      e.preventDefault()
+      if (count > 0) { rightIndex.value = Math.min(count - 1, rightIndex.value + 1); playSound('click') }
+    } else if (key === 'ArrowLeft') {
+      e.preventDefault()
+      side.value = 'left'
+      playSound('click')
+    } else if (key === 'Enter') {
+      e.preventDefault()
+      activateRight(focusItems.value[rightIndex.value])
+    }
+  }
+}
 </script>
 
 <style scoped>
@@ -1019,5 +1163,31 @@ onUnmounted(() => { if (armTimer) clearTimeout(armTimer) })
   font-family: 'Press Start 2P', 'Noto Sans SC', cursive;
   font-size: 8px;
   letter-spacing: 0.5px;
+}
+
+/* ===== 键盘焦点高亮 (决策71) =====
+   与 hover 同一套语言: 左栏靠左侧色条 + 描边, 右栏靠主色描边 + 辉光。
+   只做视觉提示, 不改变元素原有布局。 */
+.rail-btn.kb-selected:not(:disabled) {
+  border-color: var(--accent-primary);
+  box-shadow: inset 0 0 0 1px var(--accent-primary), inset 0 0 18px rgba(0, 255, 136, 0.12);
+}
+.rail-btn.kb-selected:not(:disabled)::before { opacity: 1; }
+.rail-btn.danger.kb-selected:not(:disabled) {
+  border-color: var(--accent-secondary);
+  box-shadow: inset 0 0 0 1px var(--accent-secondary), inset 0 0 18px rgba(255, 0, 128, 0.14);
+}
+
+.pt-input.kb-selected,
+.pt-btn.kb-selected {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 1px var(--accent-primary), 0 0 12px var(--accent-primary);
+}
+.pt-input.kb-selected { background: var(--bg-card); }
+
+/* scope 行没有边框, 用底色 + 内描边示意选中 */
+.scope-item.kb-selected {
+  background: var(--bg-slot);
+  box-shadow: inset 0 0 0 1px var(--accent-primary);
 }
 </style>

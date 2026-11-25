@@ -222,6 +222,7 @@ export default {
   // 键盘提示
   keys: {
     escToExit: 'ESC 返回',
+    repoNav: '↑↓ 移动 · Enter 确认 · ESC 返回',
   },
 
   // 错误
