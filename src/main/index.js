@@ -7,6 +7,7 @@ const { pickZipFile, installFromZip, uninstallPlugin } = require('./plugin-insta
 const { registerSoundSettingsIPC } = require('./sound-settings')
 const gitService = require('./git-service')
 const updateService = require('./update-service')
+const updateInstaller = require('./update-installer')
 
 // ========== 应用数据目录 (决策47: 安装位置自适应 / 决策63: Windows 固定落 %APPDATA%) ==========
 // 开发态/显式便携 (--portable): exe (或项目根) 旁 user-data;
@@ -1106,9 +1107,31 @@ ipcMain.handle('get-app-version', () => {
 })
 
 // 检查更新 (决策62): 渲染层经由 preload 的 checkForUpdate() 调用,
-// 主进程侧用真实 process.platform 选安装包资产
+// 主进程侧用真实 process.platform 选安装包资产。
+// 决策74: 顺带回报 targetKind (deb/appimage/exe/dmg), 界面据此决定「立即更新」是否可点
 ipcMain.handle('update:check', async () => {
-  return updateService.checkForUpdate(app.getVersion(), process.platform)
+  const res = await updateService.checkForUpdate(app.getVersion(), process.platform)
+  return { ...res, targetKind: updateInstaller.getTargetKind() }
+})
+
+// 下载并安装更新 (决策74): 不再开浏览器 ——
+// update:download 把安装包下到 <userData>/updates 并逐块回报进度,
+// update:install 按平台装好 (deb 走 sudo/pkexec, AppImage 原地替换, NSIS /S 静默),
+// update:relaunch 由界面在「安装完成」提示后调用。
+ipcMain.handle('update:download', async (event, version) => {
+  const kind = updateInstaller.getTargetKind()
+  const sender = event.sender
+  return updateInstaller.downloadUpdate(version, kind, (progress) => {
+    if (sender && !sender.isDestroyed()) sender.send('update:progress', progress)
+  })
+})
+
+ipcMain.handle('update:install', async (event, filePath) => {
+  return updateInstaller.installUpdate(filePath, updateInstaller.getTargetKind())
+})
+
+ipcMain.handle('update:relaunch', async () => {
+  return updateInstaller.relaunch(updateInstaller.getTargetKind())
 })
 
 // 获取应用信息

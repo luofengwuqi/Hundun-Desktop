@@ -514,11 +514,59 @@ const selectDetail = (index) => {
   currentSide.value = 'right'
 }
 
-// ========== 关于页: 检查更新 (决策62, GitHub Releases 更新源) ==========
+// ========== 关于页: 检查更新 / 自动更新 (决策62, 决策74) ==========
+// 决策74: 「立即更新」直接下载安装包并装好 (deb 走系统授权框 / AppImage 原地替换 /
+//          Windows 静默安装), 不再打开浏览器; 只有自动更新不可用或失败时才给下载页兜底。
 const checkingUpdate = ref(false)
+const updating = ref(false)
+
+// 已知失败原因的本地化文案; 未收录的原样显示 (方便排错)
+const UPDATE_REASON_KEYS = {
+  'no-asset': 'updateReasonNoAsset',
+  'not-packaged': 'updateReasonNotPackaged',
+  'auth-cancelled': 'updateReasonAuthCancelled',
+  'install-failed': 'updateReasonInstallFailed',
+  'installer-failed': 'updateReasonInstallFailed',
+  'replace-failed': 'updateReasonInstallFailed',
+  'timeout': 'updateReasonTimeout',
+  'network': 'updateReasonNetwork',
+  'checksum-mismatch': 'updateReasonCorrupt',
+  'size-mismatch': 'updateReasonCorrupt',
+  'not-a-deb': 'updateReasonCorrupt',
+  'not-an-appimage': 'updateReasonCorrupt',
+  'not-an-exe': 'updateReasonCorrupt',
+  'file-empty': 'updateReasonCorrupt',
+  'empty-body': 'updateReasonCorrupt',
+  'api-missing': 'updateReasonNotPackaged'
+}
+
+const updateReasonText = (reason) => {
+  const key = UPDATE_REASON_KEYS[String(reason || '')]
+  return key ? t('settings.' + key) : String(reason || 'unknown')
+}
+
+const formatBytes = (bytes) => {
+  const v = Number(bytes) || 0
+  if (v >= 1024 * 1024 * 1024) return (v / 1024 / 1024 / 1024).toFixed(2) + ' GB'
+  if (v >= 1024 * 1024) return (v / 1024 / 1024).toFixed(1) + ' MB'
+  if (v >= 1024) return (v / 1024).toFixed(0) + ' KB'
+  return v + ' B'
+}
+
+// 进度条走 inline style: 弹窗正文是 v-html, 拿不到 scoped 样式
+const progressHtml = (percent, detail) => {
+  const clamped = Math.max(0, Math.min(100, Number(percent) || 0))
+  return '<div style="min-width:340px;">' +
+    `<div style="height:12px;border:2px solid var(--accent-primary);border-radius:3px;background:rgba(127,127,127,.18);overflow:hidden;">` +
+    `<div style="height:100%;width:${clamped.toFixed(1)}%;background:var(--accent-primary);transition:width .2s linear;"></div>` +
+    '</div>' +
+    `<div style="margin-top:10px;">${detail}</div>` +
+    '</div>'
+}
+
 const checkUpdate = async () => {
   playSound('click')
-  if (checkingUpdate.value) return
+  if (checkingUpdate.value || updating.value) return
   checkingUpdate.value = true
   // 先弹"检查中"提示框 (请求最长 10s 超时, 不会卡死)
   showModal('🔍', t('settings.updateCheckingTitle'), t('settings.updateCheckingMsg'), [])
@@ -529,12 +577,19 @@ const checkUpdate = async () => {
     if (res && res.ok) {
       if (res.hasUpdate) {
         playSound('OK')
+        // 已打包的正式版能自动装 (targetKind 有值); dev 运行只能给下载页
+        const buttons = res.targetKind
+          ? [
+              { text: t('settings.updateInstallNow'), class: 'primary', action: () => applyUpdate(res.latest) },
+              { text: t('settings.updateLater'), action: closeModal }
+            ]
+          : [
+              { text: t('settings.updateManualDownload'), class: 'primary', action: () => { closeModalSilent(); openExternalSilent(res.latest.htmlUrl || res.feedPage) } },
+              { text: t('settings.updateLater'), action: closeModal }
+            ]
         showModal('🆕', t('settings.updateFoundTitle'),
           t('settings.updateFoundMsg', { version: res.latest.version, current: res.currentVersion }),
-          [
-            { text: t('settings.updateGoDownload'), class: 'primary', action: () => { closeModalSilent(); openExternalSilent(res.latest.htmlUrl || res.feedPage) } },
-            { text: t('settings.updateLater'), action: closeModal }
-          ])
+          buttons)
       } else {
         playSound('OK')
         showModal('✅', t('settings.updateLatestTitle'),
@@ -544,7 +599,7 @@ const checkUpdate = async () => {
     } else {
       playSound('error')
       showModal('⚠️', t('settings.updateFailTitle'),
-        t('settings.updateFailMsg', { reason: escapeHtml((res && res.reason) || 'unknown') }),
+        t('settings.updateFailMsg', { reason: escapeHtml(updateReasonText(res && res.reason)) }),
         [{ text: t('cartridge.ok'), class: 'primary', action: closeModal }])
     }
   } catch (e) {
@@ -556,6 +611,112 @@ const checkUpdate = async () => {
   } finally {
     checkingUpdate.value = false
   }
+}
+
+// 下载 → 安装 → 重启, 全流程在弹窗里推进度
+const applyUpdate = async (latest) => {
+  if (updating.value) return
+  const api = window.electronAPI || {}
+  const version = (latest && latest.version) || ''
+  if (!api.downloadUpdate || !api.installUpdate) {
+    failUpdate({ reason: 'api-missing' }, latest)
+    return
+  }
+  updating.value = true
+  playSound('click')
+
+  // ---- 1/2 下载 ----
+  let received = 0
+  let total = 0
+  const drawDownload = () => {
+    const percent = total > 0 ? (received / total) * 100 : 0
+    modalMessage.value = progressHtml(percent, t('settings.updateDownloadingMsg', {
+      version,
+      percent: Math.floor(percent),
+      done: formatBytes(received),
+      total: total > 0 ? formatBytes(total) : '—'
+    }))
+  }
+  modalIcon.value = '⬇️'
+  modalTitle.value = t('settings.updateDownloadingTitle')
+  modalButtons.value = []
+  modalVisible.value = true
+  drawDownload()
+
+  const off = typeof api.onUpdateProgress === 'function'
+    ? api.onUpdateProgress((p) => {
+        if (!p) return
+        received = Number(p.received) || 0
+        if (Number(p.total) > 0) total = Number(p.total)
+        drawDownload()
+      })
+    : () => {}
+
+  let dl
+  try {
+    dl = await api.downloadUpdate(version)
+  } catch (e) {
+    dl = { ok: false, reason: (e && e.message) || 'download-failed' }
+  } finally {
+    off()
+  }
+  if (!dl || !dl.ok) {
+    failUpdate(dl, latest)
+    return
+  }
+
+  // ---- 2/2 安装 (deb 会弹系统授权框, 给足心理预期) ----
+  modalIcon.value = '📦'
+  modalTitle.value = t('settings.updateInstallingTitle')
+  modalMessage.value = t('settings.updateInstallingMsg', { version })
+  let inst
+  try {
+    inst = await api.installUpdate(dl.filePath)
+  } catch (e) {
+    inst = { ok: false, reason: (e && e.message) || 'install-failed' }
+  }
+  if (!inst || !inst.ok) {
+    failUpdate(inst, latest, dl.filePath)
+    return
+  }
+
+  playSound('OK')
+  if (inst.needRelaunch) {
+    modalIcon.value = '✅'
+    modalTitle.value = t('settings.updateReadyTitle')
+    modalMessage.value = t('settings.updateRestartingMsg', { version })
+    modalButtons.value = []
+    // 留一点时间让「正在重启」被看见, 再真正重启
+    setTimeout(() => {
+      try { api.relaunchApp() } catch (e) { /* 进程即将退出 */ }
+    }, 1200)
+    return
+  }
+
+  // Windows 静默安装: 安装器自己接管并重启应用; dmg: 需手动拖入
+  updating.value = false
+  showModal('✅', t('settings.updateReadyTitle'),
+    inst.manual ? t('settings.updateDmgMsg', { version }) : t('settings.updateInstallerMsg', { version }),
+    [{ text: t('cartridge.ok'), class: 'primary', action: closeModal }])
+}
+
+const failUpdate = (res, latest, filePath) => {
+  updating.value = false
+  playSound('error')
+  const page = (latest && (latest.htmlUrl || latest.feedPage)) || ''
+  const reason = escapeHtml(updateReasonText(res && res.reason))
+  let msg = t('settings.updateInstallFailMsg', { reason })
+  if (filePath) {
+    // 只显示文件名: 完整路径太长会把弹窗撑满, 用户真要用也能按名字找到
+    const name = escapeHtml(String(filePath).split(/[\\/]/).pop())
+    msg += `<br><span style="opacity:.6">${name}</span>`
+  }
+  const buttons = []
+  if (page) {
+    buttons.push({ text: t('settings.updateManualDownload'), class: 'primary', action: () => { closeModalSilent(); openExternalSilent(page) } })
+  }
+  buttons.push({ text: t('cartridge.ok'), class: buttons.length ? 'secondary' : 'primary', action: closeModal })
+  showModal('⚠️', t('settings.updateInstallFailTitle'), msg, buttons)
 }
 
 // 检查更新流程内跳转下载页 (流程中切换弹窗, 避免叠加 exit 音效)
@@ -1755,7 +1916,7 @@ onUnmounted(() => {
   height: 64px;
   object-fit: contain;
   flex-shrink: 0;
-  filter: drop-shadow(0 0 10px var(--shadow-color));
+  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--shadow-color) 25%, transparent));
 }
 
 .about-head-text {
@@ -1768,7 +1929,7 @@ onUnmounted(() => {
   font-size: 20px;
   color: var(--accent-primary);
   margin-bottom: 6px;
-  text-shadow: 0 0 10px var(--accent-primary);
+  text-shadow: 0 0 2px color-mix(in srgb, var(--accent-primary) 22%, transparent);
 }
 
 .about-desc {
@@ -1909,6 +2070,18 @@ onUnmounted(() => {
   color: var(--text-primary);
 }
 
+/* 版本行 (唯一带「检查更新」按钮的行): 值靠右, 与按钮组成右侧群组。
+   之前只有按钮带 margin-left:auto, 值被挤在「版本」标签旁边, 与下面两行
+   右对齐的值不成一条线 (2026-11-26 用户反馈) */
+.about-link.detail-item .link-value {
+  margin-left: auto;
+  text-align: right;
+}
+
+.about-link.detail-item .about-update-btn {
+  margin-left: 0; /* 间距交给 .about-link 的 gap, 避免与值之间多出 24px */
+}
+
 /* Footer */
 .settings-footer {
   height: 36px;
@@ -1957,10 +2130,11 @@ onUnmounted(() => {
 }
 
 /* Detail item selected state */
+/* 光晕先后两版都嫌亮: 最终暗/浅统一去掉外发光, 只靠红色描边 + 卡片底色标识选中 (2026-11-26) */
 .detail-item.selected {
   background: var(--bg-card);
   border-color: var(--accent-primary);
-  box-shadow: 0 0 12px var(--accent-primary), inset 0 0 8px rgba(0, 255, 136, 0.1);
+  box-shadow: none;
   transform: translateY(-2px);
   padding-left: 12px;
   padding-right: 12px;

@@ -17,7 +17,8 @@
     "build:win": "npm run build && electron-builder --win nsis --x64",
     "build:mac": "npm run build && electron-builder --mac",
     "build:linux": "npm run build && electron-builder --linux AppImage deb --x64",
-    "build:setup": "npm run build && electron-builder --win nsis --linux AppImage deb --x64"
+    "build:setup": "npm run build && electron-builder --win nsis --linux AppImage deb --x64",
+    "release:assets": "node scripts/publish-gitee-assets.js"
   },
   "dependencies": {
     "pinia": "^2.1.7",
@@ -45,6 +46,7 @@
     ],
     "extraResources": [],
     "asar": true,
+    "electronLanguages": ["en-US", "zh-CN"],
     "afterAllArtifactBuild": "./scripts/patch-appimage.js",
     "win": {
       "target": "nsis",

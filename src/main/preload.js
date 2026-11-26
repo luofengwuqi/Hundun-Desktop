@@ -65,6 +65,17 @@ window.electronAPI = {
   getPlatform: () => process.platform,
   // 检查更新 (决策62): 主进程访问 GitHub Releases latest API, 渲染层拿结果弹窗
   checkForUpdate: () => ipcRenderer.invoke('update:check'),
+  // 下载 / 安装 / 重启 (决策74): 不再跳浏览器, 直接装好
+  downloadUpdate: (version) => ipcRenderer.invoke('update:download', version),
+  installUpdate: (filePath) => ipcRenderer.invoke('update:install', filePath),
+  relaunchApp: () => ipcRenderer.invoke('update:relaunch'),
+  // 下载进度: 返回退订函数
+  onUpdateProgress: (callback) => {
+    if (typeof callback !== 'function') return () => {}
+    const handler = (event, progress) => callback(progress)
+    ipcRenderer.on('update:progress', handler)
+    return () => ipcRenderer.removeListener('update:progress', handler)
+  },
 
   // ========== 应用设置 (决策66) ==========
   // 数据源: <userData>/settings.json (主进程原子写)

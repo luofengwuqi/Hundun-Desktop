@@ -1,6 +1,6 @@
 <template>
   <div class="modal-overlay" @click.self="handleClose">
-    <div class="modal" :class="{ 'modal-large': size === 'large' }">
+    <div class="modal" :class="{ 'modal-large': size === 'large', 'modal-no-actions': !buttons.length }">
       <!-- 左侧：图标和信息 -->
       <div class="modal-left">
         <div class="modal-icon"><span v-if="iconSvg" class="modal-icon-svg" :style="{ '--modal-icon-color': iconColor || 'currentColor' }" v-html="iconSvg"></span><template v-else>{{ icon }}</template></div>
@@ -9,8 +9,8 @@
           <div class="modal-message" v-if="message" v-html="message"></div>
         </div>
       </div>
-      <!-- 右侧：操作按钮 -->
-      <div class="modal-right">
+      <!-- 右侧：操作按钮 (没有按钮时不渲染, 否则留一条空栏和分割线) -->
+      <div class="modal-right" v-if="buttons.length">
         <button 
           v-for="(btn, idx) in buttons" 
           :key="idx"
@@ -184,13 +184,19 @@ onUnmounted(() => {
   animation: modalPop 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
   overflow: hidden;
   min-width: 520px;
-  max-width: 700px;
+  /* 视口窄时也要收住, 否则长文案会把右侧按钮挤出屏幕 */
+  max-width: min(700px, 92vw);
 }
 
 .modal.modal-large {
   min-width: 600px;
-  max-width: 800px;
+  max-width: min(800px, 94vw);
   min-height: 280px;
+}
+
+/* 无按钮弹窗 (进度/提示): 去掉右栏分割线 */
+.modal.modal-no-actions .modal-left {
+  border-right: none;
 }
 
 .modal-left {
@@ -249,6 +255,9 @@ onUnmounted(() => {
   font-size: 18px;
   color: var(--text-secondary);
   line-height: 1.7;
+  /* 更新失败会带本地安装包路径等超长串, 必须允许断行, 否则撑破弹窗把按钮挤出去 */
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .modal-right {
