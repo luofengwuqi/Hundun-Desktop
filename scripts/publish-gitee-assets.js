@@ -9,10 +9,13 @@
  * 用法:
  *   node scripts/publish-gitee-assets.js            # 上传 package.json 版本对应的产物
  *   node scripts/publish-gitee-assets.js --dry-run  # 只打印将要做什么
+ *   node scripts/publish-gitee-assets.js --force    # 忽略「同大小就跳过」, 强制重传
  *   GITEE_TOKEN=xxx node scripts/publish-gitee-assets.js
  *
  * 令牌来源: 环境变量 GITEE_TOKEN → ~/.git-credentials 里 gitee.com 那条 (需 projects 权限)
  * 限制: Gitee 单个附件 ≤ 100MB (AppImage 常超过 → 会被跳过并提示)
+ * 注意: Gitee 附件列表不返回摘要, 只能用大小判断是否已传过 —— 只改 CSS 这类
+ *       字节数不变的改动会导致「同大小误判已是最新」, 这时用 --force 重传。
  */
 'use strict'
 const fs = require('fs')
@@ -93,7 +96,7 @@ async function listAttachments (token, releaseId) {
   return (await api(token, 'GET', `/repos/${OWNER}/${REPO}/releases/${releaseId}/attach_files`)) || []
 }
 
-async function uploadOne (token, release, filePath, attachments, dryRun) {
+async function uploadOne (token, release, filePath, attachments, dryRun, force) {
   const name = path.basename(filePath)
   const size = fs.statSync(filePath).size
   if (size > MAX_ATTACH_BYTES) {
@@ -101,7 +104,7 @@ async function uploadOne (token, release, filePath, attachments, dryRun) {
     return false
   }
   const same = attachments.filter(a => a.name === name)
-  if (same.length === 1 && same[0].size === size) {
+  if (!force && same.length === 1 && same[0].size === size) {
     console.log(`  = ${name} 已是同大小 (${fmtBytes(size)}), 跳过`)
     return true
   }
@@ -125,13 +128,14 @@ async function uploadOne (token, release, filePath, attachments, dryRun) {
 
 ;(async () => {
   const dryRun = process.argv.includes('--dry-run')
+  const force = process.argv.includes('--force')
   const version = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')).version
   const token = readToken()
   if (!token) {
     console.error('没有 Gitee 令牌: 设置 GITEE_TOKEN 或确认 ~/.git-credentials 里有 gitee.com 记录')
     process.exit(1)
   }
-  console.log(`版本 ${version}${dryRun ? ' (dry-run)' : ''}`)
+  console.log(`版本 ${version}${dryRun ? ' (dry-run)' : ''}${force ? ' (force)' : ''}`)
   const files = candidateFiles(version).filter(f => fs.existsSync(f))
   if (!files.length) {
     console.error('dist/ 下没有本版本的安装包, 先跑 npm run build:linux (或 build:win)')
@@ -144,7 +148,7 @@ async function uploadOne (token, release, filePath, attachments, dryRun) {
   const attachments = await listAttachments(token, release.id)
   let uploaded = 0
   for (const f of files) {
-    if (await uploadOne(token, release, f, attachments, dryRun)) uploaded++
+    if (await uploadOne(token, release, f, attachments, dryRun, force)) uploaded++
   }
   const finalList = await listAttachments(token, release.id)
   console.log('release 现有附件:')
