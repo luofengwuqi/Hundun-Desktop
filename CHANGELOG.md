@@ -6,6 +6,14 @@
 
 ## 2026-11-25
 
+### fix: 字体本地化 + 更新检测 Gitee 备用源（决策73）
+
+- [x] **问题来源（2026.4.2 用户反馈）**: ① 首次启动子程序白屏很长时间；② 母程序英文字体不是像素风格；③ 刚下载完没法检测最新 release
+- [x] **根因**: 三者同源 —— 字体经 `fonts.googleapis.com` 在线加载（`<link>` 是 render-blocking 资源），中国大陆不可达 → 连接超时阻塞首帧渲染（白屏）+ `Press Start 2P` 加载失败退化为系统字体（像素风丢失）；更新检测走 `api.github.com`，国内网络同样不稳（检测失败）
+- [x] **字体本地化**: 下载 `Press Start 2P` woff2（仅 latin 分片 12.5KB）随应用打包 —— 母程序放 `src/renderer/assets/fonts/`（`main.css` 内 `@font-face` + `font-display:swap`），内置子程序共享一份放 `plugins/fonts/`（新增 `fonts.css`，各 `main.html` 用 `../fonts/fonts.css` 引用）。移除母程序 `index.html` 与 calculator/task/fast-cmd/fast-txt 四处 `main.html` 的 Google Fonts `<link>`。`Noto Sans SC`（202 分片过大）改为系统字体 fallback（Microsoft YaHei / PingFang SC / Source Han Sans），中文显示不受影响
+- [x] **更新检测 Gitee 备用源**: `update-service.js` 新增 `GITEE_FEED`（`gitee.com/api/v5/repos/luofengwuqi/chaos-lite/releases/latest`），主源 GitHub 失败时退回 Gitee 检测版本号；`extractReleaseInfo` 适配 Gitee 字段（无 `html_url` → 按 owner/repo/tag 拼、无 `published_at` → 退用 `created_at`）；白名单加 `gitee.com`；`checkForUpdate` 返回 `usedFallback` 标记。Gitee 无安装包资产（仅源码 zip），故 `downloadUrl` 为空，下载仍引导 GitHub release 页
+- [x] **验证**: `npm run build` 通过，字体打包为 `out/renderer/assets/press-start-2p-*.woff2`（12.5KB）且产物无外网字体 `url()`；`check:main` 通过；`test-check-update` 46 项断言全过；新增 Gitee fallback 逻辑验证（主源 500 → 自动退 Gitee → hasUpdate=true / 主源成功不 fallback）
+
 ### release: 2026.4.3 发行（2026 Q4 第 3 次发行）
 
 - [x] **包含**: 决策66 应用设置改存 `settings.json` + 决策67 用户数据仓库同步上移母程序（四个独立动作 / 覆盖类二次确认 + 备份 tag）+ 决策68 镜像锁改用「停放」语义 + 决策69 FastTXT 文件夹改名与快捷键指南 + 决策70 主题键盘导航两列网格 + 决策71 可复用帮助页（含 Gitee 令牌真实截图图文教程）+ 决策72 仓库页键盘适配，以及「保存令牌后创建并关联变灰」修复
