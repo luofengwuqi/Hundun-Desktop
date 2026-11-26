@@ -14,9 +14,9 @@
 - [x] **按平台装好**（新增 `src/main/update-installer.js`）: Linux deb → 先试 `sudo -n dpkg -i`（免密装机直接成），失败落 `pkexec dpkg -i`（系统授权框输一次密码），装完 `app.relaunch()`；AppImage → 原地替换 `$APPIMAGE` 文件（chmod 755 + 同目录 rename 原子替换）后以新文件重启（进程内路径是临时挂载点，不能用 `app.relaunch`）；Windows → NSIS `/S` 静默安装，拉起后进程主动退出交给安装器重启；macOS → 打开 dmg 由用户拖入。安装文件路径强制校验在 `<userData>/updates/` 内，安装前再验一次魔数
 - [x] **界面**（`Settings.vue`）: 「发现新版本」主按钮改「立即更新」；点下去变成「下载进度条（百分比 + 已下载/总量）」→「正在安装（提示可能要输管理员密码）」→「已安装完成，应用即将重启…」；任何一步失败才弹「更新失败 + 手动下载」兜底。进度事件在 IPC 前**节流 10 次/秒**（73MB 会切上千块，逐块发会淹掉渲染进程）
 - [x] **弹窗样式**（`Modal.vue`）: 无按钮弹窗不再渲染空的右栏与分割线；`.modal-message` 加 `overflow-wrap:anywhere`（更新失败会带安装包文件名，之前长路径把按钮挤出屏幕），`.modal` 宽度收成 `min(700px, 92vw)`
-- [x] **发版配套**: 新增 `scripts/publish-gitee-assets.js`（把 `dist/` 里本版本的 deb / AppImage / exe 挂到对应 Gitee Release 附件，同名旧附件先删再传，>100MB 跳过并提示）；`build.electronLanguages` 收到 `["en-US","zh-CN"]`（locales 36MB → 860KB，AppImage 105MB → 96MB，否则超 Gitee 单附件 100MB 上限）。**今后每次发行都必须跑这个脚本**，否则「立即更新」只会报「该版本还没有上传可用的安装包」
+- [x] **发版配套**: 新增 `scripts/publish-gitee-assets.js`（把 `dist/` 里本版本的 deb / AppImage / exe 挂到对应 Gitee Release 附件，同名旧附件先删再传，>100MB 跳过并提示）；`build.electronLanguages` 收到 `["en-US","zh-CN"]`（locales 36MB → 860KB，AppImage 105MB → 96MB，否则超 Gitee 单附件 100MB 上限）。**今后每次发行都必须跑这个脚本**，否则「立即更新」只会报「该版本还没有上传可用的安装包」；GitHub 端用 `gh release upload v<版本> <deb> <AppImage> --repo luofengwuqi/Hundun-Desktop --clobber` 补同一对包（GitHub 为每个资产生成 sha256 digest，更新器下载时会校验）
 - [x] **验证**: `npm run build` / `check:main` 通过；`scripts/test-update-install.js` **68 项** + `test-check-update` **46 项**全过；线上实测 `resolveDownloadSources` 能拿到 Gitee 的 deb 与 AppImage；用 2026.4.2 的测试包经 CDP 实点：发现新版本 → 立即更新 → 进度 6%（4.2MB / 64.4MB）→ 安装 → 落盘 deb 与 `dist/` 产物 **sha256 完全一致**；把提权命令换成返回 0 的桩再跑一遍，走到「已安装完成，应用即将重启…」并真实重启；提权命令换成返回 126 的桩，界面给出「已取消管理员授权」+「手动下载」
-- [x] **已知边界**: ① 已装好的 2026.4.2/4.3 里是旧更新器，**第一次升级到带本修法的版本仍需手动装一次**，之后才是「一键装好」；② GitHub Release 端 2026.4.3 没有资产（本机无 GitHub token，无法补传），GitHub 源始终回 `no-asset`，实际下载走 Gitee；③ 应用内自动安装 deb 需要一次系统授权（`pkexec`），无法绕过
+- [x] **已知边界**: ① 已装好的 2026.4.2/4.3 里是旧更新器，**第一次升级到带本修法的版本仍需手动装一次**，之后才是「一键装好」；② 两个源的安装包已齐（Gitee 附件 + GitHub Release 资产，互为兜底；本地 sha256 与 GitHub digest 一致），国内默认先走 Gitee；③ 应用内自动安装 deb 需要一次系统授权（`pkexec`），无法绕过
 
 ### fix: 关于页「版本」值贴在标签后面（用户反馈）
 
