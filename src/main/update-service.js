@@ -21,6 +21,8 @@ const UPDATE_FEED = {
   repo: 'Hundun-Desktop',
   // GitHub Releases latest API —— 302 重定向到最新非 prerelease、非 draft 的 Release
   api: 'https://api.github.com/repos/luofengwuqi/Hundun-Desktop/releases/latest',
+  // 按 tag 精确取某个 Release —— 下载时用这个, 不依赖 latest 指针 (见 decision 74 补充)
+  tagApi: 'https://api.github.com/repos/luofengwuqi/Hundun-Desktop/releases/tags/{tag}',
   // 发现新版本后让用户打开的 Release 页面
   page: 'https://github.com/luofengwuqi/Hundun-Desktop/releases/latest'
 }
@@ -36,7 +38,10 @@ const GITEE_FEED = {
   owner: 'luofengwuqi',
   repo: 'chaos-lite',
   // Gitee Releases latest API —— 返回最新非 prerelease 的 Release (含 tag_name / created_at)
+  // 注意: Gitee 的 latest 是「最近发布/更新」的那条, 编辑旧 Release 的正文会把它顶飞,
+  //       所以下载一律按 tag 精确取, latest 只用于「检查有没有新版本」
   api: 'https://gitee.com/api/v5/repos/luofengwuqi/chaos-lite/releases/latest',
+  tagApi: 'https://gitee.com/api/v5/repos/luofengwuqi/chaos-lite/releases/tags/{tag}',
   // 备用源没有 html_url 字段, 展示页由 extractReleaseInfo 按 owner/repo/tag 拼出
   page: 'https://gitee.com/luofengwuqi/chaos-lite/releases'
 }
@@ -146,38 +151,50 @@ function extractReleaseInfo (json, platform, feed) {
   }
 }
 
-// 拉一份 release JSON (latest)。fetchLatestRelease 与下载源解析共用。
-// fetchImpl 注入便于单测; 返回 { ok:true, json } 或 { ok:false, reason }
-async function fetchReleaseJson (feed, fetchImpl) {
+// 拉一份 release JSON。tag 省略时用 latest; 传 tag 时优先按 tag 精确取
+// (Gitee/GitHub 都支持 /releases/tags/{tag}), 取不到再退回 latest 由调用方校验版本。
+// fetchImpl 注入便于单测; 返回 { ok:true, json, viaTag } 或 { ok:false, reason }
+async function fetchReleaseJson (feed, fetchImpl, tag) {
   const impl = typeof fetchImpl === 'function' ? fetchImpl : fetch
-  const feedUrl = (feed && feed.api) || UPDATE_FEED.api
-  if (!isAllowedFeedUrl(feedUrl)) {
-    return { ok: false, reason: 'feed-url-not-allowed', feedUrl }
-  }
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
-  try {
-    const resp = await impl(feedUrl, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'HundunDesktop-UpdateCheck',
-        Accept: 'application/vnd.github+json'
+  const latestUrl = (feed && feed.api) || UPDATE_FEED.api
+  const tagUrl = tag && feed && feed.tagApi ? String(feed.tagApi).replace('{tag}', encodeURIComponent(tag)) : ''
+  const urls = [tagUrl, latestUrl].filter(Boolean)
+
+  let lastErr = null
+  for (let i = 0; i < urls.length; i++) {
+    const feedUrl = urls[i]
+    const viaTag = i === 0 && !!tagUrl
+    if (!isAllowedFeedUrl(feedUrl)) {
+      lastErr = { ok: false, reason: 'feed-url-not-allowed', feedUrl }
+      continue
+    }
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+    try {
+      const resp = await impl(feedUrl, {
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'HundunDesktop-UpdateCheck',
+          Accept: 'application/vnd.github+json'
+        }
+      })
+      if (!resp.ok) {
+        lastErr = { ok: false, reason: 'http-' + resp.status, status: resp.status }
+        continue
       }
-    })
-    if (!resp.ok) {
-      return { ok: false, reason: 'http-' + resp.status, status: resp.status }
+      return { ok: true, json: await resp.json(), viaTag }
+    } catch (err) {
+      const aborted = err && (err.name === 'AbortError' || (err.responseInfo && err.responseInfo.status === 'ABORT_ERR'))
+      lastErr = {
+        ok: false,
+        reason: aborted ? 'timeout' : 'network',
+        detail: String((err && err.message) || err)
+      }
+    } finally {
+      clearTimeout(timer)
     }
-    return { ok: true, json: await resp.json() }
-  } catch (err) {
-    const aborted = err && (err.name === 'AbortError' || (err.responseInfo && err.responseInfo.status === 'ABORT_ERR'))
-    return {
-      ok: false,
-      reason: aborted ? 'timeout' : 'network',
-      detail: String((err && err.message) || err)
-    }
-  } finally {
-    clearTimeout(timer)
   }
+  return lastErr || { ok: false, reason: 'network' }
 }
 
 // 拉取最新 Release。返回 { ok:true, release, feedPage } 或 { ok:false, reason }
@@ -196,20 +213,24 @@ async function checkForUpdate (currentVersion, platform, feed, fetchImpl) {
   const cur = parseVersion(currentVersion)
   if (!cur) return { ok: false, reason: 'bad-current-version', currentVersion: String(currentVersion || '') }
   const primary = feed || UPDATE_FEED
-  let res = await fetchLatestRelease(primary, platform, fetchImpl)
-  let usedFallback = false
-  if (!res.ok && primary !== GITEE_FEED) {
-    res = await fetchLatestRelease(GITEE_FEED, platform, fetchImpl)
-    usedFallback = true
+  const feeds = primary === GITEE_FEED ? [primary] : [primary, GITEE_FEED]
+  // 两个源并行查, 取版本最高的那个 —— 任一源的 latest 指针过期/被编辑顶飞,
+  // 都不会让用户误以为「已是最新」(决策74 补充: Gitee 编辑旧 Release 正文会顶飞 latest)
+  const results = await Promise.all(feeds.map(f => fetchLatestRelease(f, platform, fetchImpl)))
+  const usable = results.map((r, i) => ({ r, feed: feeds[i] })).filter(x => x.r.ok)
+  if (!usable.length) return results[0]
+  let best = usable[0]
+  for (const cand of usable.slice(1)) {
+    if (compareVersions(cand.r.release.version, best.r.release.version) === 1) best = cand
   }
-  if (!res.ok) return res
   return {
     ok: true,
-    hasUpdate: compareVersions(res.release.version, currentVersion) === 1,
+    hasUpdate: compareVersions(best.r.release.version, currentVersion) === 1,
     currentVersion: cur.join('.'),
-    latest: res.release,
-    feedPage: res.feedPage,
-    usedFallback
+    latest: best.r.release,
+    feedPage: best.r.feedPage,
+    usedFallback: !results[0].ok,
+    feeds: usable.map(x => x.feed.type)
   }
 }
 
@@ -226,8 +247,9 @@ async function resolveDownloadSources (targetVersion, kind, feeds, fetchImpl) {
   const sources = []
   const seen = new Set()
   const errors = []
+  const tag = 'v' + target.join('.')
   for (const feed of list) {
-    const res = await fetchReleaseJson(feed, fetchImpl)
+    const res = await fetchReleaseJson(feed, fetchImpl, tag)
     if (!res.ok) {
       errors.push({ feed: (feed && feed.type) || 'unknown', reason: res.reason })
       continue

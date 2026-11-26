@@ -138,6 +138,28 @@ function fakeFetch (map) {
   assert.strictEqual(r.ok, false); ok('目标版本没有 appimage 资产 -> no-asset')
   assert.strictEqual(r.reason, 'no-asset'); ok('reason=no-asset')
 
+  // D2. 按 tag 精确取（决策74 补充：Gitee 的 latest 会被编辑旧 Release 顶飞）
+  const giteeTagUrl = svc.GITEE_FEED.tagApi.replace('{tag}', 'v2026.4.3')
+  const ghTagUrl = svc.UPDATE_FEED.tagApi.replace('{tag}', 'v2026.4.3')
+  assert.ok(giteeTagUrl.includes('/releases/tags/v2026.4.3')); ok('tag 接口 URL 由模板拼出')
+
+  r = await svc.resolveDownloadSources('2026.4.3', 'deb', undefined, fakeFetch({ [giteeTagUrl]: giteeRel, [ghTagUrl]: ghRel }))
+  assert.strictEqual(r.sources.length, 2); ok('只有 tag 接口可用（latest 全挂）也能拿到两个源')
+  assert.ok(r.sources[0].url.includes('gitee.com')); ok('按 tag 取时 Gitee 仍排第一')
+
+  r = await svc.resolveDownloadSources('2026.4.3', 'deb', undefined, fakeFetch({
+    [giteeTagUrl]: { __status: 404 }, [giteeUrl]: giteeRel,
+    [ghTagUrl]: { __status: 404 }, [ghUrl]: ghRel
+  }))
+  assert.strictEqual(r.ok, true)
+  assert.strictEqual(r.sources.length, 2); ok('tag 接口 404 -> 退回 latest')
+
+  r = await svc.resolveDownloadSources('2026.4.3', 'deb', undefined, fakeFetch({
+    [giteeTagUrl]: { tag_name: 'v2026.4.2', assets: giteeRel.assets }
+  }))
+  assert.strictEqual(r.ok, false)
+  assert.ok(r.errors.some(e => e.reason === 'version-mismatch')); ok('tag 接口返回别的版本 -> version-mismatch')
+
   r = await svc.resolveDownloadSources('bad', 'deb', undefined, fakeFetch({}))
   assert.strictEqual(r.reason, 'bad-target-version'); ok('目标版本非法直接拒绝')
 

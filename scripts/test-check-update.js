@@ -142,6 +142,39 @@ const resp = (body, status = 200) => ({ ok: status >= 200 && status < 300, statu
   res = await svc.checkForUpdate('2026.4.1', 'win32', GOOD_FEED, async () => resp({}, 500))
   assert.strictEqual(res.ok, false); assert.strictEqual(res.reason, 'http-500'); ok('服务器错误透传 { ok:false }')
 
+  // ---------- G. 双源取最高版本 (决策74 补充) ----------
+  console.log('G. 双源取最高版本')
+  const byUrl = (map) => async (url) => {
+    if (!(url in map)) throw new Error('ENOTFOUND ' + url)
+    return resp(map[url])
+  }
+  const giteeApi = svc.GITEE_FEED.api
+  const ghApi = svc.UPDATE_FEED.api
+
+  res = await svc.checkForUpdate('2026.4.3', 'linux', undefined, byUrl({
+    [ghApi]: { tag_name: 'v2026.4.4', assets: [] },
+    [giteeApi]: { tag_name: 'v2026.4.3', assets: [] }
+  }))
+  assert.strictEqual(res.hasUpdate, true)
+  assert.strictEqual(res.latest.version, '2026.4.4'); ok('Gitee 的 latest 落后 -> 仍以 GitHub 的 4.4 为准')
+
+  res = await svc.checkForUpdate('2026.4.3', 'linux', undefined, byUrl({
+    [giteeApi]: { tag_name: 'v2026.4.4', assets: [] }
+  }))
+  assert.strictEqual(res.ok, true)
+  assert.strictEqual(res.hasUpdate, true)
+  assert.strictEqual(res.usedFallback, true); ok('GitHub 不可达 -> 用 Gitee 的 4.4, 且 usedFallback=true')
+
+  res = await svc.checkForUpdate('2026.4.4', 'linux', undefined, byUrl({
+    [ghApi]: { tag_name: 'v2026.4.4', assets: [] },
+    [giteeApi]: { tag_name: 'v2026.4.3', assets: [] }
+  }))
+  assert.strictEqual(res.hasUpdate, false); ok('已是 4.4 时任一源落后都不误报')
+
+  res = await svc.checkForUpdate('2026.4.3', 'linux', undefined, byUrl({}))
+  assert.strictEqual(res.ok, false)
+  assert.strictEqual(res.reason, 'network'); ok('两个源都不可达 -> ok:false')
+
   console.log('\n全部通过: ' + passed + ' 项断言')
 })().catch(err => {
   console.error('\n测试失败:', err.message)

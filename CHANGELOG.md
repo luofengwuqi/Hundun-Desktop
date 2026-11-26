@@ -25,6 +25,13 @@
 - [x] **验证**: `npm run build` / `check:main` 通过；`scripts/test-update-install.js` **68 项** + `test-check-update` **46 项**全过；线上实测 `resolveDownloadSources` 能拿到 Gitee 的 deb 与 AppImage；用 2026.4.2 的测试包经 CDP 实点：发现新版本 → 立即更新 → 进度 6%（4.2MB / 64.4MB）→ 安装 → 落盘 deb 与 `dist/` 产物 **sha256 完全一致**；把提权命令换成返回 0 的桩再跑一遍，走到「已安装完成，应用即将重启…」并真实重启；提权命令换成返回 126 的桩，界面给出「已取消管理员授权」+「手动下载」
 - [x] **已知边界**: ① 已装好的 2026.4.2/4.3 里是旧更新器，**第一次升级到带本修法的版本仍需手动装一次**，之后才是「一键装好」；② 两个源的安装包已齐（Gitee 附件 + GitHub Release 资产，互为兜底；本地 sha256 与 GitHub digest 一致），国内默认先走 Gitee；③ 应用内自动安装 deb 需要一次系统授权（`pkexec`），无法绕过
 
+### fix: 旧安装包下线 + 更新链路不再依赖 latest 指针（决策74 补充）
+
+- [x] **下线旧包**: 移除 v2026.4.1 / v2026.4.2 / v2026.4.3 的安装包（Gitee 6 个附件、GitHub 6 个资产），三个旧版本页首加一条「本版安装包已移除，请下载最新版 2026.4.4」提示；Gitee 自动生成的源码 zip/tar.gz 保留。现在两端只有 2026.4.4 提供二进制
+- [x] **事故（本次踩到）**: 给旧 Release 加提示后，Gitee 的 `releases/latest` 从 v2026.4.4 变成了 v2026.4.3 —— Gitee 的 latest 取的是「最近发布/编辑」的那条，编辑旧 Release 正文会把指针顶飞。后果：更新器在 Gitee 侧报 `version-mismatch`，而国内 GitHub 不可达时会一直「已是最新」。已用「PATCH 最新版正文（带真实内容变更）重新发布」把指针顶回 4.4，并把这条坑写进 AGENTS
+- [x] **修法**: ① `resolveDownloadSources` 改为**按 tag 精确取包**（`/releases/tags/{tag}`，Gitee/GitHub 都支持），取不到才退回 latest 并校验 tag 是否目标版本；② `checkForUpdate` 改为**两源并行查询、取版本最高者**，任一源 latest 过期/被顶飞都不会误报「已是最新」，`usedFallback` 仍表示主源是否失败
+- [x] **验证**: `test-check-update` 46 → **50 项**、`test-update-install` 68 → **73 项**全过（新增：Gitee latest 落后仍以 4.4 为准 / GitHub 不可达时用 Gitee 且标记 usedFallback / tag 接口 404 退回 latest / tag 返回别的版本判 version-mismatch）；线上实测三类安装包均返回 `[gitee, github]` 双源，`checkForUpdate('2026.4.4')` 正确判为已最新
+
 ### fix: 关于页「版本」值贴在标签后面（用户反馈）
 
 - [x] **问题**: 版本行的值 `v2026.4.3` 紧贴「版本」标签，右侧留一大片空白再接「检查更新」按钮；而下面「技术栈 / 系统」两行的值都是右对齐到卡片右缘（752）。原因是三个 flex 子项只有按钮带 `margin-left:auto`，值跟着标签走
